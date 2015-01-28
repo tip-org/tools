@@ -12,11 +12,22 @@ data Head a
   | Builtin Builtin
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data Local a = Local { lcl_id :: a, lcl_type :: Type a }
+data Local a = Local { lcl_name :: a, lcl_type :: Type a }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data Global a = Global a (PolyType a) [Type a]
+updateLocalType :: Type a -> Local a -> Local a
+updateLocalType ty (Local name _) = Local name ty
+
+data Global a = Global
+  { gbl_name      :: a
+  , gbl_type      :: PolyType a
+  , gbl_args      :: [Type a]
+  , gbl_namespace :: Namespace
+  }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+data Namespace = FunctionNS | ConstructorNS
+  deriving (Eq,Ord,Show)
 
 data Expr a
   = Head a :@: [Expr a]
@@ -68,11 +79,22 @@ data Type a
   | [Type a] :=>: Type a
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data Function a = Function a [a] [Local a] (Type a) (Expr a)
+data Function a = Function
+  { func_name :: a
+  , func_tvs  :: [a]
+  , func_lcls :: [Local a]
+  , func_res  :: Type a
+  , func_body :: Expr a
+  }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-funType :: Function a -> PolyType a
-funType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
+funcType :: Function a -> PolyType a
+funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
+
+updateFuncType :: PolyType a -> Function a -> Function a
+updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
+  | length lcls == length lclTys =
+      Function name tvs (zipWith updateLocalType lclTys lcls) res body
 
 -- | Data definition
 data Datatype a = Datatype
