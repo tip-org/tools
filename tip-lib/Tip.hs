@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
-module TIP where
+module Tip where
 
 import Data.Generics.Geniplate
 import Data.List (nub)
