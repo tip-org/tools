@@ -38,6 +38,12 @@ data Expr a
   | Quant Quant (Local a) (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
+literal :: Lit -> Expr a
+literal lit = Builtin (Lit lit) :@: []
+
+global :: Global a -> Expr a
+global gbl = Gbl gbl :@: []
+
 type Alt a = (Pattern a,Expr a)
 
 data Builtin
@@ -51,6 +57,7 @@ data Builtin
 data Lit
   = Int Integer
   | Bool Bool
+  | String String -- Not really here but might come from GHC
   deriving (Eq,Ord,Show)
 
 -- | Patterns in branches
@@ -75,8 +82,8 @@ data PolyType a = PolyType
 data Type a
   = TyVar a
   | TyCon a [Type a]
-  | Integer
   | [Type a] :=>: Type a
+  | Integer
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Function a = Function
