@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
-{-# LANGUAGE ExplicitForAll, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 module Tip where
 
 import Data.Generics.Geniplate
@@ -96,3 +96,16 @@ data Decl a
   | Assert (Expr a)
   | Prove (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+instanceTransformBi [t| forall a . (Expr a,Expr a) |]
+instanceTransformBi [t| forall a . (Expr a,Function a) |]
+instance Monad m => TransformBiM m (Expr a) (Expr a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
+instance Monad m => TransformBiM m (Expr a) (Function a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Function a -> m (Function a) |])
+
+transformExprIn :: TransformBi (Expr a) (f a) => (Expr a -> Expr a) -> f a -> f a
+transformExprIn = transformBi
+
+transformExprInM :: TransformBiM m (Expr a) (f a) => (Expr a -> m (Expr a)) -> f a -> m (f a)
+transformExprInM = transformBiM
