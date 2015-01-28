@@ -82,7 +82,7 @@ data Type a
 data Function a = Function
   { func_name :: a
   , func_tvs  :: [a]
-  , func_lcls :: [Local a]
+  , func_args :: [Local a]
   , func_res  :: Type a
   , func_body :: Expr a
   }
