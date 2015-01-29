@@ -133,6 +133,12 @@ instance Monad m => TransformBiM m (Expr a) (Expr a) where
 instance Monad m => TransformBiM m (Expr a) (Function a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Function a -> m (Function a) |])
 
+transformExpr :: (Expr a -> Expr a) -> Expr a -> Expr a
+transformExpr = transformBi
+
+transformExprM :: Monad m => (Expr a -> m (Expr a)) -> Expr a -> m (Expr a)
+transformExprM = transformBiM
+
 transformExprIn :: TransformBi (Expr a) (f a) => (Expr a -> Expr a) -> f a -> f a
 transformExprIn = transformBi
 
