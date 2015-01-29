@@ -25,7 +25,7 @@ workerWrapper wws funcs =
       case Map.lookup func_name m of
         Nothing -> func
         Just WorkerWrapper{..} ->
-          Function {
+          func {
             func_args = ww_args, func_res = ww_res,
             func_body = ww_def func_body
           }
