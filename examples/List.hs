@@ -1,5 +1,6 @@
 module List where
 
+import Prelude(Bool, otherwise)
 import qualified Prelude
 import Tip.DSL
 
@@ -9,7 +10,6 @@ import Tip.DSL
 
 prop_rid xs = xs ++ [] =:= xs
 
-{-
 map :: (a -> b) -> [a] -> [b]
 map f (x:xs) = f x:map f xs
 map f []     = []
@@ -20,4 +20,10 @@ filter p (x:xs) | p x       = x:filter p xs
 filter p [] = []
 
 f . g = \ x -> f (g x)
--}
+
+data Nat = Zero | Succ Nat
+
+rotate :: Nat -> [a] -> [a]
+rotate Zero     xs     = xs
+rotate (Succ n) []     = []
+rotate (Succ n) (x:xs) = rotate n (xs ++ [x])
