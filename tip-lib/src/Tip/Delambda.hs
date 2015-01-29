@@ -10,14 +10,9 @@ import Tip.WorkerWrapper
 import Data.Maybe
 
 delambda :: Name a => Theory a -> Fresh (Theory a)
-delambda thy@Theory{..} = do
-  ww <- sequence (catMaybes (map outerDelambdaWW thy_func_decls))
-  case ww of
-    [] -> do
-      ww' <- sequence (catMaybes (map innerDelambdaWW thy_func_decls))
-      workerWrapper ww' thy
-    _ ->
-      workerWrapper ww thy >>= delambda
+delambda thy =
+  workerWrapperFunctions outerDelambdaWW thy >>=
+  workerWrapperFunctions innerDelambdaWW
 
 -- Transform A -> B => C into A B -> C.
 outerDelambdaWW :: Name a => Function a -> Maybe (Fresh (WorkerWrapper a))
