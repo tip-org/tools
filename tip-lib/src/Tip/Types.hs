@@ -124,11 +124,13 @@ instanceUniverseBi [t| forall a . (Function a,Expr a) |]
 instanceUniverseBi [t| forall a . (Expr a,Pattern a) |]
 instanceUniverseBi [t| forall a . (Expr a,Local a) |]
 instanceUniverseBi [t| forall a . (Theory a,Expr a) |]
+instanceUniverseBi [t| forall a . (Type a,Type a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]
 instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
 instanceTransformBi [t| forall a . (Local a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Theory a) |]
+instanceTransformBi [t| forall a . (Type a,Type a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Expr a) (Function a) where
@@ -139,6 +141,8 @@ instance Monad m => TransformBiM m (Local a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Local a -> m (Local a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Expr a) (Theory a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Theory a -> m (Theory a) |])
+instance Monad m => TransformBiM m (Type a) (Type a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Type a -> m (Type a)) -> Type a -> m (Type a) |])
 
 transformExpr :: (Expr a -> Expr a) -> Expr a -> Expr a
 transformExpr = transformBi
@@ -151,3 +155,6 @@ transformExprIn = transformBi
 
 transformExprInM :: TransformBiM m (Expr a) (f a) => (Expr a -> m (Expr a)) -> f a -> m (f a)
 transformExprInM = transformBiM
+
+transformType :: (Type a -> Type a) -> Type a -> Type a
+transformType = transformBi

@@ -23,8 +23,8 @@ outerDelambdaWW func@Function{func_res = args :=>: res, ..} = Just $ do
     ww_res  = res,
     ww_def  = \e -> apply e (map Lcl lcls),
     ww_use  =
-      \hd orig_args -> do
-        new_args <- mapM freshLocal args
+      \hd@(Gbl Global{..}) orig_args -> do
+        new_args <- mapM (freshLocal . applyType func_tvs gbl_args) args
         return (Lam new_args (hd :@: (orig_args ++ map Lcl new_args)))
   }
 outerDelambdaWW _ = Nothing

@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
@@ -85,3 +86,20 @@ substMany xs e0 = foldM (\e (x,xe) -> (xe // x) e) e0 xs
 apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin (At (length es)) :@: (e:es)
 apply _ [] = ERROR("tried to construct nullary lambda function")
+
+applyType :: Ord a => [a] -> [Type a] -> Type a -> Type a
+applyType tvs tys ty
+  | length tvs == length tys =
+      flip transformType ty $ \ty' ->
+        case ty' of
+          TyVar x ->
+            Map.findWithDefault ty' x m
+          _ -> ty
+  | otherwise = ERROR("wrong number of type arguments")
+  where
+    m = Map.fromList (zip tvs tys)
+
+applyPolyType :: Ord a => PolyType a -> [Type a] -> ([Type a], Type a)
+applyPolyType PolyType{..} tys =
+  (map (applyType polytype_tvs tys) polytype_args,
+   applyType polytype_tvs tys polytype_res)
