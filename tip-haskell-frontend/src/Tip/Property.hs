@@ -21,11 +21,11 @@ import TysWiredIn (trueDataCon,falseDataCon,boolTyCon)
 -- import DataCon (dataConName)
 
 -- | Translates a property that has been translated to a simple function earlier
-trProperty :: Function Id -> Either String (Expr Id)
+trProperty :: Function Id -> Either String (Formula Id)
 trProperty (Function _name tvs [] res_ty b) = case unLam b of
   (args,e) -> do
     (assums,goal) <- parseProperty e
-    return (assums ===> goal)
+    return (Formula Prove tvs (mkQuant Forall args (assums ===> goal)))
   where
     unLam (Lam xs e) = (xs,e)
     unLam e          = ([],e)
@@ -45,7 +45,7 @@ parseProperty (projAt -> Just (projGlobal -> Just x,e1))
 parseProperty _ = throwError "Cannot parse property"
 
 projAt :: Expr a -> Maybe (Expr a,Expr a)
-projAt (Builtin (At 2) :@: [a,b]) = Just (a,b)
+projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)
 projAt _                          = Nothing
 
 projGlobal :: Expr a -> Maybe a

@@ -90,6 +90,16 @@ compileHaskellFile params@Params{..} = do
         when (PrintCore `elem` flags)
              (liftIO (putStrLn (showOutputable binds)))
 
+        -- Set the context for evaluation
+        setContext $
+            [ IIDecl (simpleImportDecl (moduleName (ms_mod mod_sum)))
+            , IIDecl (qualifiedImport "GHC.Types")
+            , IIDecl (qualifiedImport "GHC.Base")
+            , IIDecl (qualifiedImport "Prelude")
+            ]
+            -- Also include the imports the module is importing
+            ++ map (IIDecl . unLoc) (ms_textual_imps mod_sum)
+
         ids_in_scope <- getIdsInScope fix_id
 
         let only' :: [String]
@@ -104,10 +114,12 @@ compileHaskellFile params@Params{..} = do
                 , null only || varToString i `elem` only'
                 ]
 
+        when (PrintProps `elem` flags) (liftIO (putStrLn (showOutputable props)))
+
         extra_ids <- extraIds params props
 
         -- Wrapping up
-        return (ids_in_scope `union` extra_ids)
+        return (props `union` extra_ids)
 
 findModuleSum :: FilePath -> [ModSummary] -> ModSummary
 findModuleSum file
@@ -157,4 +169,10 @@ extraIds p@Params{..} prop_ids = do
 #undef OUT
 
     return ids_in_scope
+
+qualifiedImport :: String -> ImportDecl name
+qualifiedImport = qualifiedImportDecl . mkModuleName
+
+qualifiedImportDecl :: ModuleName -> ImportDecl name
+qualifiedImportDecl m = (simpleImportDecl m) { ideclQualified = True }
 

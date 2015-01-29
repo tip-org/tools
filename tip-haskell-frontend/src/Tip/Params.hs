@@ -1,6 +1,6 @@
 module Tip.Params where
 
-data DebugFlags = PrintCore | PrintExtraIds
+data DebugFlags = PrintCore | PrintProps | PrintExtraIds
   deriving (Eq,Show)
 
 -- | Parameters

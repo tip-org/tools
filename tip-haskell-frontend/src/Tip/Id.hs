@@ -81,6 +81,10 @@ data Id
     -}
   deriving (Eq,Ord)
 
+instance Show Id where
+    show (GHCOrigin n _ _) = show (showOutputable n)
+    show (GHCPrim po)      = "PrimOp"
+
 {-
 data OtherPrim
     = IntGt

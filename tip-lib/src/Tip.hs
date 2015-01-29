@@ -40,6 +40,9 @@ data Expr a
   | Quant Quant (Local a) (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
+data Quant = Forall | Exists
+  deriving (Eq,Ord,Show)
+
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
 
@@ -61,6 +64,9 @@ e1 === e2 = Builtin Equal :@: [e1,e2]
 (===>) :: [Expr a] -> Expr a -> Expr a
 xs ===> y = foldr (\ a b -> Builtin Implies :@: [a,b]) y xs
 
+mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
+mkQuant q xs t = foldr (Quant q) t xs
+
 data Lit
   = Int Integer
   | Bool Bool
@@ -73,9 +79,6 @@ data Pattern a
   | ConPat { pat_con  :: Global a, pat_args :: [Local a] }
   | LitPat Lit
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
-
-data Quant = Forall | Exists
-  deriving (Eq,Ord,Show)
 
 -- | Polymorphic types
 data PolyType a = PolyType
@@ -129,9 +132,14 @@ data Constructor a = Constructor
 data Decl a
   = FunDecl (Function a)
   | DataDecl (Datatype a)
-  | Assert (Expr a)
-  | Prove (Expr a)
+  | FormDecl (Formula a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+data Role = Assert | Prove
+  deriving (Eq,Ord,Show)
 
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]

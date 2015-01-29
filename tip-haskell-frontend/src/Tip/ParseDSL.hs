@@ -19,11 +19,11 @@ import TyCon (TyCon)
 
 varWithPropType :: Var -> Bool
 varWithPropType x = case CTT.trPolyType (varType x) of
-    Right (PolyType _ _ t) -> isPropType t
+    Right (PolyType _ _ t) -> isPropType (chaseResult t)
     _                      -> False
 
 varFromPrelude :: Var -> Bool
-varFromPrelude = isInfixOf "HipSpec" . showOutputable . varName
+varFromPrelude = isInfixOf "Tip.DSL" . showOutputable . varName
 
 isPropTyCon :: TyCon -> Bool
 isPropTyCon = isPropId . idFromTyCon
@@ -39,12 +39,12 @@ chaseResult r          = r
 
 ghcName :: (String -> Bool) -> Id -> Bool
 ghcName k (tryGetGHCName -> Just n) = k (showOutputable n)
-ghcName _ _               = False
+ghcName _ _                         = False
 
 isPropId :: Id -> Bool
-isPropId = ghcName (isInfixOf "HipSpec.Prop")
+isPropId = ghcName (isInfixOf "Tip.DSL.Prop")
 fromPrelude :: Id -> Bool
-fromPrelude = ghcName (isInfixOf "HipSpec")
+fromPrelude = ghcName (isInfixOf "Tip.DSL")
 
 isMain      :: Id -> Bool
 isMain      = ghcName (isInfixOf "main")

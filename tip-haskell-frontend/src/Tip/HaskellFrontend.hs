@@ -34,7 +34,6 @@ import TyCon (isAlgTyCon)
 import TysWiredIn (boolTyCon)
 import UniqSupply
 
-
 readHaskellFile :: Params -> IO [Decl Id]
 readHaskellFile params@Params{..} = do
 
@@ -59,6 +58,8 @@ readHaskellFile params@Params{..} = do
         tcs = filter (\ x -> isAlgTyCon x && not (isPropTyCon x))
                      (delete boolTyCon (bindsTyCons' binds))
 
+    when (PrintCore `elem` flags) (putStrLn (showOutputable binds))
+
     let tip_data =
           [ case trTyCon tc of
               Right tc' -> tc'
@@ -78,5 +79,10 @@ readHaskellFile params@Params{..} = do
 
         tip_props = either (error . show) id (mapM trProperty prop_fns)
 
-    return (map DataDecl tip_data ++ map FunDecl tip_fns ++ map Prove tip_props)
+    print $ length tip_fns0
+    print $ length tip_fns
+    print $ length prop_fns
+    print $ length tip_props
+
+    return $ map DataDecl tip_data ++ map FunDecl tip_fns ++ map FormDecl tip_props
 
