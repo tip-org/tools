@@ -8,7 +8,7 @@ import Control.Arrow ((&&&))
 newtype Fresh a = Fresh { dirty :: State Int a }
   deriving (Monad, Applicative, Functor, MonadFix)
 
-class Name a where
+class Ord a => Name a where
   fresh   :: Fresh a
 
   refresh :: a -> Fresh a
