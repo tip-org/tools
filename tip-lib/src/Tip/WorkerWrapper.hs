@@ -15,10 +15,11 @@ data WorkerWrapper a = WorkerWrapper
   , ww_use  :: Head a -> [Expr a] -> Fresh (Expr a)
   }
 
-workerWrapper :: Name a => [WorkerWrapper a] -> [Function a] -> Fresh [Function a]
-workerWrapper wws funcs =
-  mapM (transformExprInM updateUse . updateDef) funcs >>= mapM (simplifyExpr gently)
+workerWrapper :: Name a => [WorkerWrapper a] -> Theory a -> Fresh (Theory a)
+workerWrapper wws thy@Theory{..} =
+  transformExprInM updateUse thy' >>= simplifyExpr gently
   where
+    thy' = thy { thy_func_decls = map updateDef thy_func_decls }
     m = Map.fromList [(func_name (ww_func ww), ww) | ww <- wws]
     updateDef func@Function{..} =
       case Map.lookup func_name m of

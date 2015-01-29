@@ -141,13 +141,10 @@ data Constructor a = Constructor
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data Decl a
-  = FuncDecl (Function a)
-  | DataDecl (Datatype a)
-  | FormDecl (Formula a)
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
-
-data Theory a = Theory [Decl a]
+data Theory a = Theory
+  { thy_data_decls :: [Datatype a]
+  , thy_func_decls :: [Function a]
+  , thy_form_decls :: [Formula a]  }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
@@ -160,10 +157,12 @@ instanceUniverseBi [t| forall a . (Expr a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Expr a) |]
 instanceUniverseBi [t| forall a . (Expr a,Pattern a) |]
 instanceUniverseBi [t| forall a . (Expr a,Local a) |]
+instanceUniverseBi [t| forall a . (Theory a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]
 instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
 instanceTransformBi [t| forall a . (Local a,Expr a) |]
+instanceTransformBi [t| forall a . (Expr a,Theory a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Expr a) (Function a) where
@@ -172,6 +171,8 @@ instance Monad m => TransformBiM m (Pattern a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Pattern a -> m (Pattern a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Local a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Local a -> m (Local a)) -> Expr a -> m (Expr a) |])
+instance Monad m => TransformBiM m (Expr a) (Theory a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Theory a -> m (Theory a) |])
 
 transformExpr :: (Expr a -> Expr a) -> Expr a -> Expr a
 transformExpr = transformBi
