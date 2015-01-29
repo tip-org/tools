@@ -3,11 +3,14 @@
 module Tip where
 
 import Tip.Fresh
+import Tip.Utils
 import Data.Generics.Geniplate
-import Data.List (nub)
+import Data.List (nub, (\\))
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import Control.Monad
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict(Map)
 
 data Head a
   = Gbl (Global a)
@@ -143,10 +146,16 @@ data Role = Assert | Prove
 
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]
+instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
+instanceTransformBi [t| forall a . (Local a,Expr a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Expr a) (Function a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Function a -> m (Function a) |])
+instance Monad m => TransformBiM m (Pattern a) (Expr a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Pattern a -> m (Pattern a)) -> Expr a -> m (Expr a) |])
+instance Monad m => TransformBiM m (Local a) (Expr a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Local a -> m (Local a)) -> Expr a -> m (Expr a) |])
 
 transformExpr :: (Expr a -> Expr a) -> Expr a -> Expr a
 transformExpr = transformBi
@@ -166,23 +175,34 @@ freshLocal ty = liftM2 Local fresh (return ty)
 refreshLocal :: Name a => Local a -> Fresh (Local a)
 refreshLocal (Local name ty) = liftM2 Local (refresh name) (return ty)
 
+bound, free, locals :: Ord a => Expr a -> [Local a]
+bound e =
+  usort $
+    concat [ lcls | Lam lcls _    <- universeBi e ] ++
+           [ lcl  | Let lcl _ _   <- universeBi e ] ++
+           [ lcl  | Quant _ lcl _ <- universeBi e ] ++
+    concat [ lcls | ConPat _ lcls <- universeBi e ]
+locals = usort . universeBi
+free e = locals e \\ bound e
+
+-- Rename bound variables in an expression to fresh variables.
+freshen :: Name a => Expr a -> Fresh (Expr a)
+freshen e = do
+  let lcls = bound e
+  sub <- fmap (Map.fromList . zip lcls) (mapM refreshLocal lcls)
+  return . flip transformBi e $ \lcl ->
+    case Map.lookup lcl sub of
+      Nothing -> lcl
+      Just lcl' -> lcl'
+
 -- | Substitution, of local variables
 --
 -- Since there are only rank-1 types, bound variables from lambdas and
 -- case never have a forall type and thus are not applied to any types.
 (//) :: Name a => Expr a -> Local a -> Expr a -> Fresh (Expr a)
 e // x = transformExprM $ \ e0 -> case e0 of
-    Lcl y | x == y -> freshen e
-    _              -> return e0
-  where
-    -- Freshen lambda-bound variables, to maintain the invariant that
-    -- each variable is only bound once.
-    freshen = transformExprM $ \e0 -> case e0 of
-      Lam args body -> do
-        args' <- mapM refreshLocal args
-        body' <- freshen body
-        fmap (Lam args') (substMany (zip args (map Lcl args')) body')
-      _ -> return e0
+  Lcl y | x == y -> freshen e
+  _              -> return e0
 
 substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
 substMany xs e0 = foldM (\e0 (u,e) -> (e // u) e0) e0 xs
