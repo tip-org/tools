@@ -147,6 +147,9 @@ data Decl a
   | FormDecl (Formula a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
+data Theory a = Theory [Decl a]
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
 data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 

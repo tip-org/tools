@@ -85,6 +85,10 @@ instance Show Id where
     show (GHCOrigin n _ _) = show (showOutputable n)
     show (GHCPrim po)      = "PrimOp"
 
+ppId :: Id -> String
+ppId (GHCOrigin nm _ _) = getOccString nm
+ppId (GHCPrim po)       = "PrimOp"
+
 {-
 data OtherPrim
     = IntGt

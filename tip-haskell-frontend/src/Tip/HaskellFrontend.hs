@@ -34,7 +34,7 @@ import TyCon (isAlgTyCon)
 import TysWiredIn (boolTyCon)
 import UniqSupply
 
-readHaskellFile :: Params -> IO [Decl Id]
+readHaskellFile :: Params -> IO (Theory Id)
 readHaskellFile params@Params{..} = do
 
     -- whenFlag params PrintParams $ putStrLn (ppShow params)
@@ -84,5 +84,5 @@ readHaskellFile params@Params{..} = do
     print $ length prop_fns
     print $ length tip_props
 
-    return $ map DataDecl tip_data ++ map FuncDecl tip_fns ++ map FormDecl tip_props
+    return $ Theory $ map DataDecl tip_data ++ map FuncDecl tip_fns ++ map FormDecl tip_props
 

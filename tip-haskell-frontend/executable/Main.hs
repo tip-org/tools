@@ -2,8 +2,13 @@ module Main where
 
 import Tip.HaskellFrontend
 import Tip.Params
-import Text.Show.Pretty
+import Text.Show.Pretty hiding (Name)
 import System.Environment
+
+import Tip.Id
+import Tip.Delambda
+import Tip.Fresh
+import Tip.Utils.Renamer
 
 main :: IO ()
 main = do
@@ -17,4 +22,18 @@ main = do
       , extra_trans = es
       }
     putStrLn (ppShow thy)
+    let thy' = renameWith disambigId thy
+    putStrLn (ppShow thy')
+
+data Var = Var String | Refresh Var Int
+  deriving (Show,Eq,Ord)
+
+disambigId :: Id -> [Var]
+disambigId i = vs : [ Refresh vs x | x <- [0..] ]
+  where
+    vs = Var $ case ppId i of { [] -> "?"; xs -> xs }
+
+instance Name Var where
+  fresh     = refresh (Var "")
+  refresh v = Refresh v `fmap` fresh
 
