@@ -52,6 +52,11 @@ literal lit = Builtin (Lit lit) :@: []
 global :: Global a -> Expr a
 global gbl = Gbl gbl :@: []
 
+atomic :: Expr a -> Bool
+atomic (_ :@: []) = True
+atomic Lcl{}      = True
+atomic _          = False
+
 type Alt a = (Pattern a,Expr a)
 
 data Builtin
@@ -215,10 +220,3 @@ substMany xs e0 = foldM (\e0 (u,e) -> (e // u) e0) e0 xs
 
 apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin (At (length es)) :@: (e:es)
-
-betaReduce :: (TransformBiM Fresh (Expr a) (f a), Name a) => f a -> Fresh (f a)
-betaReduce = transformExprInM $ \e ->
-  case e of
-    Builtin (At _) :@: (Lam vars body:args) ->
-      substMany (zip vars args) body >>= betaReduce
-    _ -> return e

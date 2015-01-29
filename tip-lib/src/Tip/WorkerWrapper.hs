@@ -4,6 +4,7 @@ module Tip.WorkerWrapper where
 
 import Tip
 import Tip.Fresh
+import Tip.Simplify
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict(Map)
 
@@ -17,7 +18,7 @@ data WorkerWrapper a = WorkerWrapper
 
 workerWrapper :: Name a => [WorkerWrapper a] -> [Function a] -> Fresh [Function a]
 workerWrapper wws funcs =
-  mapM (transformExprInM updateUse . updateDef) funcs >>= mapM betaReduce
+  mapM (transformExprInM updateUse . updateDef) funcs >>= mapM (simplifyExpr gently)
   where
     m = Map.fromList [(func_name (ww_func ww), ww) | ww <- wws]
     updateDef func@Function{..} =
