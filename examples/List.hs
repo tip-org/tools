@@ -29,6 +29,8 @@ map_compose f g = map f . map g =:= map (f . g)
 
 map_compose2 f g = map f `dot` map g =:= map (f `dot` g)
 
+map_two f g = map (\ x -> f (g x))
+
 data Nat = Zero | Succ Nat
 
 rotate :: Nat -> [a] -> [a]

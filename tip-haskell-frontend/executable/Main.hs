@@ -7,6 +7,7 @@ import System.Environment
 
 import Tip.Id
 import Tip.Delambda
+import Tip.Lambda
 import Tip.Fresh
 import Tip.Utils.Renamer
 import Tip.Pretty
@@ -25,7 +26,7 @@ main = do
       , extra_trans = es
       }
     putStrLn (ppRender thy)
-    let dlm  = runFresh (delambda (renameWith disambigId thy))
+    let dlm = runFresh (defunctionalize =<< delambda (renameWith disambigId thy))
     putStrLn (ppRender dlm)
 
 data Var = Var String | Refresh Var Int

@@ -28,8 +28,9 @@ mkQuant q xs t = foldr (Quant q) t xs
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
 
-global :: Global a -> Expr a
-global gbl = Gbl gbl :@: []
+applyFunction :: Ord a => Function a -> [Expr a] -> Expr a
+applyFunction fn@Function{..} args
+  = Gbl (Global func_name (funcType fn) (map exprType args) FunctionNS) :@: args
 
 atomic :: Expr a -> Bool
 atomic (_ :@: []) = True
@@ -82,6 +83,7 @@ e // x = transformExprM $ \ e0 -> case e0 of
 
 substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
 substMany xs e0 = foldM (\e (x,xe) -> (xe // x) e) e0 xs
+
 
 apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin (At (length es)) :@: (e:es)

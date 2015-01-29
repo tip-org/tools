@@ -135,7 +135,7 @@ trVar x tys = do
         else return $ case idDetails x of
                 DataConWorkId dc -> abstract $ trConstructor dc ty tys
                 DataConWrapId dc -> abstract $ trConstructor dc ty tys
-                _                -> global (Global (idFromVar x) ty tys FunctionNS)
+                _                -> Gbl (Global (idFromVar x) ty tys FunctionNS) :@: []
     where
       abstract gbl = foldr lam body etas
         where
