@@ -33,12 +33,12 @@ instance Pretty a => Pretty (Head a) where
   pp (Builtin b) = pp b
 
 instance Pretty a => Pretty (Expr a) where
-  pp (hd :@: es)    = expr (pp hd) (map pp es)
-  pp (Lcl l)        = pp (lcl_name l)
-  pp (Lam ls e)     = parExpr "lambda" [parens (fsep (map pp ls)),pp e]
-  pp (Match e as)   = parens (("match" $\ pp e) $\ vcat (map pp as))
-  pp (Let x b e)    = parExpr "let" [parens (pp x),parens (pp b),parens (pp e)]
-  pp (Quant q l e) = parExpr (pp q) [parens (pp l),parens (pp e)]
+  pp (hd :@: es)   = expr (pp hd) (map pp es)
+  pp (Lcl l)       = pp (lcl_name l)
+  pp (Lam ls e)    = parExpr "lambda" [parens (fsep (map pp ls)),pp e]
+  pp (Match e as)  = parens (("match" $\ pp e) $\ vcat (map pp as))
+  pp (Let x b e)   = parExpr "let" [pp x,pp b,pp e]
+  pp (Quant q l e) = parExpr (pp q) [parens (pp l),pp e]
 
 instance Pretty Quant where
   pp Forall = "forall"
