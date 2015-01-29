@@ -22,7 +22,7 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
       let (remove, keep) = partition (uncurry (inlineable body)) (zip vars args)
       body' <- substMany remove body
       let e' = case keep of
-                 [] -> body
+                 [] -> body'
                  _  -> apply (Lam (map fst keep) body') (map snd keep)
       simplifyExpr opts e'
 
