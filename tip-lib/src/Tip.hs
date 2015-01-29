@@ -130,7 +130,7 @@ data Constructor a = Constructor
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Decl a
-  = FunDecl (Function a)
+  = FuncDecl (Function a)
   | DataDecl (Datatype a)
   | Assert (Expr a)
   | Prove (Expr a)
