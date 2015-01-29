@@ -72,6 +72,7 @@ data Id
     = GHCOrigin Name (Maybe Var)   -- The Var is there to look at the call graph
                      (Maybe TyCon) -- There might come more tycons from the signature
     | GHCPrim PrimOp
+    | Eta Int
     {-
     | OtherPrim OtherPrim
     | Derived Derived Integer
@@ -84,10 +85,12 @@ data Id
 instance Show Id where
     show (GHCOrigin n _ _) = show (showOutputable n)
     show (GHCPrim po)      = "PrimOp"
+    show (Eta n)           = "eta" ++ show n
 
 ppId :: Id -> String
 ppId (GHCOrigin nm _ _) = ppName nm
 ppId (GHCPrim po)       = "PrimOp"
+ppId (Eta n)            = "eta" ++ show n
 
 ppName :: Name -> String
 ppName nm

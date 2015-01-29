@@ -49,5 +49,5 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
 
     _ -> return e
   where
-    inlineable body var val = should_inline val || occurrences var body == 1
+    inlineable body var val = should_inline val || occurrences var body <= 1
     occurrences var body = length (filter (== var) (universeBi body))
