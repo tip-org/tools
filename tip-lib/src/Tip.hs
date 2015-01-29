@@ -103,3 +103,30 @@ applyPolyType :: Ord a => PolyType a -> [Type a] -> ([Type a], Type a)
 applyPolyType PolyType{..} tys =
   (map (applyType polytype_tvs tys) polytype_args,
    applyType polytype_tvs tys polytype_res)
+
+exprType :: Ord a => Expr a -> Type a
+exprType (Gbl (Global{..}) :@: _) = res
+  where
+    (_, res) = applyPolyType gbl_type gbl_args
+exprType (Builtin blt :@: es) = builtinType blt es
+exprType (Lcl lcl) = lcl_type lcl
+exprType (Lam args body) = map lcl_type args :=>: exprType body
+exprType (Match _ (Case _ body:_)) = exprType body
+exprType (Match _ []) = ERROR("empty case expression")
+exprType (Let _ _ body) = exprType body
+exprType Quant{} = BuiltinType Boolean
+
+builtinType :: Ord a => Builtin -> [Expr a] -> Type a
+builtinType (Lit Int{}) _ = BuiltinType Integer
+builtinType (Lit Bool{}) _ = BuiltinType Boolean
+builtinType (Lit String{}) _ = ERROR("strings are not really here")
+builtinType And _ = BuiltinType Boolean
+builtinType Or _ = BuiltinType Boolean
+builtinType Implies _ = BuiltinType Boolean
+builtinType Equal _ = BuiltinType Boolean
+builtinType Distinct _ = BuiltinType Boolean
+builtinType At{} (e:_) =
+  case exprType e of
+    _ :=>: res -> res
+    _ -> ERROR("ill-typed lambda application")
+builtinType At{} _ = ERROR("ill-formed lambda application")

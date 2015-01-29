@@ -47,6 +47,14 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
         matches _ Default = True
         matches _ _ = False
 
+    Builtin Equal :@: [t, u] ->
+      case exprType t of
+        args :=>: _ -> do
+          lcls <- mapM freshLocal args
+          simplifyExpr opts $
+            mkQuant Forall lcls (apply t (map Lcl lcls) === apply u (map Lcl lcls))
+        _ -> return e
+
     _ -> return e
   where
     inlineable body var val = should_inline val || occurrences var body <= 1
