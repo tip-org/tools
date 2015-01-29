@@ -7,7 +7,6 @@ module Tip.Delambda where
 import Tip
 import Tip.Fresh
 import Tip.WorkerWrapper
-import Data.Generics.Geniplate
 import Data.Maybe
 
 delambda :: Name a => [Function a] -> Fresh [Function a]
@@ -23,12 +22,12 @@ delambda funcs = do
 -- Transform A -> B => C into A B -> C.
 outerDelambdaWW :: Name a => Function a -> Maybe (Fresh (WorkerWrapper a))
 outerDelambdaWW func@Function{func_res = args :=>: res, ..} = Just $ do
-  locals <- mapM freshLocal args
+  lcls <- mapM freshLocal args
   return WorkerWrapper {
     ww_func = func,
-    ww_args = func_args ++ locals,
+    ww_args = func_args ++ lcls,
     ww_res  = res,
-    ww_def  = \e -> apply e (map Lcl locals),
+    ww_def  = \e -> apply e (map Lcl lcls),
     ww_use  =
       \hd orig_args -> do
         new_args <- mapM freshLocal args
@@ -38,4 +37,4 @@ outerDelambdaWW _ = Nothing
 
 -- Transform A => B => C into A B => C.
 innerDelambdaWW :: Name a => Function a -> Maybe (Fresh (WorkerWrapper a))
-innerDelambdaWW func = Nothing
+innerDelambdaWW _func = Nothing

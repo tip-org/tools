@@ -1,16 +1,17 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE CPP #-}
 module Tip where
 
+#include "errors.h"
 import Tip.Fresh
 import Tip.Utils
 import Data.Generics.Geniplate
-import Data.List (nub, (\\))
+import Data.List ((\\))
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import Control.Monad
 import qualified Data.Map.Strict as Map
-import Data.Map.Strict(Map)
 
 data Head a
   = Gbl (Global a)
@@ -122,6 +123,7 @@ updateFuncType :: PolyType a -> Function a -> Function a
 updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
   | length lcls == length lclTys =
       Function name tvs (zipWith updateLocalType lclTys lcls) res body
+  | otherwise = ERROR("non-matching type")
 
 -- | Data definition
 data Datatype a = Datatype
@@ -216,7 +218,8 @@ e // x = transformExprM $ \ e0 -> case e0 of
   _              -> return e0
 
 substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
-substMany xs e0 = foldM (\e0 (u,e) -> (e // u) e0) e0 xs
+substMany xs e0 = foldM (\e (x,xe) -> (xe // x) e) e0 xs
 
 apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin (At (length es)) :@: (e:es)
+apply _ [] = ERROR("tried to construct nullary lambda function")

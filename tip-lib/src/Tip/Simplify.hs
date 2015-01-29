@@ -32,7 +32,7 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
     Case (Let var val body) alts ->
       simplifyExpr opts (Let var val (Case body alts))
 
-    e@(Case (hd :@: args) alts) ->
+    Case (hd :@: args) alts ->
       -- We use reverse because the default case comes first and we want it last
       case filter (matches hd . fst) (reverse alts) of
         [] -> return e

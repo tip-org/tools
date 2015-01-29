@@ -6,7 +6,6 @@ import Tip
 import Tip.Fresh
 import Tip.Simplify
 import qualified Data.Map.Strict as Map
-import Data.Map.Strict(Map)
 
 data WorkerWrapper a = WorkerWrapper
   { ww_func :: Function a
@@ -29,10 +28,9 @@ workerWrapper wws funcs =
             func_args = ww_args, func_res = ww_res,
             func_body = ww_def func_body
           }
-    updateUse e@(Gbl gbl@Global{..} :@: args)
+    updateUse (Gbl gbl@Global{..} :@: args)
       | Just WorkerWrapper{..} <- Map.lookup gbl_name m =
           let gbl_type' = gbl_type{polytype_args = map lcl_type ww_args,
                                    polytype_res = ww_res}
           in ww_use (Gbl gbl{gbl_type = gbl_type'}) args
-      where
     updateUse e = return e
