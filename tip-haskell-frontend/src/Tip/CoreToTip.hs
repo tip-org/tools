@@ -129,9 +129,9 @@ trVar x tys = do
     lcl <- asks (x `elem`)
     if lcl
         then case ty of
-                PolyType [] tas tr -> return (Lcl (Local (idFromVar x) (tas :=>: tr)))
-                _                  -> fail ("Local identifier " ++ showOutputable x ++
-                                            " with forall-type: " ++ showOutputable (varType x))
+                PolyType [] [] tr -> return (Lcl (Local (idFromVar x) tr))
+                _                 -> fail ("Local identifier " ++ showOutputable x ++
+                                           " with forall-type: " ++ showOutputable (varType x))
         else return $ case idDetails x of
                 DataConWorkId dc -> abstract $ trConstructor dc ty tys
                 DataConWrapId dc -> abstract $ trConstructor dc ty tys
