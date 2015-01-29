@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# LANGUAGE PatternGuards, TypeSynonymInstances, FlexibleInstances, CPP #-}
+{-# LANGUAGE PatternGuards, TypeSynonymInstances, FlexibleInstances, CPP, RecordWildCards #-}
 
 -- | Translation from GHC Core to the Tip IR
 module Tip.CoreToTip where
@@ -123,8 +123,8 @@ trDefn v e = do
 -- they might differ from case alternatives
 -- (example: created tuples in partition's where clause)
 -- It is unclear what disasters this might bring.
-trVar :: Var -> TM (Tip.Expr Id)
-trVar x = do
+trVar :: Var -> [Tip.Type Id] -> TM (Tip.Expr Id)
+trVar x tys = do
     ty <- lift (trPolyType (varType x))
     lcl <- asks (x `elem`)
     if lcl
@@ -133,9 +133,25 @@ trVar x = do
                 _                  -> fail ("Local identifier " ++ showOutputable x ++
                                             " with forall-type: " ++ showOutputable (varType x))
         else return $ case idDetails x of
-                DataConWorkId dc -> global (Global (idFromName $ dataConName dc) ty [] ConstructorNS)
-                DataConWrapId dc -> global (Global (idFromName $ dataConName dc) ty [] ConstructorNS)
-                _                -> global (Global (idFromVar x) ty [] FunctionNS)
+                DataConWorkId dc -> abstract $ trConstructor dc ty tys
+                DataConWrapId dc -> abstract $ trConstructor dc ty tys
+                _                -> global (Global (idFromVar x) ty tys FunctionNS)
+    where
+      abstract gbl = foldr lam body etas
+        where
+          body = Gbl gbl :@: map Lcl etas
+          etas = zipWith (Local . Eta) [0..] args
+          args = polytype_args (gbl_type gbl)
+          lam lcl body = Tip.Lam [lcl] body
+
+trConstructor :: DataCon -> PolyType Id -> [Tip.Type Id] -> Global Id
+trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) tys ConstructorNS
+  where
+    uncurryTy ty@PolyType{polytype_res = args :=>: res} =
+      ty' { polytype_args = args ++ polytype_args ty' }
+      where
+        ty' = uncurryTy ty { polytype_res = res }
+    uncurryTy ty = ty
 
 -- | Translating expressions
 --
@@ -145,37 +161,30 @@ trVar x = do
 -- The type variables applied to constructors in case patterns is
 -- not immediately available in GHC Core, so this has to be reconstructed.
 trExpr :: CoreExpr -> TM (Tip.Expr Id)
-trExpr e0 = case e0 of
-    C.Var x -> trVar x
-    C.Lit l -> literal <$> trLit l
+trExpr e0 = case collectTypeArgs e0 of
+    (C.Var x, tys) -> mapM (lift . trType) tys >>= trVar x
+    (_, _:_) -> throw (msgTypeApplicationToExpr e0)
+    (C.Lit l, _) -> literal <$> trLit l
 
-    C.App e (Type t) -> do
-        e' <- trExpr e
-        case e' of
-            Gbl (Global x tx ts ns) :@: [] -> do
-                t' <- lift (trType t)
-                return (global (Global x tx (ts ++ [t']) ns))
-            _ -> throw (msgTypeApplicationToExpr e0)
+    (C.App e1 e2, _) -> (\ x y -> Builtin (At 1) :@: [x,y]) <$> trExpr e1 <*> trExpr e2
 
-    C.App e1 e2 -> (\ x y -> Builtin (At 1) :@: [x,y]) <$> trExpr e1 <*> trExpr e2
-
-    C.Lam x e -> do
+    (C.Lam x e, _) -> do
         t <- lift (trType (varType x))
         e' <- local (x:) (trExpr e)
         return (Tip.Lam [Local (idFromVar x) t] e')
 
-    C.Let (C.NonRec v b) e -> do
+    (C.Let (C.NonRec v b) e, _) -> do
         vt <- lift (trType (varType v))
         b' <- trExpr b
         e' <- local (v:) (trExpr e)
         return (Tip.Let (Local (idFromVar v) vt) b' e')
 
-    C.Let C.Rec{} _ -> fail "Recursive local bindings!"
+    (C.Let C.Rec{} _, _) -> fail "Recursive local bindings!"
       -- need to lift them now immediately to support it
       -- which is probably a good idea anyway
       -- need to know the type variables in scope to do that
 
-    C.Case e x _ alts -> do
+    (C.Case e x _ alts, _) -> do
 
         e' <- trExpr e
 
@@ -200,7 +209,7 @@ trExpr e0 = case e0 of
                                     (,) (idFromVar b) <$> lift (trType (varType b))
                                 rhs' <- local (bs++) (trExpr rhs)
                                 dct <- lift (trPolyType (dataConType dc))
-                                return ( ConPat (Global (idFromDataCon dc) dct tys' ConstructorNS)
+                                return ( ConPat (trConstructor dc dct tys')
                                                (map (uncurry Local) bs')
                                        , rhs'
                                        )
@@ -220,12 +229,18 @@ trExpr e0 = case e0 of
 
         Tip.Let scrut e' . Tip.Case (Lcl scrut) <$> local (x:) (mapM tr_alt alts)
 
-    C.Tick _ e -> trExpr e
-    C.Type{} -> throw (msgTypeExpr e0)
-    C.Coercion{} -> throw (msgCoercionExpr e0)
-    C.Cast{} -> throw (msgCastExpr e0)
+    (C.Tick _ e, _) -> trExpr e
+    (C.Type{}, _) -> throw (msgTypeExpr e0)
+    (C.Coercion{}, _) -> throw (msgCoercionExpr e0)
+    (C.Cast{}, _) -> throw (msgCastExpr e0)
     -- TODO:
     --     Do we need to do something about newtype casts?
+
+collectTypeArgs :: CoreExpr -> (CoreExpr, [C.Type])
+collectTypeArgs (C.App e (Type t)) = (e', tys ++ [t])
+  where
+    (e', tys) = collectTypeArgs e
+collectTypeArgs e = (e, [])
 
 trLit :: Literal -> TM Lit
 trLit (LitInteger x _type) = return (Int x)
