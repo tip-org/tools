@@ -84,5 +84,5 @@ readHaskellFile params@Params{..} = do
     print $ length prop_fns
     print $ length tip_props
 
-    return $ map DataDecl tip_data ++ map FunDecl tip_fns ++ map FormDecl tip_props
+    return $ map DataDecl tip_data ++ map FuncDecl tip_fns ++ map FormDecl tip_props
 

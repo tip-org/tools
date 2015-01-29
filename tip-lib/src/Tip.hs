@@ -133,7 +133,7 @@ data Constructor a = Constructor
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Decl a
-  = FunDecl (Function a)
+  = FuncDecl (Function a)
   | DataDecl (Datatype a)
   | FormDecl (Formula a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
@@ -144,6 +144,10 @@ data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
 data Role = Assert | Prove
   deriving (Eq,Ord,Show)
 
+instanceUniverseBi [t| forall a . (Expr a,Expr a) |]
+instanceUniverseBi [t| forall a . (Function a,Expr a) |]
+instanceUniverseBi [t| forall a . (Expr a,Pattern a) |]
+instanceUniverseBi [t| forall a . (Expr a,Local a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]
 instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
