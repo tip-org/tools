@@ -5,8 +5,6 @@ import Text.PrettyPrint
 
 import Tip
 
-import Debug.Trace
-
 infixr 1 $\
 
 ($\) :: Doc -> Doc -> Doc
