@@ -26,7 +26,6 @@ main = do
       }
     putStrLn (ppRender thy)
     let dlm  = runFresh (delambda (renameWith disambigId thy))
-    putStrLn (ppShow dlm)
     putStrLn (ppRender dlm)
 
 data Var = Var String | Refresh Var Int
@@ -36,9 +35,6 @@ instance Pretty Var where
   pp (Var "") = text "x"
   pp (Var xs) = text xs
   pp (Refresh v i) = pp v <> int i
-
-instance Pretty Id where
-  pp = text . ppId
 
 disambigId :: Id -> [Var]
 disambigId i = vs : [ Refresh vs x | x <- [0..] ]

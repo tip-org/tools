@@ -15,6 +15,7 @@ import Tip.RemoveDefault
 import Tip.Unfoldings
 import Tip.Uniquify
 import Tip.GHCUtils
+import Tip.Pretty
 
 import Control.Monad
 import Data.Char
@@ -74,10 +75,12 @@ readHaskellFile params@Params{..} = do
           | (v,e) <- binds
           ]
 
+    when (PrintInitialTip `elem` flags) (mapM_ (putStrLn . ppRender) tip_fns0)
+
         -- Now, split these into properties and non-properties
     let (prop_fns,tip_fns) = partition (isPropType . func_res) tip_fns0
 
-        tip_props = either (error . show) id (mapM trProperty prop_fns)
+        tip_props = either error id (mapM trProperty prop_fns)
 
     return $ Theory tip_data tip_fns tip_props
 

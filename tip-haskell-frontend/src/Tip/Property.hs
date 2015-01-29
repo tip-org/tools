@@ -3,6 +3,7 @@ module Tip.Property where
 
 import Tip
 import Tip.Id
+import Tip.Pretty
 
 import Tip.ParseDSL
 import Tip.GHCUtils
@@ -27,22 +28,22 @@ trProperty (Function _name tvs [] res_ty b) = case unLam b of
     (assums,goal) <- parseProperty e
     return (Formula Prove tvs (mkQuant Forall args (assums ===> goal)))
   where
-    unLam (Lam xs e) = (xs,e)
+    unLam (Lam xs e) = let (ys,e') = unLam e in (xs ++ ys,e')
     unLam e          = ([],e)
 
 -- | Tries to "parse" a property in the simple expression format
 parseProperty :: Expr Id -> Either String ([Expr Id],Expr Id)
-parseProperty (projAt -> Just (projAt -> Just (projGlobal -> Just x,e1),e2))
+parseProperty e0@(projAt -> Just (projAt -> Just (projGlobal -> Just x,e1),e2))
   | isEquals x    = return ([],e1 === e2)
   | isGiven x     = do (nested_as,a) <- parseProperty e1
-                       unless (null nested_as) (throwError "Property with nested assumptions")
+                       unless (null nested_as) (throwError $ "Property with nested assumptions" ++ ppRender e0)
                        (as,gl) <- parseProperty e2
                        return (a:as,gl)
   | isGivenBool x = do (as,gl) <- parseProperty e2
                        return (e1:as,gl) -- e1 === tt?
 parseProperty (projAt -> Just (projGlobal -> Just x,e1))
   | isProveBool x = return ([],e1) -- e1 === tt?
-parseProperty _ = throwError "Cannot parse property"
+parseProperty e0 = throwError $ "Cannot parse property: " ++ ppRender e0
 
 projAt :: Expr a -> Maybe (Expr a,Expr a)
 projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)

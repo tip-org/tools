@@ -2,6 +2,9 @@
 {-# LANGUAGE PatternGuards,StandaloneDeriving #-}
 module Tip.Id where
 
+import Tip.Pretty
+import Text.PrettyPrint (text)
+
 import Name hiding (varName)
 import OccName (occNameString)
 -- import BasicTypes (TupleSort(..))
@@ -86,6 +89,9 @@ instance Show Id where
     show (GHCOrigin n _ _) = show (showOutputable n)
     show (GHCPrim po)      = "PrimOp"
     show (Eta n)           = "eta" ++ show n
+
+instance Pretty Id where
+    pp = text . ppId
 
 ppId :: Id -> String
 ppId (GHCOrigin nm _ _) = ppName nm
