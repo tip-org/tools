@@ -86,8 +86,47 @@ instance Show Id where
     show (GHCPrim po)      = "PrimOp"
 
 ppId :: Id -> String
-ppId (GHCOrigin nm _ _) = getOccString nm
+ppId (GHCOrigin nm _ _) = ppName nm
 ppId (GHCPrim po)       = "PrimOp"
+
+ppName :: Name -> String
+ppName nm
+    | k == listTyConKey      = "List"
+    | k == nilDataConKey     = "Nil"
+    | k == consDataConKey    = "Cons"
+    | k == unitTyConKey      = "UnitTyCon"
+    | k == genUnitDataConKey = "Unit"
+    | otherwise = case getOccString nm of
+        "(,)"  -> "Tup"
+        "(,,)" -> "Trip"
+        "+"   -> "plus"
+        "-"   -> "minus"
+        "/"   -> "div"
+        "*"   -> "mult"
+        "^"   -> "pow"
+        "++"  -> "append"
+        ">>=" -> "bind"
+        "=<<" -> "dnib"
+        ">=>" -> "dot_monadic"
+        "<=<" -> "monadic_dot"
+        "<*>" -> "ap"
+        "<$>" -> "fmap"
+        ">>"  -> "then"
+        "||"  -> "or"
+        "&&"  -> "and"
+        "."   -> "dot"
+        "=="  -> "equal"
+        "/="  -> "unequal"
+        ">"   -> "gt"
+        ">="  -> "ge"
+        "<"   -> "lt"
+        "<="  -> "le"
+        "$"   -> "apply"
+        "!!"  -> "index"
+        "\\\\" -> "difference"
+        s     -> s
+  where
+    k = getUnique nm
 
 {-
 data OtherPrim

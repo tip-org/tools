@@ -83,9 +83,9 @@ trTyCon tc = do
     unless (isAlgTyCon tc) (throwError (msgNotAlgebraicTyCon tc))
     dcs <- mapM tr_dc (tyConDataCons tc)
     return Datatype
-        { data_ty_con = idFromTyCon tc
-        , data_tvs    = map idFromTyVar tc_tvs
-        , data_cons   = dcs
+        { data_name = idFromTyCon tc
+        , data_tvs  = map idFromTyVar tc_tvs
+        , data_cons = dcs
         }
   where
     tc_tvs = tyConTyVars tc
@@ -183,9 +183,9 @@ trExpr e0 = case e0 of
 
         t' <- lift (trType t)
 
-        let tr_alt :: CoreAlt -> TM (Tip.Alt Id)
+        let tr_alt :: CoreAlt -> TM (Tip.Case Id)
             tr_alt alt = case alt of
-                (DEFAULT   ,[],rhs) -> (,) Default <$> trExpr rhs
+                (DEFAULT   ,[],rhs) -> Tip.Case Default <$> trExpr rhs
 
                 (DataAlt dc,bs,rhs) -> do
 
@@ -200,10 +200,9 @@ trExpr e0 = case e0 of
                                     (,) (idFromVar b) <$> lift (trType (varType b))
                                 rhs' <- local (bs++) (trExpr rhs)
                                 dct <- lift (trPolyType (dataConType dc))
-                                return ( ConPat (Global (idFromDataCon dc) dct tys' ConstructorNS)
-                                               (map (uncurry Local) bs')
-                                       , rhs'
-                                       )
+                                return $ Tip.Case
+                                   (ConPat (Global (idFromDataCon dc) dct tys' ConstructorNS) (map (uncurry Local) bs'))
+                                   rhs'
                             Nothing -> throw (unif_err (Just u))
                         Nothing -> throw (unif_err Nothing)
 
@@ -212,13 +211,13 @@ trExpr e0 = case e0 of
                     -- let TyCon v [] = t'
                     lit' <- trLit lit
                     rhs' <- trExpr rhs
-                    return (LitPat lit',rhs')
+                    return (Tip.Case (LitPat lit') rhs')
 
-                _                   -> fail "Default or LitAlt with variable bindings"
+                _ -> fail "Default or LitAlt with variable bindings"
 
         let scrut = Local (idFromVar x) t'
 
-        Tip.Let scrut e' . Tip.Case (Lcl scrut) <$> local (x:) (mapM tr_alt alts)
+        Tip.Let scrut e' . Match (Lcl scrut) <$> local (x:) (mapM tr_alt alts)
 
     C.Tick _ e -> trExpr e
     C.Type{} -> throw (msgTypeExpr e0)
@@ -257,7 +256,7 @@ trType = go . expandTypeSynonyms
   where
     go t0
         | Just (t1,t2) <- splitFunTy_maybe t0    = (\ x y -> [x] :=>: y) <$> go t1 <*> go t2
-        | Just (tc,[]) <- splitTyConApp_maybe t0, essentiallyInteger tc = return Integer
+        | Just (tc,[]) <- splitTyConApp_maybe t0, essentiallyInteger tc = return (BuiltinType Integer)
         | Just (tc,ts) <- splitTyConApp_maybe t0 = TyCon (idFromTyCon tc) <$> mapM go ts
         | Just tv <- getTyVar_maybe t0           = return (TyVar (idFromTyVar tv))
         | otherwise                              = throwError (msgIllegalType t0)

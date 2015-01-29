@@ -29,18 +29,18 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
     Let var val body | inlineable body var val ->
       (val // var) body >>= simplifyExpr opts
 
-    Case (Let var val body) alts ->
-      simplifyExpr opts (Let var val (Case body alts))
+    Match (Let var val body) alts ->
+      simplifyExpr opts (Let var val (Match body alts))
 
-    Case (hd :@: args) alts ->
+    Match (hd :@: args) alts ->
       -- We use reverse because the default case comes first and we want it last
-      case filter (matches hd . fst) (reverse alts) of
+      case filter (matches hd . case_pat) (reverse alts) of
         [] -> return e
-        (Default, body):_ -> return body
-        (ConPat _ lcls, body):_ ->
+        Case Default body:_ -> return body
+        Case (ConPat _ lcls) body:_ ->
           simplifyExpr opts $
             foldr (uncurry Let) body (zip lcls args)
-        (LitPat _, body):_ -> return body
+        Case (LitPat _) body:_ -> return body
       where
         matches (Gbl gbl) (ConPat gbl' _) = gbl == gbl'
         matches (Builtin (Lit lit)) (LitPat lit') = lit == lit'

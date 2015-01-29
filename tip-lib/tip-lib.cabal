@@ -20,6 +20,7 @@ library
     Tip.Delambda
     Tip.WorkerWrapper
     Tip.Simplify
+    Tip.Pretty
 
   hs-source-dirs:      src
   include-dirs:        src
@@ -28,4 +29,5 @@ library
   build-depends:       base >=4 && <5,
                        geniplate >=0.6.0.6,
                        containers,
-                       mtl
+                       mtl,
+                       pretty

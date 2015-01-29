@@ -39,7 +39,7 @@ data Expr a
   = Head a :@: [Expr a]
   | Lcl (Local a)
   | Lam [Local a] (Expr a)
-  | Case (Expr a) [Alt a]
+  | Match (Expr a) [Case a]
   | Let (Local a) (Expr a) (Expr a)
   | Quant Quant (Local a) (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
@@ -58,7 +58,8 @@ atomic (_ :@: []) = True
 atomic Lcl{}      = True
 atomic _          = False
 
-type Alt a = (Pattern a,Expr a)
+data Case a = Case { case_pat :: Pattern a, case_rhs :: Expr a }
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Builtin
   = Lit Lit
@@ -104,8 +105,12 @@ data Type a
   = TyVar a
   | TyCon a [Type a]
   | [Type a] :=>: Type a
-  | Integer
+  | BuiltinType BuiltinType
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+data BuiltinType
+  = Integer | Boolean
+  deriving (Eq,Ord,Show)
 
 data Function a = Function
   { func_name :: a
@@ -127,9 +132,9 @@ updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
 
 -- | Data definition
 data Datatype a = Datatype
-  { data_ty_con :: a
-  , data_tvs    :: [a]
-  , data_cons   :: [Constructor a]
+  { data_name :: a
+  , data_tvs  :: [a]
+  , data_cons :: [Constructor a]
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 

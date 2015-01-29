@@ -79,10 +79,5 @@ readHaskellFile params@Params{..} = do
 
         tip_props = either (error . show) id (mapM trProperty prop_fns)
 
-    print $ length tip_fns0
-    print $ length tip_fns
-    print $ length prop_fns
-    print $ length tip_props
-
     return $ Theory tip_data tip_fns tip_props
 

@@ -52,4 +52,5 @@ executable tip-ghc
   build-depends:       base,
                        tip-haskell-frontend,
                        tip-lib,
-                       pretty-show
+                       pretty-show,
+                       pretty
