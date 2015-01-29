@@ -7,7 +7,6 @@ module Tip.Delambda where
 import Tip
 import Tip.Fresh
 import Tip.WorkerWrapper
-import Data.Maybe
 
 delambda :: Name a => Theory a -> Fresh (Theory a)
 delambda thy =
