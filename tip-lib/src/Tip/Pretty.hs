@@ -3,7 +3,7 @@ module Tip.Pretty where
 
 import Text.PrettyPrint
 
-import Tip
+import Tip.Types
 
 infixr 1 $\
 
