@@ -24,6 +24,8 @@ main = do
     putStrLn (ppShow thy)
     let thy' = renameWith disambigId thy
     putStrLn (ppShow thy')
+    let dlm = runFresh (delambda thy')
+    putStrLn (ppShow dlm)
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)
