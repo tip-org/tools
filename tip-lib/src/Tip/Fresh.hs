@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Tip.Fresh where
 
+import Tip.Pretty
 import Control.Applicative hiding (empty)
 import Control.Monad.State
 import Control.Arrow ((&&&))
@@ -8,7 +9,7 @@ import Control.Arrow ((&&&))
 newtype Fresh a = Fresh { dirty :: State Int a }
   deriving (Monad, Applicative, Functor, MonadFix)
 
-class Ord a => Name a where
+class (Pretty a, Ord a) => Name a where
   fresh   :: Fresh a
 
   refresh :: a -> Fresh a

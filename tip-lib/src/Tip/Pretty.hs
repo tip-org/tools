@@ -3,7 +3,7 @@ module Tip.Pretty where
 
 import Text.PrettyPrint
 
-import Tip
+import Tip.Types
 
 infixr 1 $\
 
@@ -107,3 +107,5 @@ instance Pretty Role where
 instance Pretty a => Pretty (Theory a) where
   pp (Theory ds fns fms) = vcat (map pp ds ++ map pp fns ++ map pp fms)
 
+instance Pretty Int where
+  pp = int
