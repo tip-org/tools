@@ -2,10 +2,12 @@
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 module Tip where
 
+import Tip.Fresh
 import Data.Generics.Geniplate
 import Data.List (nub)
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
+import Control.Monad
 
 data Head a
   = Gbl (Global a)
@@ -144,3 +146,39 @@ transformExprIn = transformBi
 
 transformExprInM :: TransformBiM m (Expr a) (f a) => (Expr a -> m (Expr a)) -> f a -> m (f a)
 transformExprInM = transformBiM
+
+freshLocal :: Name a => Type a -> Fresh (Local a)
+freshLocal ty = liftM2 Local fresh (return ty)
+
+refreshLocal :: Name a => Local a -> Fresh (Local a)
+refreshLocal (Local name ty) = liftM2 Local (refresh name) (return ty)
+
+-- | Substitution, of local variables
+--
+-- Since there are only rank-1 types, bound variables from lambdas and
+-- case never have a forall type and thus are not applied to any types.
+(//) :: Name a => Expr a -> Local a -> Expr a -> Fresh (Expr a)
+e // x = transformExprM $ \ e0 -> case e0 of
+    Lcl y | x == y -> freshen e
+    _              -> return e0
+  where
+    -- Freshen lambda-bound variables, to maintain the invariant that
+    -- each variable is only bound once.
+    freshen = transformExprM $ \e0 -> case e0 of
+      Lam args body -> do
+        args' <- mapM refreshLocal args
+        body' <- freshen body
+        fmap (Lam args') (substMany (zip args (map Lcl args')) body')
+
+substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
+substMany xs e0 = foldM (\e0 (u,e) -> (e // u) e0) e0 xs
+
+apply :: Expr a -> [Expr a] -> Expr a
+apply e es@(_:_) = Builtin (At (length es)) :@: (e:es)
+
+betaReduce :: (TransformBiM Fresh (Expr a) (f a), Name a) => f a -> Fresh (f a)
+betaReduce = transformExprInM $ \e ->
+  case e of
+    Builtin (At _) :@: (Lam vars body:args) ->
+      substMany (zip vars args) body >>= betaReduce
+    _ -> return e
