@@ -2,22 +2,23 @@
 -- | A hacky way of parsing the property language DSL
 module Tip.ParseDSL where
 
---import Type
---import Outputable
---
-import Var hiding (Id)
-import Data.List
-import qualified Tip.CoreToRich as CTR
-import TyCon (TyCon)
-import Tip.Utils
+import Tip.GHCUtils
 import Tip.Id
 import Tip
+import qualified Tip.CoreToTip as CTT
+
+import Data.List
+
+import Var hiding (Id)
+import TyCon (TyCon)
+--import Type
+--import Outputable
 
 -- import HipSpec.Id
 -- import HipSpec.Lang.Type
 
 varWithPropType :: Var -> Bool
-varWithPropType x = case CTR.trPolyType (varType x) of
+varWithPropType x = case CTT.trPolyType (varType x) of
     Right (PolyType _ _ t) -> isPropType t
     _                      -> False
 

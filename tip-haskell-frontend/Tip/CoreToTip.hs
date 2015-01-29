@@ -2,7 +2,7 @@
 {-# LANGUAGE PatternGuards, TypeSynonymInstances, FlexibleInstances, CPP #-}
 
 -- | Translation from GHC Core to the Tip IR
-module Tip.CoreToRich where
+module Tip.CoreToTip where
 
 import Control.Applicative
 import Control.Monad.Error
@@ -34,7 +34,7 @@ import qualified PrelNames
 
 import IdInfo
 
-import Tip.Utils (showOutputable,rmClass)
+import Tip.GHCUtils (showOutputable,rmClass)
 import Tip.DataConPattern
 import Tip.TyAppBeta
 import Tip.Id

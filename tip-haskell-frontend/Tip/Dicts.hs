@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Tip.Dicts (inlineDicts,maybeUnfolding) where
 
-import Tip.Utils (showOutputable)
+import Tip.GHCUtils (showOutputable)
 import CoreSyn
 import CoreUtils()
 import IdInfo

@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP,PatternGuards #-}
-module Tip.Utils where
+module Tip.GHCUtils where
 
 import Outputable
 

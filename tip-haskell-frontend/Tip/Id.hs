@@ -6,7 +6,7 @@ import Name hiding (varName)
 import OccName (occNameString)
 -- import BasicTypes (TupleSort(..))
 import PrelNames
-import Tip.Utils
+import Tip.GHCUtils
 import Var (Var,varName,idDetails,TyVar,tyVarName)
 import IdInfo (IdDetails(..))
 import TyCon (tyConName,TyCon)

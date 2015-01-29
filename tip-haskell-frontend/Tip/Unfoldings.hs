@@ -14,7 +14,7 @@ import Id
 
 import Data.Maybe
 
-import Tip.Utils
+import Tip.GHCUtils
 import Tip.Dicts
 
 -- | The unfolding of an Id

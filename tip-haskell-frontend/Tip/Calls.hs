@@ -15,7 +15,7 @@ import CoreFVs
 import DataCon
 import TyCon
 
-import Tip.Utils
+import Tip.GHCUtils
 import Tip.Unfoldings
 import Tip.FreeTyCons
 

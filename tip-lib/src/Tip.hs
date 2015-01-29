@@ -50,11 +50,16 @@ type Alt a = (Pattern a,Expr a)
 
 data Builtin
   = Lit Lit
-  | And
-  | Or
-  | Equal
+  | And | Or | Implies
+  | Equal | Distinct
   | At Int
   deriving (Eq,Ord,Show)
+
+(===) :: Expr a -> Expr a -> Expr a
+e1 === e2 = Builtin Equal :@: [e1,e2]
+
+(===>) :: [Expr a] -> Expr a -> Expr a
+xs ===> y = foldr (\ a b -> Builtin Implies :@: [a,b]) y xs
 
 data Lit
   = Int Integer
@@ -169,6 +174,7 @@ e // x = transformExprM $ \ e0 -> case e0 of
         args' <- mapM refreshLocal args
         body' <- freshen body
         fmap (Lam args') (substMany (zip args (map Lcl args')) body')
+      _ -> return e0
 
 substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
 substMany xs e0 = foldM (\e0 (u,e) -> (e // u) e0) e0 xs

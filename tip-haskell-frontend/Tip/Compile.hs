@@ -1,25 +1,20 @@
 {-# LANGUAGE RecordWildCards, NamedFieldPuns, CPP #-}
-module Tip.ReadHaskellFile (readHaskellFile) where
+module Tip.Compile (compileHaskellFile) where
 
-import Tip.ParseDSL
-import Tip.Params
-
-import Tip.Unfoldings
-import Tip.Dicts (inlineDicts)
-import Tip.Utils
-
-import Tip.Scope
 import Tip.Calls
-
+import Tip.Dicts (inlineDicts)
+import Tip.GHCUtils
+import Tip.Params
+import Tip.ParseDSL
+import Tip.Scope
+import Tip.Unfoldings
 import Data.List.Split (splitOn)
 
+import Control.Monad
+import Data.List
+import Data.Maybe
 import qualified Data.Foldable as F
 import System.FilePath
-
-import Data.Maybe
-import Data.List
-
-import Control.Monad
 
 import CoreMonad (liftIO)
 import CoreSyn
@@ -35,15 +30,8 @@ import VarSet
 import StaticFlags
 #endif
 
-
--- | The result from calling GHC
-data HaskellFile = HaskellFile
-    { prop_ids  :: [Var]
-    , extra_tcs :: [TyCon]
-    }
-
-readHaskellFile :: Params  -> IO [Var]
-readHaskellFile params@Params{..} = do
+compileHaskellFile :: Params  -> IO [Var]
+compileHaskellFile params@Params{..} = do
 
     -- Notify ghc where ghc is installed
     runGhc (Just libdir) $ do
