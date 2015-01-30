@@ -16,6 +16,7 @@ library
     Tip
     Tip.Lambda
     Tip.Types
+    Tip.EqualFunctions
     Tip.Fresh
     Tip.Utils
     Tip.Utils.Renamer

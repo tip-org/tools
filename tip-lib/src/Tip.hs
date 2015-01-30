@@ -62,6 +62,13 @@ bound e =
 locals = usort . universeBi
 free e = locals e \\ bound e
 
+globals :: (UniverseBi (t a) (Global a),UniverseBi (t a) (Type a),Ord a)
+        => t a -> [a]
+globals e =
+  usort $
+    [ gbl_name | Global{..} <- universeBi e ] ++
+    [ tc | TyCon tc _ <- universeBi e ]
+
 tyVars :: Ord a => Type a -> [a]
 tyVars t = usort $ [ a | TyVar a <- universeBi t ]
 

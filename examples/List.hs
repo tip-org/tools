@@ -35,14 +35,23 @@ filter p (x:xs) | p x       = x:filter p xs
 filter p [] = []
 -}
 
+bap :: (a -> b) -> [a] -> [b]
+bap f (x:xs) = f x:bap f xs
+bap f []     = []
+
 map :: (a -> b) -> [a] -> [b]
-map f (x:xs) = f x:map f xs
-map f []     = []
+map g (a:as) = g a:map g as
+map h []     = []
+
+zap :: (a -> b) -> [a] -> [b]
+zap u []     = []
+zap u (l:ls) = u l:zap u ls
 
 {-# NOINLINE (.) #-}
 f . g = \ x -> f (g x)
 
-map_compose f g = map f . map g =:= map (f . g)
+{-# NOINLINE dot #-}
+(a `dot` b) c = a (b c)
 
--- map_two f g = map (\ x -> f (g x))
+map_compose f g = bap f `dot` map g =:= zap (f . g)
 

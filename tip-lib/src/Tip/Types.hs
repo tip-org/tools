@@ -121,6 +121,8 @@ data Role = Assert | Prove
 
 instanceUniverseBi [t| forall a . (Expr a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Expr a) |]
+instanceUniverseBi [t| forall a . (Function a,Global a) |]
+instanceUniverseBi [t| forall a . (Function a,Type a) |]
 instanceUniverseBi [t| forall a . (Expr a,Pattern a) |]
 instanceUniverseBi [t| forall a . (Expr a,Local a) |]
 instanceUniverseBi [t| forall a . (Expr a,Global a) |]

@@ -11,6 +11,7 @@ import Tip.Lambda
 import Tip.Fresh
 import Tip.Utils.Renamer
 import Tip.Pretty
+import Tip.EqualFunctions
 
 import Text.PrettyPrint
 
@@ -29,6 +30,8 @@ main = do
     let dlm = runFresh (defunctionalize =<< delambda (renameWith disambigId thy))
     putStrLn "After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
+    putStrLn "After collapse equal:"
+    putStrLn (ppRender (collapseEqual dlm))
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)
