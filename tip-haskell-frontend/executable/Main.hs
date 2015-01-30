@@ -27,11 +27,13 @@ main = do
       , extra_trans = es
       }
     putStrLn (ppRender thy)
-    let dlm = runFresh (defunctionalize =<< delambda (renameWith disambigId thy))
+    let dlm = runFresh (lambdaLift =<< delambda (renameWith disambigId thy))
     putStrLn "After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
     putStrLn "After collapse equal:"
     putStrLn (ppRender (collapseEqual dlm))
+    putStrLn "After axiomatization:"
+    putStrLn (ppRender (axiomatizeLambdas (collapseEqual dlm)))
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)

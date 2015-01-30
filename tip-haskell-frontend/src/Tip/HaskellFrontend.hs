@@ -82,5 +82,5 @@ readHaskellFile params@Params{..} = do
 
         tip_props = either error id (mapM trProperty prop_fns)
 
-    return $ Theory tip_data tip_fns tip_props
+    return $ Theory tip_data [] [] tip_fns tip_props
 

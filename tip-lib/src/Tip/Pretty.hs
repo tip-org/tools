@@ -31,12 +31,13 @@ instance Pretty a => Pretty (Head a) where
   pp (Builtin b) = pp b
 
 instance Pretty a => Pretty (Expr a) where
-  pp (hd :@: es)   = expr (pp hd) (map pp es)
-  pp (Lcl l)       = pp (lcl_name l)
-  pp (Lam ls e)    = parExpr "lambda" [parens (fsep (map pp ls)),pp e]
-  pp (Match e as)  = parens (("match" $\ pp e) $\ vcat (map pp as))
-  pp (Let x b e)   = parExpr "let" [pp x,pp b,pp e]
-  pp (Quant q l e) = parExpr (pp q) [parens (pp l),pp e]
+  pp (hd :@: es)      = expr (pp hd) (map pp es)
+  pp (Lcl l)          = pp (lcl_name l)
+  pp (Lam ls e)       = parExpr "lambda" [parens (fsep (map pp ls)),pp e]
+  pp (Match e as)     = parens (("match" $\ pp e) $\ vcat (map pp as))
+  pp (Let x b e)      = parExpr "let" [pp x,pp b,pp e]
+  pp e0@(Quant q _ _) = let (ls,e) = collectQuant e0
+                        in  parExpr (pp q) [parens (fsep (map pp ls)),pp e]
 
 instance Pretty Quant where
   pp Forall = "forall"
@@ -85,9 +86,17 @@ instance Pretty a => Pretty (Function a) where
       $\ sep [parens (fsep (map pp func_args)),pp func_res])
       $\ pp func_body
 
+instance Pretty a => Pretty (AbsFunc a) where
+  pp (AbsFunc name (PolyType tvs args res)) = parens $
+    ("declare-fun" $\ parNonempty tvs $\ pp name)
+      $\ sep [parens (fsep (map pp args)),pp res]
+
 parNonempty :: Pretty a => [a] -> Doc
 parNonempty [] = empty
 parNonempty xs = parens (fsep (map pp xs))
+
+instance Pretty a => Pretty (AbsType a) where
+  pp (AbsType t) = parens ("declare-sort" $\ pp t)
 
 instance Pretty a => Pretty (Datatype a) where
   pp Datatype{..} = parens $
@@ -105,7 +114,7 @@ instance Pretty Role where
   pp Prove  = "prove"
 
 instance Pretty a => Pretty (Theory a) where
-  pp (Theory ds fns fms) = vcat (map pp ds ++ map pp fns ++ map pp fms)
+  pp (Theory ds ats afs fns fms) = vcat (map pp ds ++ map pp ats ++ map pp afs ++ map pp fns ++ map pp fms)
 
 instance Pretty Int where
   pp = int

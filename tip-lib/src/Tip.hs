@@ -28,9 +28,13 @@ mkQuant q xs t = foldr (Quant q) t xs
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
 
-applyFunction :: Ord a => Function a -> [Type a] -> [Expr a] -> Expr a
+applyFunction :: Function a -> [Type a] -> [Expr a] -> Expr a
 applyFunction fn@Function{..} tyargs args
   = Gbl (Global func_name (funcType fn) tyargs FunctionNS) :@: args
+
+applyAbsFunc :: AbsFunc a -> [Type a] -> [Expr a] -> Expr a
+applyAbsFunc AbsFunc{..} tyargs args
+  = Gbl (Global abs_func_name abs_func_type tyargs FunctionNS) :@: args
 
 atomic :: Expr a -> Bool
 atomic (_ :@: []) = True
