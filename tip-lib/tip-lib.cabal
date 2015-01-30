@@ -14,7 +14,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:
     Tip
-    Tip.Lambda
+    Tip.Lift
     Tip.Types
     Tip.EqualFunctions
     Tip.Fresh

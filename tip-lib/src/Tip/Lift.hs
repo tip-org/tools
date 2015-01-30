@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Tip.Lambda (lambdaLift, axiomatizeLambdas) where
+module Tip.Lift (lambdaLift, letLift, axiomatizeLambdas) where
 
 import Tip
 import Tip.Fresh
@@ -12,7 +12,20 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Writer
 
--- | Defunctionalization.
+type LiftM a = WriterT [Function a] Fresh
+
+type TopLift a = Expr a -> LiftM a (Expr a)
+
+liftAnywhere :: (Name a,TransformBiM (LiftM a) (Expr a) (t a)) =>
+                TopLift a -> t a -> Fresh (t a,[Function a])
+liftAnywhere top = runWriterT . transformExprInM top
+
+liftTheory :: Name a => TopLift a -> Theory a -> Fresh (Theory a)
+liftTheory top thy0 =
+  do (Theory{..},new_func_decls) <- liftAnywhere top thy0
+     return Theory{thy_func_decls = new_func_decls ++ thy_func_decls,..}
+
+-- Defunctionalization.
 --
 -- Transforms
 --
@@ -26,10 +39,7 @@ import Control.Monad.Writer
 -- where g is a fresh function.
 --
 -- After this pass, lambdas only exist at the top level of functions
-
-type DefunM a = WriterT [Function a] Fresh
-
-lambdaLiftTop :: Name a => Expr a -> DefunM a (Expr a)
+lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
   case e0 of
     Lam lam_args lam_body ->
@@ -42,16 +52,33 @@ lambdaLiftTop e0 =
          return (applyFunction g (map TyVar g_tvs) (map Lcl g_args))
     _ -> return e0
 
-lambdaLiftAnywhere :: (Name a,TransformBiM (DefunM a) (Expr a) (t a)) =>
-                      t a -> Fresh (t a,[Function a])
-lambdaLiftAnywhere = runWriterT . transformExprInM lambdaLiftTop
-
 lambdaLift :: Name a => Theory a -> Fresh (Theory a)
-lambdaLift thy0 =
-  do (Theory{..},new_func_decls) <- lambdaLiftAnywhere thy0
-     return Theory{thy_func_decls = new_func_decls ++ thy_func_decls,..}
+lambdaLift = liftTheory lambdaLiftTop
 
--- | Axiomatize lambdas
+-- Transforms
+--
+--    let x = b[fvs] in e[x]
+--
+-- into
+--
+--    e[x fvs]
+--
+-- +  x fvs = b[fvs]
+letLiftTop :: Name a => TopLift a
+letLiftTop e0 =
+  case e0 of
+    Let xl@(Local x xt) b e ->
+      do let fvs = free b
+         let tvs = freeTyVars b
+         let xfn = Function x tvs fvs (exprType b) b
+         tell [xfn]
+         lift ((applyFunction xfn (map TyVar tvs) (map Lcl fvs) // xl) e)
+    _ -> return e0
+
+letLift :: Name a => Theory a -> Fresh (Theory a)
+letLift = liftTheory letLiftTop
+
+-- Axiomatize lambdas
 --
 -- turns
 --

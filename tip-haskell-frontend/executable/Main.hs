@@ -7,7 +7,7 @@ import System.Environment
 
 import Tip.Id
 import Tip.Delambda
-import Tip.Lambda
+import Tip.Lift
 import Tip.Fresh
 import Tip.Utils.Renamer
 import Tip.Pretty
@@ -27,7 +27,7 @@ main = do
       , extra_trans = es
       }
     putStrLn (ppRender thy)
-    let dlm = runFresh (lambdaLift =<< delambda (renameWith disambigId thy))
+    let dlm = runFresh (letLift =<< lambdaLift =<< delambda (renameWith disambigId thy))
     putStrLn "After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
     putStrLn "After collapse equal:"
