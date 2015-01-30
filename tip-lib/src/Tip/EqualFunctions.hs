@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Tip.EqualFunctions(collapseEqual) where
+module Tip.EqualFunctions(collapseEqual, removeAliases) where
 
 import Tip
 import Tip.Fresh
@@ -23,13 +23,18 @@ renameFn fn = renameVars (`notElem` gbls) fn
   where
     gbls = delete (func_name fn) (globals fn)
 
+rename :: Eq a => [(a,a)] -> a -> a
+rename d x = case lookup x d of
+    Just y  -> y
+    Nothing -> x
+
 -- If we have
 --   f x = E[x]
 --   g y = E[y]
 -- then we remove g and replace it with f everywhere
 collapseEqual :: forall a . Ord a => Theory a -> Theory a
-collapseEqual thy@(Theory{thy_func_decls=fns0})
-    = fmap rename (thy{thy_func_decls=survivors})
+collapseEqual thy@(Theory{ thy_func_decls = fns0 })
+    = fmap (rename renamings) thy{ thy_func_decls = survivors }
   where
     rfs :: [(Function a,Function (Either a Int))]
     rfs = [ (f,renameFn f) | f <- fns0 ]
@@ -43,14 +48,27 @@ collapseEqual thy@(Theory{thy_func_decls=fns0})
         | ((f,rf),prev) <- withPrevious rfs
         ]
 
-    rename :: a -> a
-    rename x = case lookup x renamings of
-        Just y  -> y
-        Nothing -> x
-
 -- | Pair up a list with its previous elements
 --
 -- > withPrevious "abc" = [('a',""),('b',"a"),('c',"ab")]
 withPrevious :: [a] -> [(a,[a])]
 withPrevious xs = zip xs (inits xs)
+
+-- If we have
+--    g x y = f x y
+-- then we remove g and replace it with f everywhere
+removeAliases :: Eq a => Theory a -> Theory a
+removeAliases thy@(Theory{thy_func_decls=fns0})
+    = fmap (rename renamings) thy{ thy_func_decls = survivors }
+  where
+    renamings =
+      [ (g,f)
+      | Function g ty_vars vars _res_ty (Gbl (Global f _ ty_args _) :@: args) <- fns0
+      , map Lcl vars == args
+      , map TyVar ty_vars == ty_args
+      ]
+
+    remove = map fst renamings
+
+    survivors = filter ((`notElem` remove) . func_name) fns0
 
