@@ -27,6 +27,7 @@ main = do
       }
     putStrLn (ppRender thy)
     let dlm = runFresh (defunctionalize =<< delambda (renameWith disambigId thy))
+    putStrLn "After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
 
 data Var = Var String | Refresh Var Int

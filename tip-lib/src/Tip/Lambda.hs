@@ -1,9 +1,12 @@
-{-# LANGUAGE ScopedTypeVariables, RecordWildCards #-}
-module Tip.Lambda where
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
+module Tip.Lambda (defunctionalize) where
 
 import Tip
 import Tip.Fresh
 
+import Data.Generics.Geniplate
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Writer
@@ -22,29 +25,28 @@ import Control.Monad.Writer
 -- where g is a fresh function.
 --
 -- After this pass, lambdas only exist at the top level of functions
---
--- TODO; Fix: do this on every expression, to remember assert/prove
---       What to do with type variables and "phantom" type variables?
-defunFunc :: forall a . Name a => Function a -> Fresh [Function a]
-defunFunc Function{..} =
-  do (new_body,new_fns) <- runWriterT $ transformExprInM defun func_body
-     return (Function{func_body = new_body,..}:new_fns)
- where
-  defun :: Expr a -> WriterT [Function a] Fresh (Expr a)
-  defun e@(Lam lam_args lam_body) =
-    do g_name <- lift (refresh func_name)
-       let g_args = free e
-       let g_type = map lcl_type lam_args :=>: exprType lam_body
-       let g = Function g_name func_tvs g_args g_type (Lam lam_args lam_body)
-       tell [g]
-       return (applyFunction g (map Lcl g_args))
-  defun e = return e
 
-defunFunctions :: Name a => [Function a] -> Fresh [Function a]
-defunFunctions fns = concat <$> mapM defunFunc fns
+type DefunM a = WriterT [Function a] Fresh
+
+defunTop :: Name a => Expr a -> DefunM a (Expr a)
+defunTop e0 =
+  case e0 of
+    Lam lam_args lam_body ->
+      do g_name <- lift fresh
+         let g_args = free e0
+         let g_tvs  = freeTyVars e0
+         let g_type = map lcl_type lam_args :=>: exprType lam_body
+         let g = Function g_name g_tvs g_args g_type (Lam lam_args lam_body)
+         tell [g]
+         return (applyFunction g (map TyVar g_tvs) (map Lcl g_args))
+    _ -> return e0
+
+defunAnywhere :: (Name a,TransformBiM (DefunM a) (Expr a) (t a)) =>
+                 t a -> Fresh (t a,[Function a])
+defunAnywhere = runWriterT . transformExprInM defunTop
 
 defunctionalize :: Name a => Theory a -> Fresh (Theory a)
-defunctionalize Theory{..} =
-  do fn_decls <- defunFunctions thy_func_decls
-     return Theory{thy_func_decls = fn_decls,..}
+defunctionalize thy0 =
+  do (Theory{..},new_func_decls) <- defunAnywhere thy0
+     return Theory{thy_func_decls = new_func_decls ++ thy_func_decls,..}
 

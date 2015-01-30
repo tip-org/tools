@@ -28,9 +28,9 @@ mkQuant q xs t = foldr (Quant q) t xs
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
 
-applyFunction :: Ord a => Function a -> [Expr a] -> Expr a
-applyFunction fn@Function{..} args
-  = Gbl (Global func_name (funcType fn) (map exprType args) FunctionNS) :@: args
+applyFunction :: Ord a => Function a -> [Type a] -> [Expr a] -> Expr a
+applyFunction fn@Function{..} tyargs args
+  = Gbl (Global func_name (funcType fn) tyargs FunctionNS) :@: args
 
 atomic :: Expr a -> Bool
 atomic (_ :@: []) = True
@@ -61,6 +61,18 @@ bound e =
     concat [ lcls | ConPat _ lcls <- universeBi e ]
 locals = usort . universeBi
 free e = locals e \\ bound e
+
+tyVars :: Ord a => Type a -> [a]
+tyVars t = usort $ [ a | TyVar a <- universeBi t ]
+
+-- The free type variables are in the locals, and the globals:
+-- but only in the types applied to the global variable.
+freeTyVars :: Ord a => Expr a -> [a]
+freeTyVars e =
+  usort $
+    concatMap tyVars $
+             [ lcl_type | Local{..} <- universeBi e ] ++
+      concat [ gbl_args | Global{..} <- universeBi e ]
 
 -- Rename bound variables in an expression to fresh variables.
 freshen :: Name a => Expr a -> Fresh (Expr a)
