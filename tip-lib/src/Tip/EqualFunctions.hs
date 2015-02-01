@@ -7,7 +7,6 @@ import Tip
 import Tip.Fresh
 
 import Data.Traversable
-import Data.Generics.Geniplate
 import Control.Applicative
 import Data.Either
 import Data.List (delete, inits)

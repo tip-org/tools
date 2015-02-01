@@ -22,5 +22,5 @@ runFresh :: Fresh a -> a
 runFresh (Fresh m) = evalState m 0
 
 runFreshFrom :: Int -> Fresh a -> a
-runFreshFrom n (Fresh m) = evalState m n
+runFreshFrom n (Fresh m) = evalState m (n+1)
 

@@ -4,8 +4,11 @@ import Tip.HaskellFrontend
 import Tip.Params
 import Text.Show.Pretty hiding (Name)
 import System.Environment
+import qualified Data.Foldable as F
+import Data.Ord
 
 import Tip.Id
+import Tip.CommuteMatch
 import Tip.Delambda
 import Tip.Lift
 import Tip.Fresh
@@ -27,16 +30,30 @@ main = do
       , extra_trans = es
       }
     putStrLn (ppRender thy)
-    let dlm = runFresh (letLift =<< lambdaLift =<< delambda (renameWith disambigId thy))
-    putStrLn "After delambda and defunctionalization:"
+    let rnm = renameWith disambigId thy
+    let dlm = runFreshFrom (maximumOn varMax rnm)
+                           (letLift =<< lambdaLift =<< delambda rnm)
+    putStrLn "\n == After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
-    putStrLn "After collapse equal:"
+    putStrLn "\n == After collapse equal:"
     putStrLn (ppRender (collapseEqual dlm))
-    putStrLn "After axiomatization:"
-    putStrLn (ppRender (axiomatizeLambdas (collapseEqual dlm)))
+    putStrLn "\n == After axiomatization:"
+    let after_ax = axiomatizeLambdas (collapseEqual dlm)
+    putStrLn (ppRender after_ax)
+    putStrLn "\n == After commute match:"
+    let commute = runFreshFrom (maximumOn varMax after_ax)
+                               (commuteMatch after_ax)
+    putStrLn (ppRender commute)
+
+maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
+maximumOn f = f . F.maximumBy (comparing f)
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)
+
+varMax :: Var -> Int
+varMax Var{}         = 0
+varMax (Refresh v i) = varMax v `max` i
 
 instance Pretty Var where
   pp (Var "") = text "x"
