@@ -7,6 +7,8 @@ import System.Environment
 import qualified Data.Foldable as F
 import Data.Ord
 
+import Tip
+import Tip.AxiomatizeFuncdefs
 import Tip.Id
 import Tip.CommuteMatch
 import Tip.Delambda
@@ -44,20 +46,28 @@ main = do
     let commute = runFreshFrom (maximumOn varMax after_ax)
                                (commuteMatch after_ax)
     putStrLn (ppRender commute)
+    putStrLn "\n == After axiomatize function definitions:"
+    let ax_fns = axiomatizeFuncdefs commute
+    putStrLn (ppRender ax_fns)
 
 maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
 maximumOn f = f . F.maximumBy (comparing f)
 
-data Var = Var String | Refresh Var Int
+data Var = Var String | Proj Var Int | Refresh Var Int
   deriving (Show,Eq,Ord)
 
 varMax :: Var -> Int
 varMax Var{}         = 0
+varMax (Proj v _)    = varMax v
 varMax (Refresh v i) = varMax v `max` i
 
+instance Project Var where
+  project = Proj
+
 instance Pretty Var where
-  pp (Var "") = text "x"
-  pp (Var xs) = text xs
+  pp (Proj x i)    = pp x <> text "_" <> int i
+  pp (Var "")      = text "x"
+  pp (Var xs)      = text xs
   pp (Refresh v i) = pp v <> int i
 
 disambigId :: Id -> [Var]

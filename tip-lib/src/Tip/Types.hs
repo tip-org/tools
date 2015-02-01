@@ -25,6 +25,8 @@ data Global a = Global
 data Namespace = FunctionNS | ConstructorNS
   deriving (Eq,Ord,Show)
 
+infix 5 :@:
+
 data Expr a
   = Head a :@: [Expr a]
   | Lcl (Local a)
@@ -114,15 +116,15 @@ data Datatype a = Datatype
 data Constructor a = Constructor
   { con_name :: a
   , con_args :: [Type a]
-  -- ^ Arguments to the constructor, /besides/ the type
+
   --   arguments that are bound in the data type
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Theory a = Theory
   { thy_data_decls     :: [Datatype a]
-  , thy_abs_type_decls :: [AbsType a]
-  , thy_abs_func_decls :: [AbsFunc a]
+  , thy_abs_type_decls :: [AbsType a] -- change to thy_sort_decls and Sort?
+  , thy_abs_func_decls :: [AbsFunc a] -- change to thy_abs_decls and Abstract?
   , thy_func_decls     :: [Function a]
   , thy_form_decls     :: [Formula a]
   }

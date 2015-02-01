@@ -16,11 +16,30 @@ import qualified Data.Map.Strict as Map
 updateLocalType :: Type a -> Local a -> Local a
 updateLocalType ty (Local name _) = Local name ty
 
+infix  4 ===
+--infixr 3 /\
+infixr 2 \/
+infixr 1 ==>
+infixr 0 ===>
+
 (===) :: Expr a -> Expr a -> Expr a
 e1 === e2 = Builtin Equal :@: [e1,e2]
 
+(/\) :: Expr a -> Expr a -> Expr a
+e1 /\ e2 = Builtin And :@: [e1,e2]
+
+(\/) :: Expr a -> Expr a -> Expr a
+e1 \/ e2 = Builtin Or :@: [e1,e2]
+
+ands :: [Expr a] -> Expr a
+ands [] = Builtin (Lit (Bool True)) :@: []
+ands xs = foldl1 (/\) xs
+
+(==>) :: Expr a -> Expr a -> Expr a
+a ==> b = Builtin Implies :@: [a,b]
+
 (===>) :: [Expr a] -> Expr a -> Expr a
-xs ===> y = foldr (\ a b -> Builtin Implies :@: [a,b]) y xs
+xs ===> y = foldr (==>) y xs
 
 mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
 mkQuant q xs t = foldr (Quant q) t xs
@@ -35,6 +54,15 @@ applyFunction fn@Function{..} tyargs args
 applyAbsFunc :: AbsFunc a -> [Type a] -> [Expr a] -> Expr a
 applyAbsFunc AbsFunc{..} tyargs args
   = Gbl (Global abs_func_name abs_func_type tyargs FunctionNS) :@: args
+
+class Project a where
+  project :: a -> Int -> a
+
+conProjs :: Project a => Global a -> [Global a]
+conProjs (Global k (PolyType tvs arg_tys res_ty) ts _)
+  = [ Global (project k i) (PolyType tvs [res_ty] arg_ty) ts FunctionNS {- NS? -}
+    | (i,arg_ty) <- zip [0..] arg_tys
+    ]
 
 atomic :: Expr a -> Bool
 atomic (_ :@: []) = True
