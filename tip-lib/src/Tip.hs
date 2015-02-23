@@ -153,6 +153,7 @@ applyType tvs tys ty
     m = Map.fromList (zip tvs tys)
 
 applyPolyType :: Ord a => PolyType a -> [Type a] -> ([Type a], Type a)
+applyPolyType NoPolyType   tys = ([NoType | _ <- tys],NoType)
 applyPolyType PolyType{..} tys =
   (map (applyType polytype_tvs tys) polytype_args,
    applyType polytype_tvs tys polytype_res)

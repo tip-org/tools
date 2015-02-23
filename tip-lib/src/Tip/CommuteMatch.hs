@@ -6,6 +6,7 @@ module Tip.CommuteMatch where
 #include "errors.h"
 import Tip
 import Tip.Fresh
+import Tip.Pretty
 
 import Data.Generics.Geniplate
 import Control.Applicative
@@ -31,8 +32,9 @@ commuteMatch = transformExprInM $ \ e0 ->
              | Case lhs rhs <- alts
              ]
 
-    Lam{}   -> ERROR("Lam")
-    Let{}   -> ERROR("Let")
+    Lam{}   -> ERROR("Lam: " ++ ppRender e0)
+
+    Let x b e -> Let x b <$> commuteMatch e
 
     _ -> return e0
 

@@ -104,15 +104,20 @@ f <.> x = f <*> pure x
 
 unrollDefault :: forall m . (Applicative m,MonadUnique m) => Type -> [CoreAlt] -> m [CoreAlt]
 unrollDefault t alts0 = case findDefault alts0 of
-    (alts,Nothing)      -> return alts
     (alts,Just def_rhs) -> case alts of
-        (DataAlt dc,_,_):_ -> unroll (dataConTyCon dc) alts def_rhs
+        (DataAlt dc,_,_):_ | missing (dataConTyCon dc) alts <= 1 -> unroll (dataConTyCon dc) alts def_rhs
         (LitAlt _  ,_,_):_ -> return alts0
         (DEFAULT   ,_,_):_ -> error "RemoveDefault.unrollDefault: duplicate DEFAULT"
-        []                 -> return alts0
+        _                  -> return alts0
             -- only DEFAULT, this can be remedied by looking at the TyCon from
             -- the case scrutinee expression's type
+    (alts,_)      -> return alts
   where
+    missing :: TyCon -> [CoreAlt] -> Int
+    missing ty_con alts = case tyConDataCons_maybe ty_con of
+        Just dcs -> sum [ 1 | Nothing <- map (findAlt alts) dcs ]
+        Nothing  -> error "RemoveDefault.unrollDefault: non-data TyCon?"
+
     unroll :: TyCon -> [CoreAlt] -> CoreExpr -> m [CoreAlt]
     unroll ty_con alts rhs = case tyConDataCons_maybe ty_con of
         Just dcs -> forM dcs $ \ dc ->

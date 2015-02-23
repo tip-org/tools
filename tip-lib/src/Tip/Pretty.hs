@@ -75,6 +75,7 @@ instance Pretty a => Pretty (Type a) where
   pp (TyCon tc ts)    = expr (pp tc) (map pp ts)
   pp (ts :=>: r)      = parExpr "=>" (map pp (ts ++ [r]))
   pp (BuiltinType bt) = pp bt
+  pp NoType           = "_"
 
 instance Pretty BuiltinType where
   pp Integer = "int"
@@ -118,3 +119,7 @@ instance Pretty a => Pretty (Theory a) where
 
 instance Pretty Int where
   pp = int
+
+instance (Pretty a,Pretty b) => Pretty (a,b) where
+  pp (a,b) = parens (pp a <> "," $\ pp b)
+

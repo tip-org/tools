@@ -68,11 +68,13 @@ data Pattern a
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Polymorphic types
-data PolyType a = PolyType
-  { polytype_tvs  :: [a]
-  , polytype_args :: [Type a]
-  , polytype_res  :: Type a
-  }
+data PolyType a =
+  PolyType
+    { polytype_tvs  :: [a]
+    , polytype_args :: [Type a]
+    , polytype_res  :: Type a
+    }
+  | NoPolyType
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Types
@@ -81,6 +83,7 @@ data Type a
   | TyCon a [Type a]
   | [Type a] :=>: Type a
   | BuiltinType BuiltinType
+  | NoType
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data BuiltinType
@@ -147,6 +150,7 @@ instanceUniverseBi [t| forall a . (Expr a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Global a) |]
 instanceUniverseBi [t| forall a . (Function a,Type a) |]
+instanceUniverseBi [t| forall a . (Datatype a,Type a) |]
 instanceUniverseBi [t| forall a . (Expr a,Pattern a) |]
 instanceUniverseBi [t| forall a . (Expr a,Local a) |]
 instanceUniverseBi [t| forall a . (Expr a,Global a) |]
@@ -154,9 +158,12 @@ instanceUniverseBi [t| forall a . (Theory a,Expr a) |]
 instanceUniverseBi [t| forall a . (Type a,Type a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]
-instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
-instanceTransformBi [t| forall a . (Local a,Expr a) |]
 instanceTransformBi [t| forall a . (Expr a,Theory a) |]
+instanceTransformBi [t| forall a . (Head a,Expr a) |]
+instanceTransformBi [t| forall a . (Head a,Theory a) |]
+instanceTransformBi [t| forall a . (Local a,Expr a) |]
+instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
+instanceTransformBi [t| forall a . (Pattern a,Theory a) |]
 instanceTransformBi [t| forall a . (Type a,Type a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])

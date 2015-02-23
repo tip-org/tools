@@ -8,12 +8,13 @@ import Data.List
 
 data SimplifyOpts a =
   SimplifyOpts {
+    touch_lets    :: Bool,
     should_inline :: Expr a -> Bool
   }
 
 gently, aggressively :: SimplifyOpts a
-gently       = SimplifyOpts atomic
-aggressively = SimplifyOpts (const True)
+gently       = SimplifyOpts True atomic
+aggressively = SimplifyOpts True (const True)
 
 simplifyExpr :: (TransformBiM Fresh (Expr a) (f a), Name a) => SimplifyOpts a -> f a -> Fresh (f a)
 simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
@@ -26,10 +27,10 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
                  _  -> apply (Lam (map fst keep) body') (map snd keep)
       simplifyExpr opts e'
 
-    Let var val body | inlineable body var val ->
+    Let var val body | touch_lets && inlineable body var val ->
       (val // var) body >>= simplifyExpr opts
 
-    Match (Let var val body) alts ->
+    Match (Let var val body) alts | touch_lets ->
       simplifyExpr opts (Let var val (Match body alts))
 
     Match (hd :@: args) alts ->
