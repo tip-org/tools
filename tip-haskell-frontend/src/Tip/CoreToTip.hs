@@ -179,7 +179,7 @@ trExpr e0 = case collectTypeArgs e0 of
         e' <- local (v:) (trExpr e)
         return (Tip.Let (Local (idFromVar v) vt) b' e')
 
-    (C.Let C.Rec{} _, _) -> fail "Recursive local bindings!"
+    (C.Let C.Rec{} _, _) -> fail $ "Recursive local bindings!" ++ showOutputable e0
       -- need to lift them now immediately to support it
       -- which is probably a good idea anyway
       -- need to know the type variables in scope to do that
