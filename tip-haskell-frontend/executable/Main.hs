@@ -26,29 +26,29 @@ main = do
     thy <- readHaskellFile Params
       { file = f
       , include = []
-      , flags = [PrintCore,PrintProps,PrintExtraIds]
-      , only = []
+      , flags = [] -- [PrintCore,PrintProps,PrintExtraIds]
+      , only = es -- []
       , extra = []
-      , extra_trans = es
+      , extra_trans = [] -- es
       }
-    putStrLn (ppRender thy)
+    -- putStrLn (ppRender thy)
     let rnm = renameWith disambigId thy
     let dlm = runFreshFrom (maximumOn varMax rnm)
-                           (letLift =<< lambdaLift =<< delambda rnm)
-    putStrLn "\n == After delambda and defunctionalization:"
+                           ({- letLift =<< lambdaLift =<< -} delambda rnm)
+    -- putStrLn "\n == After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
-    putStrLn "\n == After collapse equal:"
-    putStrLn (ppRender (collapseEqual dlm))
-    putStrLn "\n == After axiomatization:"
-    let after_ax = axiomatizeLambdas (collapseEqual dlm)
-    putStrLn (ppRender after_ax)
-    putStrLn "\n == After commute match:"
-    let commute = runFreshFrom (maximumOn varMax after_ax)
-                               (commuteMatch after_ax)
-    putStrLn (ppRender commute)
-    putStrLn "\n == After axiomatize function definitions:"
-    let ax_fns = axiomatizeFuncdefs commute
-    putStrLn (ppRender ax_fns)
+    -- putStrLn "\n == After collapse equal:"
+    -- putStrLn (ppRender (collapseEqual dlm))
+    -- putStrLn "\n == After axiomatization:"
+    -- let after_ax = axiomatizeLambdas (collapseEqual dlm)
+    -- putStrLn (ppRender after_ax)
+    -- putStrLn "\n == After commute match:"
+    -- let commute = runFreshFrom (maximumOn varMax after_ax)
+    --                            (commuteMatch after_ax)
+    -- putStrLn (ppRender commute)
+    -- putStrLn "\n == After axiomatize function definitions:"
+    -- let ax_fns = axiomatizeFuncdefs commute
+    -- putStrLn (ppRender ax_fns)
 
 maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
 maximumOn f = f . F.maximumBy (comparing f)
@@ -60,9 +60,6 @@ varMax :: Var -> Int
 varMax Var{}         = 0
 varMax (Proj v _)    = varMax v
 varMax (Refresh v i) = varMax v `max` i
-
-instance Project Var where
-  project = Proj
 
 instance Pretty Var where
   pp (Proj x i)    = pp x <> text "_" <> int i

@@ -96,9 +96,11 @@ trTyCon tc = do
             (throwError (msgNonVanillaDataCon dc tc))
         let dc_tys = dataConInstArgTys dc (map mkTyVarTy tc_tvs)
         ts <- mapM trType dc_tys
+        let cn = idFromDataCon dc
         return Constructor
-            { con_name = idFromDataCon dc
-            , con_args = ts
+            { con_name    = cn
+            , con_discrim = Discrim cn
+            , con_args    = map (Project cn) [0..] `zip` ts
             }
 
 -- | Translate a definition

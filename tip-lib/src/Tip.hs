@@ -8,6 +8,9 @@ module Tip(module Tip, module Tip.Types) where
 import Tip.Types
 import Tip.Fresh
 import Tip.Utils
+import Data.Foldable (Foldable)
+import qualified Data.Foldable as F
+import Data.Graph
 import Data.Generics.Geniplate
 import Data.List ((\\))
 import Control.Monad
@@ -54,15 +57,6 @@ applyFunction fn@Function{..} tyargs args
 applyAbsFunc :: AbsFunc a -> [Type a] -> [Expr a] -> Expr a
 applyAbsFunc AbsFunc{..} tyargs args
   = Gbl (Global abs_func_name abs_func_type tyargs FunctionNS) :@: args
-
-class Project a where
-  project :: a -> Int -> a
-
-conProjs :: Project a => Global a -> [Global a]
-conProjs (Global k (PolyType tvs arg_tys res_ty) ts _)
-  = [ Global (project k i) (PolyType tvs [res_ty] arg_ty) ts FunctionNS {- NS? -}
-    | (i,arg_ty) <- zip [0..] arg_tys
-    ]
 
 atomic :: Expr a -> Bool
 atomic (_ :@: []) = True
@@ -184,3 +178,28 @@ builtinType At{} (e:_) =
     _ :=>: res -> res
     _ -> ERROR("ill-typed lambda application")
 builtinType At{} _ = ERROR("ill-formed lambda application")
+
+class Definition f where
+  defines :: f a -> a
+  uses    :: f a -> [a]
+
+instance Definition Function where
+  defines = func_name
+  uses    = F.toList
+
+instance Definition Datatype where
+  defines = data_name
+  uses    = F.toList
+
+sortThings :: Ord name => (thing -> name) -> (thing -> [name]) -> [thing] -> [[thing]]
+sortThings name refers things =
+    map flattenSCC $ stronglyConnComp
+        [ (thing,name thing,filter (`elem` names) (refers thing))
+        | thing <- things
+        ]
+  where
+    names = map name things
+
+topsort :: (Ord a,Definition f) => [f a] -> [[f a]]
+topsort = sortThings defines uses
+

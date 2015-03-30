@@ -11,6 +11,7 @@ import Control.Applicative
 import Data.Either
 import Data.List (delete, inits)
 
+-- BROKEN: Need to check if we alread renamed this
 renameVars :: Traversable f => (a -> Bool) -> f a -> f (Either a Int)
 renameVars is_var t = runFresh (traverse rename t)
   where

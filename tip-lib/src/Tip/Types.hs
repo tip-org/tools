@@ -22,7 +22,7 @@ data Global a = Global
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data Namespace = FunctionNS | ConstructorNS
+data Namespace = FunctionNS | ConstructorNS | ProjectNS | DiscriminateNS
   deriving (Eq,Ord,Show)
 
 infix 5 :@:
@@ -117,10 +117,9 @@ data Datatype a = Datatype
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Constructor a = Constructor
-  { con_name :: a
-  , con_args :: [Type a]
-
-  --   arguments that are bound in the data type
+  { con_name    :: a
+  , con_discrim :: a
+  , con_args    :: [(a,Type a)]
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -177,6 +176,8 @@ instance Monad m => TransformBiM m (Expr a) (Theory a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Theory a -> m (Theory a) |])
 instance Monad m => TransformBiM m (Type a) (Type a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Type a -> m (Type a)) -> Type a -> m (Type a) |])
+instance Monad m => TransformBiM m (Function a) (Theory a) where
+  transformBiM = $(genTransformBiM' [t| forall m a . (Function a -> m (Function a)) -> Theory a -> m (Theory a) |])
 
 transformExpr :: (Expr a -> Expr a) -> Expr a -> Expr a
 transformExpr = transformBi

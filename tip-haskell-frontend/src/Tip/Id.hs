@@ -76,6 +76,8 @@ data Id
                      (Maybe TyCon) -- There might come more tycons from the signature
     | GHCPrim PrimOp
     | Eta Int
+    | Discrim Id
+    | Project Id Int
     {-
     | OtherPrim OtherPrim
     | Derived Derived Integer
@@ -89,6 +91,8 @@ instance Show Id where
     show (GHCOrigin n _ _) = show (showOutputable n)
     show (GHCPrim po)      = "PrimOp"
     show (Eta n)           = "eta" ++ show n
+    show (Discrim c)       = "is-" ++ show c
+    show (Project c i)     = show c ++ "_" ++ show i
 
 instance Pretty Id where
     pp = text . ppId
@@ -97,6 +101,13 @@ ppId :: Id -> String
 ppId (GHCOrigin nm _ _) = ppName nm
 ppId (GHCPrim po)       = "PrimOp"
 ppId (Eta n)            = "eta" ++ show n
+ppId (Discrim c)        = "is-" ++ show c
+ppId (Project c i)      = case (i,ppId c) of
+                            (0,"Cons") -> "head"
+                            (1,"Cons") -> "tail"
+                            (0,"S")    -> "p"
+                            (0,"Succ") -> "pred"
+                            _          -> ppId c ++ "_" ++ show i
 
 ppName :: Name -> String
 ppName nm

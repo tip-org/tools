@@ -10,7 +10,15 @@ import Tip.Fresh
 import Data.Generics.Geniplate
 import Control.Applicative
 
-axiomatizeFuncdefs :: Project a => Theory a -> Theory a
+--conProjs :: Project a => Global a -> [Global a]
+conProjs = undefined
+{- (Global k (PolyType tvs arg_tys res_ty) ts _)
+  = [ Global (project k i) (PolyType tvs [res_ty] arg_ty) ts ProjectNS
+    | (i,arg_ty) <- zip [0..] arg_tys
+    ]
+    -}
+
+axiomatizeFuncdefs :: Theory a -> Theory a
 axiomatizeFuncdefs thy@Theory{..} =
   thy{
     thy_func_decls     = [],
@@ -33,7 +41,7 @@ axiomatizeFuncdefs thy@Theory{..} =
 --
 -- (TODO)
 
-axiomatize :: forall a . Project a => Function a -> (AbsFunc a, Formula a)
+axiomatize :: forall a . Function a -> (AbsFunc a, Formula a)
 axiomatize fn@Function{..} =
   ( AbsFunc func_name (funcType fn)
   , Formula Assert func_tvs (ax func_body)
