@@ -60,8 +60,7 @@ data Lit
 
 -- | Patterns in branches
 data Pattern a
-    -- Default should be first if there is a default case,
-    -- and the cases should be exhaustive
+    -- Default should be first if there is a default case
   = Default
   | ConPat { pat_con  :: Global a, pat_args :: [Local a] }
   | LitPat Lit
