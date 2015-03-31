@@ -36,15 +36,15 @@ ppDatas datatypes@(Datatype _ tyvars _:_) =
 
 ppData :: Pretty a => Datatype a -> Doc
 ppData (Datatype tycon _ datacons) =
-  apply (pp tycon) (fsep (map ppCon datacons))
+  parExpr (pp tycon) (map ppCon datacons)
 
 ppCon :: Pretty a => Constructor a -> Doc
 ppCon (Constructor datacon _ args) =
-  apply (pp datacon) (fsep [apply (pp p) (ppType t) | (p,t) <- args])
+  parExpr (pp datacon) [apply (pp p) (ppType t) | (p,t) <- args]
 
 par :: Pretty a => [a] -> Doc -> Doc
 par [] d = d
-par xs d = parExpr "par" [fsep (map pp xs), parens d]
+par xs d = parExpr "par" [parens (fsep (map pp xs)), parens d]
 
 ppUninterp :: Pretty a => AbsFunc a -> Doc
 ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
@@ -123,4 +123,21 @@ ppType (ts :=>: r)   = parExpr "=>" (map ppType (ts ++ [r]))
 ppType NoType        = "_"
 ppType (BuiltinType Integer) = "int"
 ppType (BuiltinType Boolean) = "bool"
+
+-- Temporary use SMTLIB as the pretty printer:
+
+instance (Ord a,Pretty a) => Pretty (Theory a) where
+  pp = ppTheory
+
+instance Pretty a => Pretty (Expr a) where
+  pp = ppExpr
+
+instance Pretty a => Pretty (Type a) where
+  pp = ppType
+
+instance Pretty a => Pretty (Function a) where
+  pp = ppFunc
+
+instance Pretty a => Pretty (Formula a) where
+  pp = ppFormula
 

@@ -7,6 +7,7 @@ module Tip.CommuteMatch where
 import Tip
 import Tip.Fresh
 import Tip.Pretty
+import Tip.Pretty.SMT
 
 import Data.Generics.Geniplate
 import Control.Applicative
@@ -32,7 +33,7 @@ commuteMatch = transformExprInM $ \ e0 ->
              | Case lhs rhs <- alts
              ]
 
---    Lam{}   -> ERROR("Lam: " ++ ppRender e0)
+    Lam{}   -> ERROR("Lam: " ++ ppRender e0)
 
     Let x b e -> Let x b <$> commuteMatch e
 

@@ -213,6 +213,7 @@ ifView :: Expr a -> Maybe (Expr a,Expr a,Expr a)
 ifView (Match c [Case _ e1,Case (LitPat (Bool b)) e2])
   | b         = Just (c,e2,e1)
   | otherwise = Just (c,e1,e2)
+ifView _ = Nothing
 
 makeIf :: Expr a -> Expr a -> Expr a -> Expr a
 makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
@@ -223,4 +224,12 @@ constructor Datatype{..} ty_args Constructor{..} =
   Global con_name polyType ty_args ConstructorNS
   where
      polyType = PolyType data_tvs (map snd con_args) (TyCon data_name (map TyVar data_tvs))
+
+projAt :: Expr a -> Maybe (Expr a,Expr a)
+projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)
+projAt _                          = Nothing
+
+projGlobal :: Expr a -> Maybe a
+projGlobal (Gbl (Global x _ _ _) :@: []) = Just x
+projGlobal _                             = Nothing
 

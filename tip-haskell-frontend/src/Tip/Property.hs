@@ -4,6 +4,7 @@ module Tip.Property where
 import Tip
 import Tip.Id
 import Tip.Pretty
+import Tip.Pretty.SMT
 
 import Tip.ParseDSL
 import Tip.GHCUtils
@@ -44,12 +45,4 @@ parseProperty e0@(projAt -> Just (projAt -> Just (projGlobal -> Just x,e1),e2))
 parseProperty (projAt -> Just (projGlobal -> Just x,e1))
   | isProveBool x = return ([],e1) -- e1 === tt?
 parseProperty e0 = throwError $ "Cannot parse property: " ++ ppRender e0
-
-projAt :: Expr a -> Maybe (Expr a,Expr a)
-projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)
-projAt _                          = Nothing
-
-projGlobal :: Expr a -> Maybe a
-projGlobal (Gbl (Global x _ _ _) :@: []) = Just x
-projGlobal _                             = Nothing
 
