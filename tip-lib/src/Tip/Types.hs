@@ -33,10 +33,13 @@ data Expr a
   | Lam [Local a] (Expr a)
   | Match (Expr a) [Case a]
   | Let (Local a) (Expr a) (Expr a)
-  | Quant Quant (Local a) (Expr a)
+  | Quant QuantInfo Quant [Local a] (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Quant = Forall | Exists
+  deriving (Eq,Ord,Show)
+
+data QuantInfo = NoInfo
   deriving (Eq,Ord,Show)
 
 data Case a = Case { case_pat :: Pattern a, case_rhs :: Expr a }
@@ -126,7 +129,7 @@ data Constructor a = Constructor
 data Theory a = Theory
   { thy_data_decls     :: [Datatype a]
   , thy_abs_type_decls :: [AbsType a] -- change to thy_sort_decls and Sort?
-  , thy_abs_func_decls :: [AbsFunc a] -- change to thy_abs_decls and Abstract?
+  , thy_abs_func_decls :: [AbsFunc a] -- change to thy_abs_decls and Abstract? (Or uninterpreted)
   , thy_func_decls     :: [Function a]
   , thy_form_decls     :: [Formula a]
   }
@@ -137,13 +140,6 @@ data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
 
 data Role = Assert | Prove
   deriving (Eq,Ord,Show)
-
-collectQuant :: Expr a -> ([Local a],Expr a)
-collectQuant e0@(Quant q _ _) = go e0
-  where
-    go (Quant q' x t) | q' == q = let (xs,tm) = go t in (x:xs,tm)
-    go e = ([],e)
-collectQuant e = ([],e)
 
 instanceUniverseBi [t| forall a . (Expr a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Expr a) |]

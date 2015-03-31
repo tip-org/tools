@@ -26,6 +26,7 @@ library
     Tip.WorkerWrapper
     Tip.Simplify
     Tip.Pretty
+    Tip.Pretty.SMT
 
   hs-source-dirs:      src
   include-dirs:        src

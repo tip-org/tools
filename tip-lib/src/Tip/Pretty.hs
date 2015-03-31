@@ -5,24 +5,24 @@ import Text.PrettyPrint
 
 import Tip.Types
 
-infixr 1 $\
+infixl 1 $\
 
 ($\) :: Doc -> Doc -> Doc
 d1 $\ d2 = hang d1 2 d2
 
-expr,parExpr :: Doc -> [Doc] -> Doc
-parExpr s [] = "(" <> s <> ")"
-parExpr s xs = ("(" <> s) $\ fsep (init xs ++ [last xs<>")"])
+ppRender :: Pretty a => a -> String
+ppRender = render . pp
 
-expr s [] = s
-expr s xs = parExpr s xs
+pprint :: Pretty a => a -> IO ()
+pprint = putStrLn . ppRender
 
 class Show a => Pretty a where
   pp :: a -> Doc
 
-ppRender :: Pretty a => a -> String
-ppRender = render . pp
+instance Pretty Int where
+  pp = int
 
+{-
 instance Pretty a => Pretty (Local a) where
   pp (Local l t) = expr (pp l) [pp t]
 
@@ -117,9 +117,6 @@ instance Pretty Role where
 instance Pretty a => Pretty (Theory a) where
   pp (Theory ds ats afs fns fms) = vcat (map pp ds ++ map pp ats ++ map pp afs ++ map pp fns ++ map pp fms)
 
-instance Pretty Int where
-  pp = int
-
 instance (Pretty a,Pretty b) => Pretty (a,b) where
   pp (a,b) = parens (pp a <> "," $\ pp b)
-
+-}

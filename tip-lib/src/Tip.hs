@@ -45,7 +45,7 @@ a ==> b = Builtin Implies :@: [a,b]
 xs ===> y = foldr (==>) y xs
 
 mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
-mkQuant q xs t = foldr (Quant q) t xs
+mkQuant = Quant NoInfo
 
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
@@ -81,10 +81,10 @@ refreshLocal (Local name ty) = liftM2 Local (refresh name) (return ty)
 bound, free, locals :: Ord a => Expr a -> [Local a]
 bound e =
   usort $
-    concat [ lcls | Lam lcls _    <- universeBi e ] ++
-           [ lcl  | Let lcl _ _   <- universeBi e ] ++
-           [ lcl  | Quant _ lcl _ <- universeBi e ] ++
-    concat [ lcls | ConPat _ lcls <- universeBi e ]
+    concat [ lcls | Lam lcls _       <- universeBi e ] ++
+           [ lcl  | Let lcl _ _      <- universeBi e ] ++
+    concat [ lcls | Quant _ _ lcls _ <- universeBi e ] ++
+    concat [ lcls | ConPat _ lcls    <- universeBi e ]
 locals = usort . universeBi
 free e = locals e \\ bound e
 
@@ -202,4 +202,12 @@ sortThings name refers things =
 
 topsort :: (Ord a,Definition f) => [f a] -> [[f a]]
 topsort = sortThings defines uses
+
+ifView :: Expr a -> Maybe (Expr a,Expr a,Expr a)
+ifView (Match c [Case _ e1,Case (LitPat (Bool b)) e2])
+  | b         = Just (c,e2,e1)
+  | otherwise = Just (c,e1,e2)
+
+makeIf :: Expr a -> Expr a -> Expr a -> Expr a
+makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
 
