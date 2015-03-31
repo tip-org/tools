@@ -35,7 +35,7 @@ e1 /\ e2 = Builtin And :@: [e1,e2]
 e1 \/ e2 = Builtin Or :@: [e1,e2]
 
 ands :: [Expr a] -> Expr a
-ands [] = Builtin (Lit (Bool True)) :@: []
+ands [] = bool True
 ands xs = foldl1 (/\) xs
 
 (==>) :: Expr a -> Expr a -> Expr a
@@ -46,6 +46,9 @@ xs ===> y = foldr (==>) y xs
 
 mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
 mkQuant = Quant NoInfo
+
+bool :: Bool -> Expr a
+bool = literal . Bool
 
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
@@ -74,6 +77,9 @@ updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
 
 freshLocal :: Name a => Type a -> Fresh (Local a)
 freshLocal ty = liftM2 Local fresh (return ty)
+
+freshArgs :: Name a => Global a -> Fresh [Local a]
+freshArgs gbl = mapM freshLocal (polytype_args (gbl_type gbl))
 
 refreshLocal :: Name a => Local a -> Fresh (Local a)
 refreshLocal (Local name ty) = liftM2 Local (refresh name) (return ty)
@@ -210,4 +216,11 @@ ifView (Match c [Case _ e1,Case (LitPat (Bool b)) e2])
 
 makeIf :: Expr a -> Expr a -> Expr a -> Expr a
 makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
+
+-- Turn a Constructor into a Global.
+constructor :: Datatype a -> [Type a] -> Constructor a -> Global a
+constructor Datatype{..} ty_args Constructor{..} =
+  Global con_name polyType ty_args ConstructorNS
+  where
+     polyType = PolyType data_tvs (map snd con_args) (TyCon data_name (map TyVar data_tvs))
 

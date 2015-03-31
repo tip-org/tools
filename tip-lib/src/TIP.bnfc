@@ -1,0 +1,37 @@
+comment ";";
+Start. Start ::= [Decl];
+
+[].  [Decl] ::= "(" "check-sat" ")";
+(:). [Decl] ::= "(" Decl ")"  [Decl];
+
+DeclareDatatypes. Decl ::= "declare-datatypes" TypeVars "(" [Datatype] ")";
+DeclareSort.      Decl ::= "declare-sort" Symbol "0";
+DeclareFun.       Decl ::= "declare-fun" FunDecl;
+DefineFun.        Decl ::= "define-fun-rec" "(" [FunDef] ")";
+
+ParFunDef.  FunDef ::= "(" "par" "(" [Symbol] ")" InnerFunDef ")";
+MonoFunDef. FunDef ::= InnerFunDef;
+InnerFunDef. InnerFunDef ::= "(" Symbol "(" [Binding] ")" Type Expr ")";
+
+ParFunDecl. FunDecl ::= "(" "par" "(" [Symbol] ")" "(" InnerFunDecl ")" ")";
+MonoFunDecl. FunDecl ::= InnerFunDecl;
+InnerFunDecl. InnerFunDecl ::= Symbol "(" [Type] ")" Type;
+
+Datatype. Datatype ::= "(" Symbol [Constructor] ")";
+Constructor.  Constructor ::= "(" Symbol [Binding] ")";
+Binding. Binding ::= "(" Symbol Type ")";
+Type.  Type ::= Symbol;
+TyApp. Type ::= "(" Symbol [Type] ")";
+TypeVars.   TypeVars ::= "(" [Symbol] ")";
+
+Expr. Expr ::= Symbol;
+
+terminator Datatype "";
+terminator Constructor "";
+terminator Binding "";
+terminator Symbol "";
+terminator Type "";
+terminator FunDecl "";
+terminator FunDef "";
+
+position token Symbol (letter|["~!@$%^&*_-+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
