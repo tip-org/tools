@@ -5,7 +5,7 @@ module Tip.WorkerWrapper where
 import Tip
 import Tip.Fresh
 import Tip.Simplify
-import qualified Data.Map.Strict as Map
+import qualified Data.Map as Map
 import Data.Maybe
 
 data WorkerWrapper a = WorkerWrapper

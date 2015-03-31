@@ -25,8 +25,6 @@ import qualified Data.Map as M
 import Data.Maybe (isNothing)
 import System.Directory
 import System.Exit
-import System.FilePath
-import System.Process
 
 import qualified Id as GHC
 import qualified CoreSubst as GHC

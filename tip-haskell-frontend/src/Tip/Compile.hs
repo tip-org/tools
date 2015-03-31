@@ -55,12 +55,10 @@ compileHaskellFile params@Params{..} = do
                         `gopt_unset` Opt_IgnoreInterfacePragmas
                         `gopt_unset` Opt_OmitInterfacePragmas
                         `gopt_set` Opt_ExposeAllUnfoldings
-                        `xopt_set` Opt_TypeOperators
 #else
                         `dopt_unset` Opt_IgnoreInterfacePragmas
                         `dopt_unset` Opt_OmitInterfacePragmas
                         `dopt_set` Opt_ExposeAllUnfoldings
-                        `dopt_set` Opt_TypeOperators
 #endif
         _ <- setSessionDynFlags dflags
 

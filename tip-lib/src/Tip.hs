@@ -14,7 +14,7 @@ import Data.Graph
 import Data.Generics.Geniplate
 import Data.List ((\\))
 import Control.Monad
-import qualified Data.Map.Strict as Map
+import qualified Data.Map as Map
 
 updateLocalType :: Type a -> Local a -> Local a
 updateLocalType ty (Local name _) = Local name ty

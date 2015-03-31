@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternGuards, TypeSynonymInstances, FlexibleInstances, ViewPatterns, ExplicitForAll #-}
 {-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, NamedFieldPuns #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Tip.Dicts (inlineDicts,maybeUnfolding) where
 
@@ -46,7 +47,11 @@ inlineDicts = transformBi $ \ e0 -> case e0 of
         -> case maybeUnfolding f of
             Just (collectBinders -> (_,Case _ _ _ [(_,ss,Var s)]))
               | Just i <- elemIndex s ss -> case realIdUnfolding d of
+#if __GLASGOW_HASKELL__ == 706
+                DFunUnfolding _ _ es -> drop (length es - length ss) (dfunArgExprs es) !! i
+#else
                 DFunUnfolding _ _ es -> drop (length es - length ss) es !! i
+#endif
                 CoreUnfolding{uf_tmpl} ->
                     let (_,es) = collectArgs uf_tmpl
                     in  drop (length es - length ss) es !! i

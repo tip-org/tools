@@ -19,7 +19,6 @@ import Data.Char (toUpper)
 #ifdef SUPPORT_JSON
 import Data.Aeson
 #endif
-import GHC.Generics
 import PrimOp
 
 import Data.Map (Map)
