@@ -9,11 +9,11 @@ import qualified Data.Map as Map
 import Data.Maybe
 
 data WorkerWrapper a = WorkerWrapper
-  { ww_func :: Function a
-  , ww_args :: [Local a]
-  , ww_res  :: Type a
-  , ww_def  :: Expr a -> Expr a
-  , ww_use  :: Head a -> [Expr a] -> Fresh (Expr a)
+  { ww_func :: Function a                           -- ^ The function to transform
+  , ww_args :: [Local a]                            -- ^ New function argument type
+  , ww_res  :: Type a                               -- ^ New function result type
+  , ww_def  :: Expr a -> Expr a                     -- ^ Transform function body
+  , ww_use  :: Head a -> [Expr a] -> Fresh (Expr a) -- ^ Transform call to function
   }
 
 workerWrapperTheory :: Name a => (Theory a -> Fresh [WorkerWrapper a]) -> Theory a -> Fresh (Theory a)
