@@ -52,6 +52,14 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
         matches _ Default = True
         matches _ _ = False
 
+    Builtin Equal :@: [Builtin (Lit (Bool x)) :@: [], t]
+      | x -> return t
+      | otherwise -> return $ neg t
+
+    Builtin Equal :@: [t, Builtin (Lit (Bool x)) :@: []]
+      | x -> return t
+      | otherwise -> return $ neg t
+
     Builtin Equal :@: [t, u] ->
       case exprType t of
         args :=>: _ -> do
