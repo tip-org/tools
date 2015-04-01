@@ -169,6 +169,7 @@ instanceTransformBi [t| forall a . (Head a,Theory a) |]
 instanceTransformBi [t| forall a . (Local a,Expr a) |]
 instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
 instanceTransformBi [t| forall a . (Pattern a,Theory a) |]
+instanceTransformBi [t| forall a . (Type a,Theory a) |]
 instanceTransformBi [t| forall a . (Type a,Type a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
