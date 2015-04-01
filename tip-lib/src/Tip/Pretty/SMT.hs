@@ -90,11 +90,19 @@ ppHead (Builtin b) = ppBuiltin b
 
 ppBuiltin :: Builtin -> Doc
 ppBuiltin (Lit lit) = ppLit lit
+ppBuiltin Not       = "not"
 ppBuiltin And       = "and"
 ppBuiltin Or        = "or"
 ppBuiltin Implies   = "=>"
 ppBuiltin Equal     = "="
 ppBuiltin Distinct  = "distinct"
+ppBuiltin IntAdd    = "+"
+ppBuiltin IntSub    = "-"
+ppBuiltin IntMul    = "*"
+ppBuiltin IntGt     = ">"
+ppBuiltin IntGe     = ">="
+ppBuiltin IntLt     = "<"
+ppBuiltin IntLe     = "<="
 ppBuiltin At{}      = "@"
 
 ppLit :: Lit -> Doc

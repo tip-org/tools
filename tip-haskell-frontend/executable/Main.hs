@@ -17,6 +17,7 @@ import Tip.Fresh
 import Tip.Utils.Renamer
 import Tip.Pretty
 import Tip.EqualFunctions
+import Tip.Simplify
 
 import Text.PrettyPrint
 
@@ -34,7 +35,7 @@ main = do
     -- putStrLn (ppRender thy)
     let rnm = renameWith disambigId thy
     let dlm = runFreshFrom (maximumOn varMax rnm)
-                           ({- letLift =<< lambdaLift =<< -} delambda rnm)
+                           ({- letLift =<< lambdaLift =<< -} simplifyExpr aggressively =<< commuteMatch =<< simplifyExpr aggressively =<< delambda rnm)
     -- putStrLn "\n == After delambda and defunctionalization:"
     putStrLn (ppRender dlm)
     -- putStrLn "\n == After collapse equal:"

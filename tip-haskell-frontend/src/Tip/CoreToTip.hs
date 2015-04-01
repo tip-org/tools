@@ -4,6 +4,8 @@
 -- | Translation from GHC Core to the Tip IR
 module Tip.CoreToTip where
 
+import Prelude hiding (log)
+
 import Control.Applicative
 import Control.Monad.Error
 import Control.Monad.Reader
@@ -22,6 +24,9 @@ import CoreSyn as C
 
 import Data.Char (ord)
 
+import PrimOp
+
+import Unique
 import DataCon
 import Literal
 import Var hiding (Id)
@@ -29,10 +34,15 @@ import TyCon hiding (data_cons)
 import Type as C
 import GHC (dataConType)
 
+import TysWiredIn
+
 import qualified TysPrim
 import qualified PrelNames
 
 import IdInfo
+import Name
+
+import Outputable
 
 import Tip.GHCUtils (showOutputable,rmClass)
 import Tip.DataConPattern
@@ -119,6 +129,9 @@ trDefn v e = do
         , func_body    = body'
         }
 
+log :: Outputable a => a -> b -> b
+log x = trace (showOutputable x)
+
 -- | Translating variables
 --
 -- Need to conflate worker and wrapper data constructors otherwise
@@ -126,6 +139,13 @@ trDefn v e = do
 -- (example: created tuples in partition's where clause)
 -- It is unclear what disasters this might bring.
 trVar :: Var -> [Tip.Type Id] -> TM (Tip.Expr Id)
+trVar x [] | x == trueDataConId  = return (bool True)
+trVar x [] | x == falseDataConId = return (bool False)
+trVar x _
+  | tip:_ <- [ tip
+             | (ghc,tip) <- primops
+             , getUnique (getOccName x) == getUnique (primOpOcc ghc)
+             ] = return tip
 trVar x tys = do
     ty <- lift (trPolyType (varType x))
     lcl <- asks (x `elem`)
@@ -145,6 +165,12 @@ trVar x tys = do
           etas = zipWith (Local . Eta) [0..] args
           args = polytype_args (gbl_type gbl)
           lam lcl body = Tip.Lam [lcl] body
+
+trPattern :: DataCon -> PolyType Id -> [Tip.Type Id] -> [Tip.Local Id] -> Pattern Id
+trPattern dc _ [] []
+  | dc == trueDataCon  = LitPat (Bool True)
+  | dc == falseDataCon = LitPat (Bool False)
+trPattern dc ty tys args = ConPat (trConstructor dc ty tys) args
 
 trConstructor :: DataCon -> PolyType Id -> [Tip.Type Id] -> Global Id
 trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) tys ConstructorNS
@@ -212,7 +238,7 @@ trExpr e0 = case collectTypeArgs e0 of
                                 rhs' <- local (bs++) (trExpr rhs)
                                 dct <- lift (trPolyType (dataConType dc))
                                 return $ Tip.Case
-                                    (ConPat (trConstructor dc dct tys') (map (uncurry Local) bs'))
+                                    (trPattern dc dct tys' (map (uncurry Local) bs'))
                                     rhs'
                             Nothing -> throw (unif_err (Just u))
                         Nothing -> throw (unif_err Nothing)
@@ -264,8 +290,9 @@ throw :: String -> TM a
 throw = lift . throwError
 
 essentiallyInteger :: TyCon -> Bool
-essentiallyInteger tc = tc == TysPrim.intPrimTyCon || tc == TysPrim.charPrimTyCon ||
-                        tyConUnique tc == PrelNames.integerTyConKey
+essentiallyInteger tc = tc == TysPrim.intPrimTyCon
+                     -- || tc == TysPrim.charPrimTyCon
+                     -- || tyConUnique tc == PrelNames.integerTyConKey
 
 
 trType :: C.Type -> Either String (Tip.Type Id)
@@ -273,7 +300,8 @@ trType = go . expandTypeSynonyms
   where
     go t0
         | Just (t1,t2) <- splitFunTy_maybe t0    = (\ x y -> [x] :=>: y) <$> go t1 <*> go t2
-        | Just (tc,[]) <- splitTyConApp_maybe t0, essentiallyInteger tc = return (BuiltinType Integer)
+        | Just (tc,[]) <- splitTyConApp_maybe t0, essentiallyInteger tc = return intType
+        | Just (tc,[]) <- splitTyConApp_maybe t0, tc == boolTyCon       = return boolType
         | Just (tc,ts) <- splitTyConApp_maybe t0 = TyCon (idFromTyCon tc) <$> mapM go ts
         | Just tv <- getTyVar_maybe t0           = return (TyVar (idFromTyVar tv))
         | otherwise                              = throwError (msgIllegalType t0)

@@ -30,6 +30,10 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
     Let var val body | touch_lets && inlineable body var val ->
       (val // var) body >>= simplifyExpr opts
 
+    Match e [Case _ e1,Case (LitPat (Bool b)) e2]
+      | e1 == bool (not b) && e2 == bool b -> return e
+      | e1 == bool b && e2 == bool (not b) -> return (neg e)
+
     Match (Let var val body) alts | touch_lets ->
       simplifyExpr opts (Let var val (Match body alts))
 

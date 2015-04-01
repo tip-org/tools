@@ -46,10 +46,21 @@ data Case a = Case { case_pat :: Pattern a, case_rhs :: Expr a }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Builtin
-  = Lit Lit
-  | And | Or | Implies
-  | Equal | Distinct
-  | At Int
+  = At Int
+  | Lit Lit
+  | And
+  | Or
+  | Not
+  | Implies
+  | Equal    -- might have to add a (Type a) argument later
+  | Distinct
+  | IntAdd
+  | IntSub
+  | IntMul
+  | IntGt
+  | IntGe
+  | IntLt
+  | IntLe
   deriving (Eq,Ord,Show)
 
 logicalBuiltin :: Builtin -> Bool

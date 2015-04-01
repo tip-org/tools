@@ -28,6 +28,9 @@ infixr 0 ===>
 (===) :: Expr a -> Expr a -> Expr a
 e1 === e2 = Builtin Equal :@: [e1,e2]
 
+neg :: Expr a -> Expr a
+neg e = Builtin Not :@: [e]
+
 (/\) :: Expr a -> Expr a -> Expr a
 e1 /\ e2 = Builtin And :@: [e1,e2]
 
@@ -213,6 +216,8 @@ ifView :: Expr a -> Maybe (Expr a,Expr a,Expr a)
 ifView (Match c [Case _ e1,Case (LitPat (Bool b)) e2])
   | b         = Just (c,e2,e1)
   | otherwise = Just (c,e1,e2)
+ifView (Match c [Case Default e1,Case (LitPat i@Int{}) e2])    = Just (c === literal i,e2,e1)
+ifView (Match c (Case Default e1:Case (LitPat i@Int{}) e2:es)) = Just (c === literal i,e2,Match c (Case Default e1:es))
 ifView _ = Nothing
 
 makeIf :: Expr a -> Expr a -> Expr a -> Expr a
@@ -233,3 +238,8 @@ projGlobal :: Expr a -> Maybe a
 projGlobal (Gbl (Global x _ _ _) :@: []) = Just x
 projGlobal _                             = Nothing
 
+intType :: Type a
+intType = BuiltinType Integer
+
+boolType :: Type a
+boolType = BuiltinType Boolean

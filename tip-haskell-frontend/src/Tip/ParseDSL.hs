@@ -11,11 +11,6 @@ import Data.List
 
 import Var hiding (Id)
 import TyCon (TyCon)
---import Type
---import Outputable
-
--- import HipSpec.Id
--- import HipSpec.Lang.Type
 
 varWithPropType :: Var -> Bool
 varWithPropType x = case CTT.trPolyType (varType x) of

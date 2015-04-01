@@ -151,7 +151,7 @@ extraIds p@Params{..} prop_ids = do
 
     -- Filters out silly things like
     -- Control.Exception.Base.patError and GHC.Prim.realWorld#
-    let in_scope = inScope . varToString -- see Note unqualified identifiers
+    let in_scope = inScope . varToString
 
     ids_in_scope <- filterM in_scope ids
 
