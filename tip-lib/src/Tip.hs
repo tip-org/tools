@@ -171,17 +171,25 @@ exprType (Lam args body) = map lcl_type args :=>: exprType body
 exprType (Match _ (Case _ body:_)) = exprType body
 exprType (Match _ []) = ERROR("empty case expression")
 exprType (Let _ _ body) = exprType body
-exprType Quant{} = BuiltinType Boolean
+exprType Quant{} = boolType
 
 builtinType :: Ord a => Builtin -> [Expr a] -> Type a
-builtinType (Lit Int{}) _ = BuiltinType Integer
-builtinType (Lit Bool{}) _ = BuiltinType Boolean
+builtinType (Lit Int{}) _ = intType
+builtinType (Lit Bool{}) _ = boolType
 builtinType (Lit String{}) _ = ERROR("strings are not really here")
-builtinType And _ = BuiltinType Boolean
-builtinType Or _ = BuiltinType Boolean
-builtinType Implies _ = BuiltinType Boolean
-builtinType Equal _ = BuiltinType Boolean
-builtinType Distinct _ = BuiltinType Boolean
+builtinType And _ = boolType
+builtinType Or _ = boolType
+builtinType Not _ = boolType
+builtinType Implies _ = boolType
+builtinType Equal _ = boolType
+builtinType Distinct _ = boolType
+builtinType IntAdd _ = intType
+builtinType IntSub _ = intType
+builtinType IntMul _ = intType
+builtinType IntGt _ = intType
+builtinType IntGe _ = intType
+builtinType IntLt _ = intType
+builtinType IntLe _ = intType
 builtinType At{} (e:_) =
   case exprType e of
     _ :=>: res -> res
