@@ -11,11 +11,21 @@ import Control.Applicative
 import Data.Either
 import Data.List (delete, inits)
 
--- BROKEN: Need to check if we alread renamed this
-renameVars :: Traversable f => (a -> Bool) -> f a -> f (Either a Int)
-renameVars is_var t = runFresh (traverse rename t)
+import Data.Map (Map)
+import qualified Data.Map as M
+
+import Control.Monad.State
+
+renameVars :: forall f a . (Ord a,Traversable f) => (a -> Bool) -> f a -> f (Either a Int)
+renameVars is_var t = runFresh (evalStateT (traverse rename t) M.empty)
   where
-    rename x | is_var x = Right <$> fresh
+    rename :: a -> StateT (Map a Int) Fresh (Either a Int)
+    rename x | is_var x = do my <- gets (M.lookup x)
+                             case my of
+                               Just y  -> do return (Right y)
+                               Nothing -> do y <- lift fresh
+                                             modify (M.insert x y)
+                                             return (Right y)
     rename x = return (Left x)
 
 renameFn :: Ord a => Function a -> Function (Either a Int)

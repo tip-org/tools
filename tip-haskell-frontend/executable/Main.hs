@@ -37,9 +37,9 @@ main = do
     let dlm = runFreshFrom (maximumOn varMax rnm)
                            ({- letLift =<< lambdaLift =<< -} simplifyExpr aggressively =<< commuteMatch =<< simplifyExpr aggressively =<< delambda rnm)
     -- putStrLn "\n == After delambda and defunctionalization:"
-    putStrLn (ppRender dlm)
+    -- putStrLn (ppRender dlm)
     -- putStrLn "\n == After collapse equal:"
-    -- putStrLn (ppRender (collapseEqual dlm))
+    putStrLn (ppRender (collapseEqual (removeAliases dlm)))
     -- putStrLn "\n == After axiomatization:"
     -- let after_ax = axiomatizeLambdas (collapseEqual dlm)
     -- putStrLn (ppRender after_ax)

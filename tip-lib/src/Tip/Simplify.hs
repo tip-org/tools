@@ -17,8 +17,8 @@ gently       = SimplifyOpts True atomic
 aggressively = SimplifyOpts True (const True)
 
 simplifyExpr :: (TransformBiM Fresh (Expr a) (f a), Name a) => SimplifyOpts a -> f a -> Fresh (f a)
-simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
-  case e of
+simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
+  case e0 of
     Builtin (At _) :@: (Lam vars body:args) -> do
       let (remove, keep) = partition (uncurry (inlineable body)) (zip vars args)
       body' <- substMany remove body
@@ -40,7 +40,7 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
     Match (hd :@: args) alts ->
       -- We use reverse because the default case comes first and we want it last
       case filter (matches hd . case_pat) (reverse alts) of
-        [] -> return e
+        [] -> return e0
         Case Default body:_ -> return body
         Case (ConPat _ lcls) body:_ ->
           simplifyExpr opts $
@@ -58,9 +58,9 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e ->
           lcls <- mapM freshLocal args
           simplifyExpr opts $
             mkQuant Forall lcls (apply t (map Lcl lcls) === apply u (map Lcl lcls))
-        _ -> return e
+        _ -> return e0
 
-    _ -> return e
+    _ -> return e0
   where
     inlineable body var val = should_inline val || occurrences var body <= 1
     occurrences var body = length (filter (== var) (universeBi body))

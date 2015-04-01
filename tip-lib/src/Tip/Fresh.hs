@@ -6,7 +6,7 @@ import Control.Applicative hiding (empty)
 import Control.Monad.State
 import Control.Arrow ((&&&))
 
-newtype Fresh a = Fresh { dirty :: State Int a }
+newtype Fresh a = Fresh (State Int a)
   deriving (Monad, Applicative, Functor, MonadFix)
 
 class (Pretty a, Ord a) => Name a where
