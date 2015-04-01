@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PatternGuards #-}
 module Tip.EqualFunctions(collapseEqual, removeAliases) where
 
 import Tip
@@ -15,6 +16,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 
 import Control.Monad.State
+
+import Data.Generics.Geniplate
 
 renameVars :: forall f a . (Ord a,Traversable f) => (a -> Bool) -> f a -> f (Either a Int)
 renameVars is_var t = runFresh (evalStateT (traverse rename t) M.empty)
@@ -64,18 +67,26 @@ collapseEqual thy@(Theory{ thy_func_decls = fns0 })
 withPrevious :: [a] -> [(a,[a])]
 withPrevious xs = zip xs (inits xs)
 
+renameGlobals :: Eq a => [(a,Head a)] -> Theory a -> Theory a
+renameGlobals rns = transformBi $ \ h0 ->
+  case h0 of
+    Gbl (Global g _ _ _) | Just hd <- lookup g rns -> hd
+    _ -> h0
+
 -- If we have
 --    g x y = f x y
 -- then we remove g and replace it with f everywhere
 removeAliases :: Eq a => Theory a -> Theory a
 removeAliases thy@(Theory{thy_func_decls=fns0})
-    = fmap (rename renamings) thy{ thy_func_decls = survivors }
+    = renameGlobals renamings thy{ thy_func_decls = survivors }
   where
     renamings =
-      [ (g,f)
-      | Function g ty_vars vars _res_ty (Gbl (Global f _ ty_args _) :@: args) <- fns0
+      [ (g,hd)
+      | Function g ty_vars vars _res_ty (hd :@: args) <- fns0
       , map Lcl vars == args
-      , map TyVar ty_vars == ty_args
+      , case hd of
+          Gbl (Global f _ ty_args _) -> map TyVar ty_vars == ty_args
+          Builtin{}                  -> null ty_vars
       ]
 
     remove = map fst renamings

@@ -64,7 +64,7 @@ data Builtin
   deriving (Eq,Ord,Show)
 
 logicalBuiltin :: Builtin -> Bool
-logicalBuiltin b = b `elem` [And,Or,Implies,Equal,Distinct]
+logicalBuiltin b = b `elem` [And,Or,Implies,Equal,Distinct,Not]
 
 data Lit
   = Int Integer
