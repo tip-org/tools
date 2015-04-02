@@ -33,7 +33,9 @@ commuteMatch = transformExprInM $ \ e0 ->
              | Case lhs rhs <- alts
              ]
 
-    Lam{}   -> ERROR("Lam: " ++ ppRender e0)
+    Lam bs e  -> Lam bs <$> commuteMatch e
+
+    Quant qi q bs e -> Quant qi q bs <$> commuteMatch e
 
     Let x b e -> Let x b <$> commuteMatch e
 

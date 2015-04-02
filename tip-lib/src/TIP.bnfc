@@ -4,28 +4,73 @@ Start. Start ::= [Decl];
 [].  [Decl] ::= "(" "check-sat" ")";
 (:). [Decl] ::= "(" Decl ")"  [Decl];
 
-DeclareDatatypes. Decl ::= "declare-datatypes" TypeVars "(" [Datatype] ")";
-DeclareSort.      Decl ::= "declare-sort" Symbol "0";
+DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
+DeclareSort.      Decl ::= "declare-sort" Symbol Integer;
 DeclareFun.       Decl ::= "declare-fun" FunDecl;
 DefineFun.        Decl ::= "define-fun-rec" "(" [FunDef] ")";
+MonoAssert.       Decl ::= "assert" Expr;
+ParAssert.        Decl ::= "assert" "(" "par" "(" [Symbol] ")" Expr ")";
 
-ParFunDef.  FunDef ::= "(" "par" "(" [Symbol] ")" InnerFunDef ")";
-MonoFunDef. FunDef ::= InnerFunDef;
+ParFunDef.   FunDef ::= "(" "par" "(" [Symbol] ")" InnerFunDef ")";
+MonoFunDef.  FunDef ::= InnerFunDef;
 InnerFunDef. InnerFunDef ::= "(" Symbol "(" [Binding] ")" Type Expr ")";
 
-ParFunDecl. FunDecl ::= "(" "par" "(" [Symbol] ")" "(" InnerFunDecl ")" ")";
-MonoFunDecl. FunDecl ::= InnerFunDecl;
+ParFunDecl.   FunDecl ::= "(" "par" "(" [Symbol] ")" "(" InnerFunDecl ")" ")";
+MonoFunDecl.  FunDecl ::= InnerFunDecl;
 InnerFunDecl. InnerFunDecl ::= Symbol "(" [Type] ")" Type;
 
-Datatype. Datatype ::= "(" Symbol [Constructor] ")";
+Datatype.     Datatype ::= "(" Symbol [Constructor] ")";
 Constructor.  Constructor ::= "(" Symbol [Binding] ")";
+
 Binding. Binding ::= "(" Symbol Type ")";
-Type.  Type ::= Symbol;
-TyApp. Type ::= "(" Symbol [Type] ")";
-TypeVars.   TypeVars ::= "(" [Symbol] ")";
 
-Expr. Expr ::= Symbol;
+LetDecl. LetDecl ::= "(" Binding Expr ")";
 
+TyVar.   Type ::= Symbol;
+TyApp.   Type ::= "(" Symbol [Type] ")";
+ArrowTy. Type ::= "(" "=>" [Type] ")";
+IntTy.   Type ::= "int";
+BoolTy.  Type ::= "bool";
+
+Var.      Expr ::= Symbol;
+Apply.    Expr ::= "(" Head [Expr] ")";
+Match.    Expr ::= "(" "match" Expr [Case] ")";
+Let.      Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
+Binder.   Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
+LitInt.   Expr ::= Integer;
+LitTrue.  Expr ::= "true";
+LitFalse. Expr ::= "false";
+
+Lambda. Binder ::= "lambda";
+Forall. Binder ::= "forall";
+Exists. Binder ::= "exists";
+
+Case.    Case ::= "(" "case" Pattern Expr ")";
+
+Default.    Pattern ::= "default";
+ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
+UnaryPat.   Pattern ::= Symbol;
+
+Const.      Head ::= Symbol;
+At.         Head ::= "@";
+IfThenElse. Head ::= "ite";
+And.        Head ::= "and";
+Or.         Head ::= "or";
+Not.        Head ::= "not";
+Implies.    Head ::= "=>";
+Equal.      Head ::= "=";
+Distinct.   Head ::= "distinct";
+IntAdd.     Head ::= "+";
+IntSub.     Head ::= "-";
+IntMul.     Head ::= "*";
+IntGt.      Head ::= ">";
+IntGe.      Head ::= ">=";
+IntLt.      Head ::= "<";
+IntLe.      Head ::= "<=";
+
+terminator LetDecl "";
+terminator Case "";
+terminator Expr "";
 terminator Datatype "";
 terminator Constructor "";
 terminator Binding "";
@@ -35,3 +80,4 @@ terminator FunDecl "";
 terminator FunDef "";
 
 position token Symbol (letter|["~!@$%^&*_-+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
+

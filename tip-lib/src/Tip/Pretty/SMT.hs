@@ -5,7 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip (ifView, topsort)
+import Tip (ifView, topsort, neg)
 
 expr,parExpr :: Doc -> [Doc] -> Doc
 parExpr s [] = "(" <> s <> ")"
@@ -58,16 +58,13 @@ ppFuncs fs = apply "define-fun-rec" (parens (vcat (map ppFunc fs)))
 
 ppFunc :: Pretty a => Function a -> Doc
 ppFunc (Function f tyvars args res_ty body) =
-  parens (par tyvars
+  (par tyvars
     (pp f $\ fsep [ppLocals args, ppType res_ty, ppExpr body]))
 
 ppFormula :: Pretty a => Formula a -> Doc
-ppFormula (Formula role tyvars term) =
-  ppRole role (par tyvars (ppExpr term))
-
-ppRole :: Role -> Doc -> Doc
-ppRole Assert d = apply "assert" d
-ppRole Prove  d = apply "assert" (apply "not" d)
+ppFormula (Formula Prove tvs term) =  vcat (map (ppSort . AbsType) tvs)
+                                   $$ ppFormula (Formula Assert [] (neg term))
+ppFormula (Formula Assert tvs term) = apply "assert" (par tvs (ppExpr term))
 
 ppExpr :: Pretty a => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
@@ -120,8 +117,7 @@ ppCase (Case pat rhs) = parExpr "case" [ppPat pat,ppExpr rhs]
 
 ppPat :: Pretty a => Pattern a -> Doc
 ppPat Default         = "default"
-ppPat (ConPat g [])   = pp (gbl_name g)
-ppPat (ConPat g args) = parExpr (pp (gbl_name g)) [pp (lcl_name arg) | arg <- args]
+ppPat (ConPat g args) = expr (pp (gbl_name g)) [pp (lcl_name arg) | arg <- args]
 ppPat (LitPat lit)    = ppLit lit
 
 ppType :: Pretty a => Type a -> Doc

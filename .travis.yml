@@ -9,10 +9,18 @@ before_install:
     - git clone https://github.com/augustss/geniplate.git
 
 install:
-    - cabal install geniplate/ 'mtl < 2.2' # or set transformers bound
+    - export PATH=$HOME/.cabal/bin:$PATH
+    - cabal update
+    - cabal install alex happy
+    - which alex
+    - which happy
+    - alex --version
+    - happy --version
+    - cabal install bnfc geniplate/ 'mtl < 2.2' # or set transformers bound
 
 before_script:
     - true
 
 script:
+    - (cd tip-lib/src && bnfc -m -p Parser TIP.bnfc && make)
     - cabal install tip-lib/ tip-haskell-frontend/
