@@ -18,6 +18,7 @@ library
     Tip.AxiomatizeFuncdefs
     Tip.CommuteMatch
     Tip.Denewtype
+    Tip.Decase
     Tip.Lift
     Tip.Types
     Tip.EqualFunctions

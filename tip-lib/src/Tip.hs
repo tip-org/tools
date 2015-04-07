@@ -238,6 +238,27 @@ constructor Datatype{..} ty_args Constructor{..} =
   where
      polyType = PolyType data_tvs (map snd con_args) (TyCon data_name (map TyVar data_tvs))
 
+projector :: Datatype a -> [Type a] -> Constructor a -> Int -> Global a
+projector d ty_args c@Constructor{..} i =
+  gbl {
+    gbl_name = name,
+    gbl_type = (gbl_type gbl) { polytype_res = ty },
+    gbl_namespace = ProjectNS
+    }
+  where
+    gbl = constructor d ty_args c
+    (name, ty) = con_args !! i
+
+discriminator :: Datatype a -> [Type a] -> Constructor a -> Global a
+discriminator d ty_args c@Constructor{..} =
+  gbl {
+    gbl_name = con_discrim,
+    gbl_type = (gbl_type gbl) { polytype_res = BuiltinType Boolean },
+    gbl_namespace = DiscriminateNS
+    }
+  where
+    gbl = constructor d ty_args c
+
 projAt :: Expr a -> Maybe (Expr a,Expr a)
 projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)
 projAt _                          = Nothing
@@ -251,3 +272,7 @@ intType = BuiltinType Integer
 
 boolType :: Type a
 boolType = BuiltinType Boolean
+
+letExpr :: Name a => Expr a -> (Local a -> Fresh (Expr a)) -> Fresh (Expr a)
+letExpr (Lcl x) k = k x
+letExpr e k = freshLocal (exprType e) >>= k

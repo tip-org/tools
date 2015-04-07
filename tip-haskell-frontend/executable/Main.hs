@@ -11,6 +11,7 @@ import Tip
 import Tip.AxiomatizeFuncdefs
 import Tip.Id
 import Tip.CommuteMatch
+import Tip.Decase
 import Tip.Delambda
 import Tip.Denewtype
 import Tip.Lift
@@ -36,7 +37,7 @@ main = do
     -- putStrLn (ppRender thy)
     let rnm = renameWith disambigId thy
     let dlm = runFreshFrom (maximumOn varMax rnm)
-                           ({- letLift =<< lambdaLift =<< -} simplifyExpr aggressively =<< commuteMatch =<< simplifyExpr aggressively =<< delambda (denewtype rnm))
+                           ({- letLift =<< lambdaLift =<< -} decase =<< simplifyExpr aggressively =<< commuteMatch =<< simplifyExpr aggressively =<< delambda (denewtype rnm))
     -- putStrLn "\n == After delambda and defunctionalization:"
     -- putStrLn (ppRender dlm)
     -- putStrLn "\n == After collapse equal:"
