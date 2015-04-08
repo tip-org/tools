@@ -53,6 +53,9 @@ mkQuant = Quant NoInfo
 bool :: Bool -> Expr a
 bool = literal . Bool
 
+intLit :: Integer -> Expr a
+intLit = literal . Int
+
 literal :: Lit -> Expr a
 literal lit = Builtin (Lit lit) :@: []
 

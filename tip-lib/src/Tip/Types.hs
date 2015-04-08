@@ -5,6 +5,7 @@ module Tip.Types where
 import Data.Generics.Geniplate
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
+import Data.Monoid
 
 data Head a
   = Gbl (Global a)
@@ -137,13 +138,23 @@ data Constructor a = Constructor
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Theory a = Theory
-  { thy_data_decls     :: [Datatype a]
-  , thy_abs_type_decls :: [AbsType a] -- change to thy_sort_decls and Sort?
-  , thy_abs_func_decls :: [AbsFunc a] -- change to thy_abs_decls and Abstract? (Or uninterpreted)
-  , thy_func_decls     :: [Function a]
-  , thy_form_decls     :: [Formula a]
+  { thy_data_decls     :: [Datatype a] -- thy_datatypes
+  , thy_abs_type_decls :: [AbsType a]  -- thy_sorts     and Sort?
+  , thy_abs_func_decls :: [AbsFunc a]  -- thy_abs_sigs  and Abstract? (Or uninterpreted)
+  , thy_func_decls     :: [Function a] -- thy_funcs
+  , thy_form_decls     :: [Formula a]  -- thy_forms
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+emptyTheory :: Theory a
+emptyTheory = Theory [] [] [] [] []
+
+joinTheories :: Theory a -> Theory a -> Theory a
+joinTheories (Theory a o e u i) (Theory s n t h d) = Theory (a++s) (o++n) (e++t) (u++h) (i++d)
+
+instance Monoid (Theory a) where
+  mempty  = emptyTheory
+  mappend = joinTheories
 
 data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
