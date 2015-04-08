@@ -120,10 +120,6 @@ ppPat Default         = "default"
 ppPat (ConPat g args) = expr (ppVar (gbl_name g)) [ppVar (lcl_name arg) | arg <- args]
 ppPat (LitPat lit)    = ppLit lit
 
-ppPolyType :: PrettyVar a => PolyType a -> Doc
-ppPolyType PolyType{..} =
-  par polytype_tvs (hsep (map pp polytype_args) <+> "=>" <+> pp polytype_res)
-
 ppType :: PrettyVar a => Type a -> Doc
 ppType (TyVar x)     = ppVar x
 ppType (TyCon tc ts) = expr (ppVar tc) (map ppType ts)
@@ -169,6 +165,3 @@ instance PrettyVar a => Pretty (Global a) where
 
 instance PrettyVar a => Pretty (Head a) where
   pp = ppHead
-
-instance PrettyVar a => Pretty (PolyType a) where
-  pp = ppPolyType
