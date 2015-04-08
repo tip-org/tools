@@ -30,6 +30,13 @@ library
     Tip.Pretty
     Tip.Pretty.SMT
 
+    Tip.Parser
+    Tip.Parser.ErrM
+    Tip.Parser.AbsTIP
+    Tip.Parser.LexTIP
+    Tip.Parser.ParTIP
+    Tip.Parser.Convert
+
   hs-source-dirs:      src
   include-dirs:        src
   ghc-options:         -Wall
@@ -38,4 +45,13 @@ library
                        geniplate >=0.6.0.6,
                        containers,
                        mtl,
+                       pretty,
+                       array
+
+executable tip-parser
+  main-is:             executable/Main.hs
+  default-language:    Haskell2010
+  build-depends:       base,
+                       tip-lib,
+                       pretty-show,
                        pretty

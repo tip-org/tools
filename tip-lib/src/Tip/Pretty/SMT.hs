@@ -54,7 +54,7 @@ ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
         (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
 
 ppFuncs :: Pretty a => [Function a] -> Doc
-ppFuncs fs = apply "define-fun-rec" (parens (vcat (map ppFunc fs)))
+ppFuncs fs = apply "define-funs-rec" (parens (vcat (map ppFunc fs)))
 
 ppFunc :: Pretty a => Function a -> Doc
 ppFunc (Function f tyvars args res_ty body) =

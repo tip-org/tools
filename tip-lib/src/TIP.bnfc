@@ -7,7 +7,7 @@ Start. Start ::= [Decl];
 DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
 DeclareSort.      Decl ::= "declare-sort" Symbol Integer;
 DeclareFun.       Decl ::= "declare-fun" FunDecl;
-DefineFun.        Decl ::= "define-fun-rec" "(" [FunDef] ")";
+DefineFun.        Decl ::= "define-funs-rec" "(" [FunDef] ")";
 MonoAssert.       Decl ::= "assert" Expr;
 ParAssert.        Decl ::= "assert" "(" "par" "(" [Symbol] ")" Expr ")";
 
@@ -33,7 +33,7 @@ IntTy.   Type ::= "int";
 BoolTy.  Type ::= "bool";
 
 Var.      Expr ::= Symbol;
-Apply.    Expr ::= "(" Head [Expr] ")";
+App.      Expr ::= "(" Head [Expr] ")";
 Match.    Expr ::= "(" "match" Expr [Case] ")";
 Let.      Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
 Binder.   Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
@@ -49,7 +49,7 @@ Case.    Case ::= "(" "case" Pattern Expr ")";
 
 Default.    Pattern ::= "default";
 ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
-UnaryPat.   Pattern ::= Symbol;
+SimplePat.  Pattern ::= Symbol;
 
 Const.      Head ::= Symbol;
 At.         Head ::= "@";
