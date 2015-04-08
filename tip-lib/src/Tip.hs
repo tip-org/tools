@@ -61,16 +61,19 @@ literal lit = Builtin (Lit lit) :@: []
 
 applyFunction :: Function a -> [Type a] -> [Expr a] -> Expr a
 applyFunction fn@Function{..} tyargs args
-  = Gbl (Global func_name (funcType fn) tyargs FunctionNS) :@: args
+  = Gbl (Global func_name (funcType fn) tyargs) :@: args
 
 applyAbsFunc :: AbsFunc a -> [Type a] -> [Expr a] -> Expr a
 applyAbsFunc AbsFunc{..} tyargs args
-  = Gbl (Global abs_func_name abs_func_type tyargs FunctionNS) :@: args
+  = Gbl (Global abs_func_name abs_func_type tyargs) :@: args
 
 atomic :: Expr a -> Bool
 atomic (_ :@: []) = True
 atomic Lcl{}      = True
 atomic _          = False
+
+absFunc :: Function a -> AbsFunc a
+absFunc func@Function{..} = AbsFunc func_name (funcType func)
 
 funcType :: Function a -> PolyType a
 funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
@@ -235,40 +238,35 @@ makeIf :: Expr a -> Expr a -> Expr a -> Expr a
 makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
 
 -- Turn a Constructor into a Global.
-constructor :: Datatype a -> [Type a] -> Constructor a -> Global a
-constructor Datatype{..} ty_args Constructor{..} =
-  Global con_name polyType ty_args ConstructorNS
-  where
-     polyType = PolyType data_tvs (map snd con_args) (TyCon data_name (map TyVar data_tvs))
+constructorType :: Datatype a -> Constructor a -> PolyType a
+constructorType Datatype{..} Constructor{..} =
+  PolyType data_tvs (map snd con_args) (TyCon data_name (map TyVar data_tvs))
 
-projector :: Datatype a -> [Type a] -> Constructor a -> Int -> Global a
-projector d ty_args c@Constructor{..} i =
-  gbl {
-    gbl_name = name,
-    gbl_type = (gbl_type gbl) { polytype_res = ty },
-    gbl_namespace = ProjectNS
-    }
-  where
-    gbl = constructor d ty_args c
-    (name, ty) = con_args !! i
+destructorType :: Datatype a -> Type a -> PolyType a
+destructorType Datatype{..} ty =
+  PolyType data_tvs [TyCon data_name (map TyVar data_tvs)] ty
 
-discriminator :: Datatype a -> [Type a] -> Constructor a -> Global a
-discriminator d ty_args c@Constructor{..} =
-  gbl {
-    gbl_name = con_discrim,
-    gbl_type = (gbl_type gbl) { polytype_res = BuiltinType Boolean },
-    gbl_namespace = DiscriminateNS
-    }
+constructor :: Datatype a -> Constructor a -> [Type a] -> Global a
+constructor dt con@Constructor{..} tys =
+  Global con_name (constructorType dt con) tys
+
+projector :: Datatype a -> Constructor a -> Int -> [Type a] -> Global a
+projector dt Constructor{..} i tys =
+  Global proj_name (destructorType dt proj_ty) tys
   where
-    gbl = constructor d ty_args c
+    (proj_name, proj_ty) = con_args !! i
+
+discriminator :: Datatype a -> Constructor a -> [Type a] -> Global a
+discriminator dt Constructor{..} tys =
+  Global con_discrim (destructorType dt (BuiltinType Boolean)) tys
 
 projAt :: Expr a -> Maybe (Expr a,Expr a)
 projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)
 projAt _                          = Nothing
 
 projGlobal :: Expr a -> Maybe a
-projGlobal (Gbl (Global x _ _ _) :@: []) = Just x
-projGlobal _                             = Nothing
+projGlobal (Gbl (Global x _ _) :@: []) = Just x
+projGlobal _                           = Nothing
 
 intType :: Type a
 intType = BuiltinType Integer

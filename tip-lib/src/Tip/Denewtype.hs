@@ -1,14 +1,16 @@
 -- Remove datatypes that have only one constructor with one field.
 -- Can only be run after the AddCase pass.
-{-# LANGUAGE RecordWildCards, CPP #-}
+{-# LANGUAGE RecordWildCards, PatternGuards, CPP #-}
 module Tip.Denewtype where
 
 #include "errors.h"
 import Tip
 import Tip.Fresh
+import Tip.Scope
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Generics.Geniplate
+import Data.Maybe
 
 denewtype :: Name a => Theory a -> Theory a
 denewtype thy@Theory{..} =
@@ -20,9 +22,9 @@ denewtype thy@Theory{..} =
   transformBi replaceTypes (replaceCons thy')
   where
     replaceTypes (TyCon ty []) =
-      case Map.lookup ty tys of
-        Nothing  -> TyCon ty []
+      case lookupNewtype ty of
         Just ty' -> ty'
+        Nothing -> TyCon ty []
     replaceTypes (args :=>: res) =
       map replaceTypes args :=>: replaceTypes res
     replaceTypes ty = ty
@@ -30,20 +32,19 @@ denewtype thy@Theory{..} =
     replaceCons =
       transformBi $ \e0 ->
         case e0 of
-          Match e cs | TyCon ty [] <- exprType e, ty `Map.member` tys ->
+          Match e cs | TyCon ty [] <- exprType e, isJust (lookupNewtype ty) ->
             case cs of
               Case Default body:_ -> body
               Case (ConPat _ [x]) body:_ -> Let x e body
               _ -> ERROR("type-incorrect pattern?")
-          Gbl con :@: [e] | gbl_name con `Set.member` cons ->
+          Gbl con :@: [e] | isJust (lookupNewtype (data_name (fst (whichConstructor scp (gbl_name con))))) ->
             e
           _ -> e0
     
     thy' =
       thy {
-        thy_data_decls = [ d | d <- thy_data_decls, not (Map.member (data_name d) tys) ] }
-    singles = [(d, c, ty)
-              | d@Datatype{data_cons = [c@Constructor{con_args=[(_, ty)]}],
-                           data_tvs = []} <- thy_data_decls ]
-    tys = Map.fromList [(data_name d, ty) | (d, _, ty) <- singles]
-    cons = Set.fromList [con_name c | (_, c, _) <- singles]
+        thy_data_decls = [ d | d <- thy_data_decls, isNothing (lookupNewtype (data_name d)) ]}
+    lookupNewtype ty = do
+      Datatype{data_cons = [Constructor{con_args = [(_, ty')]}]} <- lookupDatatype scp ty
+      return ty'
+    scp = scope thy

@@ -28,7 +28,7 @@ trSymbol (Symbol (p,s)) = Id s p
 trLocal :: Symbol -> Local Id
 trLocal s = Local (trSymbol s) NoType
 
-trGlobal :: Symbol -> Namespace -> Global Id
+trGlobal :: Symbol -> Global Id
 trGlobal s = Global (trSymbol s) NoPolyType []
 
 trDecl :: Decl -> Theory Id
@@ -91,7 +91,7 @@ trExpr e0 = case e0 of
 trHead :: A.Head -> [T.Expr Id] -> T.Expr Id
 trHead A.IfThenElse [c,t,f] = makeIf c t f
 trHead A.IfThenElse args    = error $ "if-then-else with " ++ show (length args) ++ " arguments"
-trHead (A.Const s)  args    = Gbl (trGlobal s FunctionNS) :@: args
+trHead (A.Const s)  args    = Gbl (trGlobal s) :@: args
 trHead x args = Builtin b :@: args
  where
   b = case x of
@@ -123,8 +123,8 @@ trCase (A.Case pattern expr) = T.Case (trPattern pattern) (trExpr expr)
 trPattern :: A.Pattern -> T.Pattern Id
 trPattern p = case p of
   A.Default        -> T.Default
-  A.ConPat s bound -> T.ConPat (trGlobal s ConstructorNS) (map trLocal bound)
-  A.SimplePat s    -> T.ConPat (trGlobal s ConstructorNS) []
+  A.ConPat s bound -> T.ConPat (trGlobal s) (map trLocal bound)
+  A.SimplePat s    -> T.ConPat (trGlobal s) []
 
 
 trType :: A.Type -> T.Type Id

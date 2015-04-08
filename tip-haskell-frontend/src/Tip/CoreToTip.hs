@@ -157,7 +157,7 @@ trVar x tys = do
         else return $ case idDetails x of
                 DataConWorkId dc -> abstract $ trConstructor dc ty tys
                 DataConWrapId dc -> abstract $ trConstructor dc ty tys
-                _                -> Gbl (Global (idFromVar x) ty tys FunctionNS) :@: []
+                _                -> Gbl (Global (idFromVar x) ty tys) :@: []
     where
       abstract gbl = foldr lam body etas
         where
@@ -173,7 +173,7 @@ trPattern dc _ [] []
 trPattern dc ty tys args = ConPat (trConstructor dc ty tys) args
 
 trConstructor :: DataCon -> PolyType Id -> [Tip.Type Id] -> Global Id
-trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) tys ConstructorNS
+trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) tys
   where
     uncurryTy ty@PolyType{polytype_res = args :=>: res} =
       ty' { polytype_args = args ++ polytype_args ty' }

@@ -19,12 +19,8 @@ data Global a = Global
   { gbl_name      :: a
   , gbl_type      :: PolyType a
   , gbl_args      :: [Type a]
-  , gbl_namespace :: Namespace
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
-
-data Namespace = FunctionNS | ConstructorNS | ProjectNS | DiscriminateNS
-  deriving (Eq,Ord,Show)
 
 infix 5 :@:
 
