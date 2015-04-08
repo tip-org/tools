@@ -70,7 +70,7 @@ withPrevious xs = zip xs (inits xs)
 renameGlobals :: Eq a => [(a,Head a)] -> Theory a -> Theory a
 renameGlobals rns = transformBi $ \ h0 ->
   case h0 of
-    Gbl (Global g _ _ _) | Just hd <- lookup g rns -> hd
+    Gbl (Global g _ _) | Just hd <- lookup g rns -> hd
     _ -> h0
 
 -- If we have
@@ -85,8 +85,8 @@ removeAliases thy@(Theory{thy_func_decls=fns0})
       | Function g ty_vars vars _res_ty (hd :@: args) <- fns0
       , map Lcl vars == args
       , case hd of
-          Gbl (Global f _ ty_args _) -> map TyVar ty_vars == ty_args
-          Builtin{}                  -> null ty_vars
+          Gbl (Global f _ ty_args) -> map TyVar ty_vars == ty_args
+          Builtin{}                -> null ty_vars
       ]
 
     remove = map fst renamings
