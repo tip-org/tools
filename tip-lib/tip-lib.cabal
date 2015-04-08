@@ -20,6 +20,7 @@ library
     Tip.Denewtype
     Tip.Decase
     Tip.Lift
+    Tip.Lint
     Tip.Types
     Tip.Scope
     Tip.EqualFunctions

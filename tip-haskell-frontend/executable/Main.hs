@@ -20,6 +20,7 @@ import Tip.Utils.Renamer
 import Tip.Pretty
 import Tip.EqualFunctions
 import Tip.Simplify
+import Tip.Lint
 
 import Text.PrettyPrint
 
@@ -35,13 +36,13 @@ main = do
       , extra_trans = [] -- es
       }
     -- putStrLn (ppRender thy)
-    let rnm = renameWith disambigId thy
+    let rnm = lint "renamer" (renameWith disambigId thy)
     let dlm = runFreshFrom (maximumOn varMax rnm)
-                           ({- letLift =<< lambdaLift =<< -} decase =<< simplifyExpr aggressively =<< commuteMatch =<< simplifyExpr aggressively =<< delambda (denewtype rnm))
+                           ({- letLift =<< lambdaLift =<< -} decase . lint "simplify2" =<< simplifyExpr aggressively . lint "commuteMatch" =<< commuteMatch . lint "simplify1" =<< simplifyExpr aggressively . lint "delambda" =<< delambda (lint "denewtype" (denewtype rnm)))
     -- putStrLn "\n == After delambda and defunctionalization:"
     -- putStrLn (ppRender dlm)
     -- putStrLn "\n == After collapse equal:"
-    putStrLn (ppRender (collapseEqual (removeAliases dlm)))
+    putStrLn (ppRender (lint "collapseEqual" (collapseEqual (lint "removeAliases" (removeAliases (lint "decase" dlm))))))
     -- putStrLn "\n == After axiomatization:"
     -- let after_ax = axiomatizeLambdas (collapseEqual dlm)
     -- putStrLn (ppRender after_ax)

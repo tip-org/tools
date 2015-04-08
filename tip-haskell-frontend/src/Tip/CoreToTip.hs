@@ -163,7 +163,7 @@ trVar x tys = do
         where
           body = Gbl gbl :@: map Lcl etas
           etas = zipWith (Local . Eta) [0..] args
-          args = polytype_args (gbl_type gbl)
+          (args, _) = applyPolyType (gbl_type gbl) tys
           lam lcl body = Tip.Lam [lcl] body
 
 trPattern :: DataCon -> PolyType Id -> [Tip.Type Id] -> [Tip.Local Id] -> Pattern Id

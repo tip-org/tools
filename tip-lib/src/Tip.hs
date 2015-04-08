@@ -178,7 +178,7 @@ applyType tvs tys ty
         case ty' of
           TyVar x ->
             Map.findWithDefault ty' x m
-          _ -> ty
+          _ -> ty'
   | otherwise = ERROR("wrong number of type arguments")
   where
     m = Map.fromList (zip tvs tys)
