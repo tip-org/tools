@@ -12,6 +12,6 @@ import Tip
 parse :: String -> Either String (Theory Id)
 parse s =
   case pStart . myLexer $ s of
-    Ok (Start ds) -> Right (mconcat (map trDecl ds))
+    Ok (Start ds) -> runCM (trDecls ds)
     Bad err       -> Left err
 

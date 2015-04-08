@@ -136,6 +136,12 @@ instance (Ord a,PrettyVar a) => Pretty (Theory a) where
 instance PrettyVar a => Pretty (Expr a) where
   pp = ppExpr
 
+instance PrettyVar a => Pretty (PolyType a) where
+  pp (PolyType tyvars arg_types result_type) =
+    par tyvars
+      (parens
+        (sep [parens (fsep (map ppType arg_types)), ppType result_type]))
+
 instance PrettyVar a => Pretty (Type a) where
   pp = ppType
 

@@ -33,6 +33,7 @@ IntTy.   Type ::= "int";
 BoolTy.  Type ::= "bool";
 
 Var.      Expr ::= Symbol;
+As.       Expr ::= "(" "as" Expr Type ")";
 App.      Expr ::= "(" Head [Expr] ")";
 Match.    Expr ::= "(" "match" Expr [Case] ")";
 Let.      Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
