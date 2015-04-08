@@ -1,98 +1,228 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Tip.Parser.Convert where
 
 import Tip.Parser.AbsTIP as A -- from A ...
 import Tip               as T -- ... to T
 import Tip.Pretty
+import Tip.Pretty.SMT
+
+import Text.PrettyPrint
+import Control.Applicative
+import Control.Monad.State
+import Control.Monad.Error
+import Data.Foldable (foldrM)
+
+import qualified Tip.Scope
+import Tip.Scope
+import Tip.Fresh
 
 import Data.List
 import Data.Function
 
+import Data.Map (Map)
+import qualified Data.Map as M
+
+data IdKind = LocalId | GlobalId
+  deriving Eq
+
+type CM a = ScopeT Id (StateT (Map String (Id,IdKind)) Fresh) a
+
+runCM :: CM a -> Either String a
+runCM m = either (Left . show) Right $ runFresh (evalStateT (runScopeT m) M.empty)
+
+
 data Id = Id
   { idString :: String
+  , idUnique :: Int
   , idPos    :: (Int,Int)
   }
   deriving Show
 
 instance Eq Id where
-  (==) = (==) `on` idString
+  (==) = (==) `on` idUnique
 
 instance Ord Id where
-  compare = compare `on` idString
+  compare = compare `on` idUnique
 
 instance PrettyVar Id where
-  varStr (Id s _) = s
+  varStr (Id s _ _) = s
 
-trSymbol :: Symbol -> Id
-trSymbol (Symbol (p,s)) = Id s p
+ppSym :: Symbol -> Doc
+ppSym (Symbol ((x,y),s)) = text s <+> "(" <> int x <> ":" <> int y <> ")"
 
-trLocal :: Symbol -> Local Id
-trLocal s = Local (trSymbol s) NoType
+lkSym :: Symbol -> CM Id
+lkSym sym@(Symbol (p,s)) =
+  do mik <- lift $ gets (M.lookup s)
+     case mik of
+       Just (i,_) -> return $ i { idPos = p }
+       Nothing    -> throwError $ "Symbol" <+> ppSym sym <+> "not bound"
 
-trGlobal :: Symbol -> Global Id
-trGlobal s = Global (trSymbol s) NoPolyType []
+addSym :: IdKind -> Symbol -> CM Id
+addSym ik sym@(Symbol (p,s)) =
+  do mik <- lift $ gets (M.lookup s)
+     case mik of
+       Just (_,GlobalId)       -> throwError $ "Symbol" <+> ppSym sym <+> "is already globally bound"
+       Just _ | ik == GlobalId -> throwError $ "Symbol" <+> ppSym sym <+> "is locally bound, and cannot be overwritten by a global"
+       _                       -> return ()
+     u <- lift (lift fresh)
+     let i = Id s u p
+     lift $ modify (M.insert s (i,ik))
+     return i
 
-trDecl :: Decl -> Theory Id
-trDecl x = case x of
-  DeclareDatatypes tvs datatypes -> emptyTheory { thy_data_decls = map (trDatatype (map trSymbol tvs)) datatypes }
-  DeclareSort s 0 -> emptyTheory { thy_abs_type_decls = [AbsType (trSymbol s)] }
-  DeclareSort s n -> error $ "Sort with kind " ++ show n
-  DeclareFun fundecl -> emptyTheory { thy_abs_func_decls = [trFunDecl fundecl] }
-  DefineFun fundefs  -> emptyTheory { thy_func_decls = map trFunDef fundefs }
-  MonoAssert expr    -> trDecl (ParAssert [] expr)
-  ParAssert tvs expr -> emptyTheory { thy_form_decls = [Formula Assert (map trSymbol tvs) (trExpr expr)] }
+trDecls :: [Decl] -> CM (Theory Id)
+trDecls [] = return emptyTheory
+trDecls (d:ds) =
+  do thy <- trDecl d
+     withTheory thy $
+       do thy_rest <- trDecls ds
+          return (thy `joinTheories` thy_rest)
+
+trDecl :: Decl -> CM (Theory Id)
+trDecl x =
+  local $
+    case x of
+      DeclareDatatypes tvs datatypes ->
+        do -- add their types, abstractly
+           mapM_ (newAbsType (length tvs) <=< addSym GlobalId . dataSym) datatypes
+           newScope $
+             do tvi <- mapM (addSym LocalId) tvs
+                mapM newTyVar tvi
+                ds <- mapM (trDatatype tvi) datatypes
+                return emptyTheory{ thy_data_decls = ds }
+
+      DeclareSort s 0 ->
+        do i <- addSym GlobalId s
+           return emptyTheory{ thy_abs_type_decls = [AbsType i] }
+
+      DeclareSort s n -> error $ "Sort with kind " ++ show n
+
+      DeclareFun fundecl ->
+        do d <- trFunDecl fundecl
+           return emptyTheory{ thy_abs_func_decls = [d] }
+
+      DefineFun fundefs  ->
+        do -- add their correct types, abstractly
+           fds <- mapM (trFunDecl . defToDecl) fundefs
+           withTheory emptyTheory{ thy_abs_func_decls = fds } $ do
+             fns <- mapM trFunDef fundefs
+             return emptyTheory{ thy_func_decls = fns }
+
+      MonoAssert expr    -> trDecl (ParAssert [] expr)
+      ParAssert tvs expr ->
+        do tvi <- mapM (addSym LocalId) tvs
+           mapM newTyVar tvi
+           fm <- Formula Assert tvi <$> trExpr expr
+           return emptyTheory{ thy_form_decls = [fm] }
 
 
-trFunDef :: FunDef -> T.Function Id
+
+defToDecl :: FunDef -> FunDecl
+defToDecl x = case x of
+  MonoFunDef inner -> defToDecl (ParFunDef [] inner)
+  ParFunDef tvs (InnerFunDef fsym bindings res_type body) ->
+    ParFunDecl tvs (InnerFunDecl fsym (map bindingType bindings) res_type)
+
+trFunDef :: FunDef -> CM (T.Function Id)
 trFunDef x = case x of
   MonoFunDef inner -> trFunDef (ParFunDef [] inner)
-  ParFunDef tvs (InnerFunDef f bindings res_type body) ->
-    Function (trSymbol f) (map trSymbol tvs)
-             (map trLocalBinding bindings) (trType res_type)
-             (trExpr body)
+  ParFunDef tvs (InnerFunDef fsym bindings res_type body) ->
+    newScope $
+      do f <- lkSym fsym
+         tvi <- mapM (addSym LocalId) tvs
+         mapM newTyVar tvi
+         args <- mapM trLocalBinding bindings
+         Function f tvi args <$> trType res_type <*> trExpr body
 
-trFunDecl :: FunDecl -> T.AbsFunc Id
+trFunDecl :: FunDecl -> CM (T.AbsFunc Id)
 trFunDecl x = case x of
   MonoFunDecl inner -> trFunDecl (ParFunDecl [] inner)
-  ParFunDecl tvs (InnerFunDecl f args res) ->
-    AbsFunc (trSymbol f) (PolyType (map trSymbol tvs) (map trType args) (trType res))
+  ParFunDecl tvs (InnerFunDecl fsym args res) ->
+    newScope $
+      do f <- addSym GlobalId fsym
+         tvi <- mapM (addSym LocalId) tvs
+         mapM newTyVar tvi
+         pt <- PolyType tvi <$> mapM trType args <*> trType res
+         return (AbsFunc f pt)
 
+dataSym :: A.Datatype -> Symbol
+dataSym (A.Datatype sym _) = sym
 
-trDatatype :: [Id] -> A.Datatype -> T.Datatype Id
-trDatatype tvs (A.Datatype s constructors) =
-  T.Datatype (trSymbol s) tvs (map trConstructor constructors)
+trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
+trDatatype tvs (A.Datatype sym constructors) =
+  do x <- lkSym sym
+     T.Datatype x tvs <$> mapM trConstructor constructors
 
-trConstructor :: A.Constructor -> T.Constructor Id
-trConstructor (A.Constructor s args) =
-  T.Constructor name name{ idString = "is-" ++ idString name } (map trBinding args)
- where name = trSymbol s
+trConstructor :: A.Constructor -> CM (T.Constructor Id)
+trConstructor (A.Constructor name@(Symbol (p,s)) args) =
+  do c <- addSym GlobalId name
+     is_c <- addSym GlobalId (Symbol (p,"is-" ++ s))
+     T.Constructor c is_c <$> mapM (trBinding GlobalId) args
 
-trBinding :: Binding -> (Id,T.Type Id)
-trBinding (Binding s t) = (trSymbol s,trType t)
+bindingType :: Binding -> A.Type
+bindingType (Binding _ t) = t
 
-trLocalBinding :: Binding -> Local Id
-trLocalBinding = uncurry Local . trBinding
+-- adds to the symbol map
+trBinding :: IdKind -> Binding -> CM (Id,T.Type Id)
+trBinding ik (Binding s t) =
+  do i <- addSym ik s
+     t' <- trType t
+     return (i,t')
 
+-- adds to the symbol map and to the local scope
+trLocalBinding :: Binding -> CM (Local Id)
+trLocalBinding b =
+  do (x,t) <- trBinding LocalId b
+     let l = Local x t
+     newLocal l
+     return l
 
-trLetDecl :: LetDecl -> T.Expr Id -> T.Expr Id
-trLetDecl (LetDecl binding expr) = T.Let (trLocalBinding binding) (trExpr expr)
+trLetDecl :: LetDecl -> T.Expr Id -> CM (T.Expr Id)
+trLetDecl (LetDecl binding expr) e = newScope $ T.Let <$> trLocalBinding binding <*> trExpr expr <*> return e
 
-
-trExpr :: A.Expr -> T.Expr Id
+trExpr :: A.Expr -> CM (T.Expr Id)
 trExpr e0 = case e0 of
-  A.Var s             -> Lcl (trLocal s) -- (or global constant)
-  A.App head exprs    -> trHead head (map trExpr exprs)
-  A.Match expr cases  -> T.Match (trExpr expr) (sort (map trCase cases))
-  A.Let letdecls expr -> foldr trLetDecl (trExpr expr) letdecls
-  A.Binder binder bindings expr -> trBinder binder (map trLocalBinding bindings) (trExpr expr)
-  A.LitInt n -> intLit n
-  A.LitTrue  -> bool True
-  A.LitFalse -> bool False
+  A.Var sym ->
+    do x <- lkSym sym
+       ml <- gets (lookupLocal x)
+       case ml of
+         Just t -> return (Lcl (Local x t))
+         _      -> trExpr (A.App (A.Const sym) [])
 
-trHead :: A.Head -> [T.Expr Id] -> T.Expr Id
-trHead A.IfThenElse [c,t,f] = makeIf c t f
-trHead A.IfThenElse args    = error $ "if-then-else with " ++ show (length args) ++ " arguments"
-trHead (A.Const s)  args    = Gbl (trGlobal s) :@: args
-trHead x args = Builtin b :@: args
+  A.As (A.Var sym) ty -> trExpr (A.As (A.App (A.Const sym) []) ty)
+  A.As (A.App head exprs) ty -> do ty' <- trType ty
+                                   trHead (Just ty') head =<< mapM trExpr exprs
+  A.As e _ -> trExpr e
+
+  A.App head exprs           -> trHead Nothing head =<< mapM trExpr exprs
+
+  A.Match expr cases  -> do e <- trExpr expr
+                            cases' <- sort <$> mapM (trCase (exprType e)) cases
+                            return (T.Match e cases')
+  A.Let letdecls expr -> do e <- trExpr expr
+                            foldrM trLetDecl e letdecls
+  A.Binder binder bindings expr -> newScope $ trBinder binder <$> mapM trLocalBinding bindings <*> trExpr expr
+  A.LitInt n -> return $ intLit n
+  A.LitTrue  -> return $ bool True
+  A.LitFalse -> return $ bool False
+
+trHead :: Maybe (T.Type Id) -> A.Head -> [T.Expr Id] -> CM (T.Expr Id)
+trHead mgt A.IfThenElse  [c,t,f] = return (makeIf c t f)
+trHead mgt A.IfThenElse  args    = throwError $ "if-then-else with " <+> int (length args) <+> " arguments!"
+trHead mgt (A.Const sym) args    =
+  do x <- lkSym sym
+     mt <- gets (fmap globalType . lookupGlobal x)
+     case mt of
+       Just pt
+         | Just gbl <- makeGlobal x pt (map exprType args) mgt
+         -> return (Gbl gbl :@: args)
+         | otherwise
+         -> throwError $ "Not a well-applied global:" <+> ppSym sym
+                      $$ " with goal type " <+> case mgt of Nothing -> "Nothing"; Just t -> pp t
+                      $$ " with argument types " <+> fsep (punctuate "," (map (pp . exprType) args))
+                      $$ " with polymorphic type " <+> pp pt
+       _ -> throwError $ "No type information for:" <+> ppSym sym
+
+trHead _ x args = return (Builtin b :@: args)
  where
   b = case x of
     A.At       -> T.At
@@ -117,21 +247,39 @@ trBinder b = case b of
   A.Forall -> mkQuant T.Forall
   A.Exists -> mkQuant T.Exists
 
-trCase :: A.Case -> T.Case Id
-trCase (A.Case pattern expr) = T.Case (trPattern pattern) (trExpr expr)
+trCase :: T.Type Id -> A.Case -> CM (T.Case Id)
+trCase goal_type (A.Case pattern expr) =
+  newScope $ T.Case <$> trPattern goal_type pattern <*> trExpr expr
 
-trPattern :: A.Pattern -> T.Pattern Id
-trPattern p = case p of
-  A.Default        -> T.Default
-  A.ConPat s bound -> T.ConPat (trGlobal s) (map trLocal bound)
-  A.SimplePat s    -> T.ConPat (trGlobal s) []
+trPattern :: T.Type Id -> A.Pattern -> CM (T.Pattern Id)
+trPattern goal_type p = case p of
+  A.Default          -> return T.Default
+  A.SimplePat sym    -> trPattern goal_type (A.ConPat sym [])
+  A.ConPat sym bound ->
+    do x <- lkSym sym
+       mt <- gets (fmap globalType . lookupGlobal x)
+       case mt of
+         Just pt@(PolyType tvs arg res)
+           | Just ty_app <- matchTypesIn tvs [(res,goal_type)] ->
+             do let (var_types, _) = applyPolyType pt ty_app
+                ls <- sequence
+                   [ do b <- addSym LocalId b_sym
+                        let l = Local b t
+                        newLocal l
+                        return l
+                   | (b_sym,t) <- bound `zip` var_types
+                   ]
+                return (T.ConPat (Global x pt ty_app) ls)
+         _ -> throwError $ "type-incorrect case"
 
-
-trType :: A.Type -> T.Type Id
+trType :: A.Type -> CM (T.Type Id)
 trType t0 = case t0 of
-  A.TyVar s    -> T.TyVar (trSymbol s) -- or TyCon ... []
-  A.TyApp s ts -> T.TyCon (trSymbol s) (map trType ts)
-  A.ArrowTy ts -> map trType (init ts) :=>: trType (last ts)
-  A.IntTy      -> intType
-  A.BoolTy     -> boolType
+  A.TyVar s -> do x <- lkSym s
+                  mtv <- gets (isTyVar x)
+                  if mtv then return (T.TyVar x)
+                         else trType (A.TyApp s [])
+  A.TyApp s ts -> T.TyCon <$> lkSym s <*> mapM trType ts
+  A.ArrowTy ts -> (:=>:) <$> mapM trType (init ts) <*> trType (last ts)
+  A.IntTy      -> return intType
+  A.BoolTy     -> return boolType
 
