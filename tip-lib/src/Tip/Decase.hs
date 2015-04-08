@@ -24,7 +24,7 @@ decase thy@Theory{..} = transformBiM go thy
     acceptable Default = True
     acceptable ConPat{} = True
     acceptable _ = False
-    
+
     match x [Case (ConPat c xs) body] = caseBody x (gbl_name c) xs body
     match x [Case Default body] = return body
     match x (Case (ConPat c xs) body:cs) = do
@@ -36,11 +36,11 @@ decase thy@Theory{..} = transformBiM go thy
            Case (LitPat (Bool True)) clause]
 
     matches x c =
-      Gbl (uncurry discriminator (whichConstructor scp c) args) :@: [Lcl x]
+      Gbl (uncurry discriminator (whichConstructor c scp) args) :@: [Lcl x]
       where
         TyCon _ args = lcl_type x
 
     caseBody x c lcls body = substMany sub body
       where
-        sub = [(lcl, Gbl (uncurry projector (whichConstructor scp c) i args) :@: [Lcl x]) | (i, lcl) <- zip [0..] lcls]
+        sub = [(lcl, Gbl (uncurry projector (whichConstructor c scp) i args) :@: [Lcl x]) | (i, lcl) <- zip [0..] lcls]
         TyCon _ args = lcl_type x

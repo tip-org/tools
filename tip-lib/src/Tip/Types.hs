@@ -115,7 +115,7 @@ data AbsFunc a = AbsFunc
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data AbsType a = AbsType a
+data AbsType a = AbsType { abs_type_name :: a }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Data definition
@@ -137,6 +137,7 @@ data Theory a = Theory
   { thy_data_decls     :: [Datatype a] -- thy_datatypes
   , thy_abs_type_decls :: [AbsType a]  -- thy_sorts     and Sort?
   , thy_abs_func_decls :: [AbsFunc a]  -- thy_abs_sigs  and Abstract? (Or uninterpreted)
+                                       -- or thy_sigs and just FuncSig or Signature
   , thy_func_decls     :: [Function a] -- thy_funcs
   , thy_form_decls     :: [Formula a]  -- thy_forms
   }
