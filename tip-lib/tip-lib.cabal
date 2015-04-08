@@ -21,6 +21,7 @@ library
     Tip.Decase
     Tip.Lift
     Tip.Types
+    Tip.Scope
     Tip.EqualFunctions
     Tip.Fresh
     Tip.Utils

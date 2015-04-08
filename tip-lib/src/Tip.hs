@@ -72,6 +72,9 @@ atomic (_ :@: []) = True
 atomic Lcl{}      = True
 atomic _          = False
 
+absFunc :: Function a -> AbsFunc a
+absFunc func@Function{..} = AbsFunc func_name (funcType func)
+
 funcType :: Function a -> PolyType a
 funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
 
