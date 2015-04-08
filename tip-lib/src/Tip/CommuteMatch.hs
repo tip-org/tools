@@ -6,8 +6,6 @@ module Tip.CommuteMatch where
 #include "errors.h"
 import Tip
 import Tip.Fresh
-import Tip.Pretty
-import Tip.Pretty.SMT
 
 import Data.Generics.Geniplate
 import Control.Applicative

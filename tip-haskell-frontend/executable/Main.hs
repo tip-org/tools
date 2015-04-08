@@ -56,19 +56,17 @@ main = do
 maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
 maximumOn f = f . F.maximumBy (comparing f)
 
-data Var = Var String | Proj Var Int | Refresh Var Int
+data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)
 
 varMax :: Var -> Int
 varMax Var{}         = 0
-varMax (Proj v _)    = varMax v
 varMax (Refresh v i) = varMax v `max` i
 
-instance Pretty Var where
-  pp (Proj x i)    = pp x <> text "_" <> int i
-  pp (Var "")      = text "x"
-  pp (Var xs)      = text xs
-  pp (Refresh v i) = pp v <> int i
+instance PrettyVar Var where
+  varStr (Var "")      = "x"
+  varStr (Var xs)      = xs
+  varStr (Refresh v i) = varStr v ++ show i
 
 disambigId :: Id -> [Var]
 disambigId i = vs : [ Refresh vs x | x <- [0..] ]

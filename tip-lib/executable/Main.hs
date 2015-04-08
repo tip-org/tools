@@ -3,7 +3,8 @@ module Main where
 import System.Environment
 import Text.PrettyPrint
 import Tip.Parser
-import Tip.Pretty.SMT
+import Tip.Pretty.SMT as SMT
+import Tip.Pretty.Why3 as Why3
 
 main :: IO ()
 main =
@@ -11,5 +12,8 @@ main =
      s <- readFile f
      case parse s of
        Left err  -> error $ "Parse failed: " ++ err
-       Right thy -> putStrLn (render (ppTheory thy))
+       Right thy ->
+         if "why3" `elem` es
+           then putStrLn (render (Why3.ppTheory (why3VarTheory thy)))
+           else putStrLn (render (SMT.ppTheory thy))
 

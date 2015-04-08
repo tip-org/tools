@@ -55,8 +55,8 @@ instance Show Id where
     show (Discrim c)   = "is-" ++ show c
     show (Project c i) = show c ++ "_" ++ show i
 
-instance Pretty Id where
-    pp = text . ppId
+instance PrettyVar Id where
+    varStr = ppId
 
 ppId :: Id -> String
 ppId (GHCOrigin nm) = ppName nm
@@ -138,3 +138,4 @@ primops =
   ]
  where
   int i = Local (Eta i) intType
+

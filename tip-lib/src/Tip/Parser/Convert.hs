@@ -3,7 +3,6 @@ module Tip.Parser.Convert where
 import Tip.Parser.AbsTIP as A -- from A ...
 import Tip               as T -- ... to T
 import Tip.Pretty
-import Text.PrettyPrint hiding (int)
 
 import Data.List
 import Data.Function
@@ -20,8 +19,8 @@ instance Eq Id where
 instance Ord Id where
   compare = compare `on` idString
 
-instance Pretty Id where
-  pp (Id s _) = text s
+instance PrettyVar Id where
+  varStr (Id s _) = s
 
 trSymbol :: Symbol -> Id
 trSymbol (Symbol (p,s)) = Id s p
@@ -130,7 +129,7 @@ trPattern p = case p of
 
 trType :: A.Type -> T.Type Id
 trType t0 = case t0 of
-  A.TyVar s    -> T.TyVar (trSymbol s)
+  A.TyVar s    -> T.TyVar (trSymbol s) -- or TyCon ... []
   A.TyApp s ts -> T.TyCon (trSymbol s) (map trType ts)
   A.ArrowTy ts -> map trType (init ts) :=>: trType (last ts)
   A.IntTy      -> intType

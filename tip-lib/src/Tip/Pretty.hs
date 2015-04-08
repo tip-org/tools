@@ -16,9 +16,19 @@ ppRender = render . pp
 pprint :: Pretty a => a -> IO ()
 pprint = putStrLn . ppRender
 
-class Show a => Pretty a where
+parIf :: Bool -> Doc -> Doc
+parIf True  = parens
+parIf False = id
+
+class Pretty a where
   pp :: a -> Doc
 
-instance Pretty Int where
-  pp = int
+instance PrettyVar Int where
+  varStr = show
+
+class PrettyVar a where
+  varStr :: a -> String
+
+ppVar :: PrettyVar a => a -> Doc
+ppVar = text . varStr
 

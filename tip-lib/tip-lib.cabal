@@ -30,6 +30,7 @@ library
     Tip.Simplify
     Tip.Pretty
     Tip.Pretty.SMT
+    Tip.Pretty.Why3
 
     Tip.Parser
     Tip.Parser.ErrM
