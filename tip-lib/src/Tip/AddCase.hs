@@ -14,14 +14,14 @@ addCase thy =
   flip transformExprInM thy $ \e ->
     case e of
       Gbl Global{..} :@: [t] | Just (d, c) <- Map.lookup gbl_name discrims -> do
-        let con = constructor d gbl_args c
+        let con = constructor d c gbl_args
         args <- freshArgs con
         return $
           Match t [
             Case Default (bool False),
             Case (ConPat con args) (bool True) ]
       Gbl Global{..} :@: [t] | Just (d, c, i) <- Map.lookup gbl_name sels -> do
-        let con = constructor d gbl_args c
+        let con = constructor d c gbl_args
         args <- freshArgs con
         return $
           Match t [

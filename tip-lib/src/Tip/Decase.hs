@@ -38,11 +38,11 @@ decase thy@Theory{..} = transformBiM go thy
            Case (LitPat (Bool True)) clause]
 
     matches x c =
-      Gbl (discriminator (dat c) args (con c)) :@: [Lcl x]
+      Gbl (discriminator (dat c) (con c) args) :@: [Lcl x]
       where
         TyCon _ args = lcl_type x
 
     caseBody x c lcls body = substMany sub body
       where
-        sub = [(lcl, Gbl (projector (dat c) args (con c) i) :@: [Lcl x]) | (i, lcl) <- zip [0..] lcls]
+        sub = [(lcl, Gbl (projector (dat c) (con c) i args) :@: [Lcl x]) | (i, lcl) <- zip [0..] lcls]
         TyCon _ args = lcl_type x
