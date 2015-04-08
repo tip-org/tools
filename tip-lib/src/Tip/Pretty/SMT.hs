@@ -5,7 +5,8 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip (ifView, topsort, neg)
+import Tip (ifView, topsort, neg, exprType, makeGlobal)
+import Data.Maybe
 
 expr,parExpr :: Doc -> [Doc] -> Doc
 parExpr s [] = "(" <> s <> ")"
@@ -27,47 +28,50 @@ ppTheory Theory{..}
       map ppFormula thy_form_decls ++
       ["(check-sat)"])
 
-ppSort :: PrettyVar a => AbsType a -> Doc
+ppSort :: (Ord a, PrettyVar a) => AbsType a -> Doc
 ppSort (AbsType sort) = parExpr "declare-sort" [ppVar sort, text "0"]
 
-ppDatas :: PrettyVar a => [Datatype a] -> Doc
+ppDatas :: (Ord a, PrettyVar a) => [Datatype a] -> Doc
 ppDatas datatypes@(Datatype _ tyvars _:_) =
   parExpr "declare-datatypes" [parens (fsep (map ppVar tyvars)), parens (fsep (map ppData datatypes))]
 
-ppData :: PrettyVar a => Datatype a -> Doc
+ppData :: (Ord a, PrettyVar a) => Datatype a -> Doc
 ppData (Datatype tycon _ datacons) =
   parExpr (ppVar tycon) (map ppCon datacons)
 
-ppCon :: PrettyVar a => Constructor a -> Doc
+ppCon :: (Ord a, PrettyVar a) => Constructor a -> Doc
 ppCon (Constructor datacon _ args) =
   parExpr (ppVar datacon) [apply (ppVar p) (ppType t) | (p,t) <- args]
 
-par :: PrettyVar a => [a] -> Doc -> Doc
+par :: (Ord a, PrettyVar a) => [a] -> Doc -> Doc
 par [] d = d
 par xs d = parExpr "par" [parens (fsep (map ppVar xs)), parens d]
 
-ppUninterp :: PrettyVar a => AbsFunc a -> Doc
+ppUninterp :: (Ord a, PrettyVar a) => AbsFunc a -> Doc
 ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
   apply "declare-fun"
     (par tyvars
       (apply (ppVar f)
         (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
 
-ppFuncs :: PrettyVar a => [Function a] -> Doc
+ppFuncs :: (Ord a, PrettyVar a) => [Function a] -> Doc
 ppFuncs fs = apply "define-funs-rec" (parens (vcat (map ppFunc fs)))
 
-ppFunc :: PrettyVar a => Function a -> Doc
+ppFunc :: (Ord a, PrettyVar a) => Function a -> Doc
 ppFunc (Function f tyvars args res_ty body) =
   (par tyvars
     (ppVar f $\ fsep [ppLocals args, ppType res_ty, ppExpr body]))
 
-ppFormula :: PrettyVar a => Formula a -> Doc
+ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
 ppFormula (Formula Prove tvs term) =  vcat (map (ppSort . AbsType) tvs)
                                    $$ ppFormula (Formula Assert [] (neg term))
 ppFormula (Formula Assert tvs term) = apply "assert" (par tvs (ppExpr term))
 
-ppExpr :: PrettyVar a => Expr a -> Doc
+ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
+ppExpr e@(hd@(Gbl Global{..}) :@: es)
+  | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
+    "(as" $\ expr (ppHead hd) (map ppExpr es) $\ ppType (exprType e) <> ")"
 ppExpr (hd :@: es)  = expr (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVar (lcl_name l)
 ppExpr (Lam ls e)   = parExpr "lambda" [ppLocals ls,ppExpr e]
@@ -75,13 +79,13 @@ ppExpr (Match e as) = "(match" $\ ppExpr e $\ (vcat (map ppCase as) <> ")")
 ppExpr (Let x b e)  = parExpr "let" [parens (ppLocal x $\ ppExpr b), ppExpr e]
 ppExpr (Quant _ q ls e) = parExpr (ppQuant q) [ppLocals ls, ppExpr e]
 
-ppLocals :: PrettyVar a => [Local a] -> Doc
+ppLocals :: (Ord a, PrettyVar a) => [Local a] -> Doc
 ppLocals ls = parens (fsep (map ppLocal ls))
 
-ppLocal :: PrettyVar a => Local a -> Doc
+ppLocal :: (Ord a, PrettyVar a) => Local a -> Doc
 ppLocal (Local l t) = expr (ppVar l) [ppType t]
 
-ppHead :: PrettyVar a => Head a -> Doc
+ppHead :: (Ord a, PrettyVar a) => Head a -> Doc
 ppHead (Gbl gbl)   = ppVar (gbl_name gbl)
 ppHead (Builtin b) = ppBuiltin b
 
@@ -112,15 +116,15 @@ ppQuant :: Quant -> Doc
 ppQuant Forall = "forall"
 ppQuant Exists = "exists"
 
-ppCase :: PrettyVar a => Case a -> Doc
+ppCase :: (Ord a, PrettyVar a) => Case a -> Doc
 ppCase (Case pat rhs) = parExpr "case" [ppPat pat,ppExpr rhs]
 
-ppPat :: PrettyVar a => Pattern a -> Doc
+ppPat :: (Ord a, PrettyVar a) => Pattern a -> Doc
 ppPat Default         = "default"
 ppPat (ConPat g args) = expr (ppVar (gbl_name g)) [ppVar (lcl_name arg) | arg <- args]
 ppPat (LitPat lit)    = ppLit lit
 
-ppType :: PrettyVar a => Type a -> Doc
+ppType :: (Ord a, PrettyVar a) => Type a -> Doc
 ppType (TyVar x)     = ppVar x
 ppType (TyCon tc ts) = expr (ppVar tc) (map ppType ts)
 ppType (ts :=>: r)   = parExpr "=>" (map ppType (ts ++ [r]))
@@ -133,35 +137,35 @@ ppType (BuiltinType Boolean) = "bool"
 instance (Ord a,PrettyVar a) => Pretty (Theory a) where
   pp = ppTheory
 
-instance PrettyVar a => Pretty (Expr a) where
+instance (Ord a, PrettyVar a) => Pretty (Expr a) where
   pp = ppExpr
 
-instance PrettyVar a => Pretty (PolyType a) where
+instance (Ord a, PrettyVar a) => Pretty (PolyType a) where
   pp (PolyType tyvars arg_types result_type) =
     par tyvars
       (parens
         (sep [parens (fsep (map ppType arg_types)), ppType result_type]))
 
-instance PrettyVar a => Pretty (Type a) where
+instance (Ord a, PrettyVar a) => Pretty (Type a) where
   pp = ppType
 
-instance PrettyVar a => Pretty (Function a) where
+instance (Ord a, PrettyVar a) => Pretty (Function a) where
   pp = ppFunc
 
-instance PrettyVar a => Pretty (Formula a) where
+instance (Ord a, PrettyVar a) => Pretty (Formula a) where
   pp = ppFormula
 
-instance PrettyVar a => Pretty (Datatype a) where
+instance (Ord a, PrettyVar a) => Pretty (Datatype a) where
   pp = ppDatas . return
 
-instance PrettyVar a => Pretty (AbsFunc a) where
+instance (Ord a, PrettyVar a) => Pretty (AbsFunc a) where
   pp = ppUninterp
 
-instance PrettyVar a => Pretty (Local a) where
+instance (Ord a, PrettyVar a) => Pretty (Local a) where
   pp = ppLocal
 
-instance PrettyVar a => Pretty (Global a) where
+instance (Ord a, PrettyVar a) => Pretty (Global a) where
   pp = ppHead . Gbl
 
-instance PrettyVar a => Pretty (Head a) where
+instance (Ord a, PrettyVar a) => Pretty (Head a) where
   pp = ppHead
