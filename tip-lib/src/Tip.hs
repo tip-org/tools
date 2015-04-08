@@ -144,9 +144,8 @@ e // x = transformExprM $ \ e0 -> case e0 of
 substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
 substMany xs e0 = foldM (\e (x,xe) -> (xe // x) e) e0 xs
 
-
 apply :: Expr a -> [Expr a] -> Expr a
-apply e es@(_:_) = Builtin (At (length es)) :@: (e:es)
+apply e es@(_:_) = Builtin At :@: (e:es)
 apply _ [] = ERROR("tried to construct nullary lambda function")
 
 applyType :: Ord a => [a] -> [Type a] -> Type a -> Type a
@@ -196,11 +195,11 @@ builtinType IntGt _ = intType
 builtinType IntGe _ = intType
 builtinType IntLt _ = intType
 builtinType IntLe _ = intType
-builtinType At{} (e:_) =
+builtinType At (e:_) =
   case exprType e of
     _ :=>: res -> res
     _ -> ERROR("ill-typed lambda application")
-builtinType At{} _ = ERROR("ill-formed lambda application")
+builtinType At _ = ERROR("ill-formed lambda application")
 
 class Definition f where
   defines :: f a -> a
@@ -261,7 +260,7 @@ discriminator dt Constructor{..} tys =
   Global con_discrim (destructorType dt (BuiltinType Boolean)) tys
 
 projAt :: Expr a -> Maybe (Expr a,Expr a)
-projAt (Builtin (At 1) :@: [a,b]) = Just (a,b)
+projAt (Builtin At :@: [a,b]) = Just (a,b)
 projAt _                          = Nothing
 
 projGlobal :: Expr a -> Maybe a

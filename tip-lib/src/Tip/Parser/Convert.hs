@@ -95,7 +95,7 @@ trHead (A.Const s)  args    = Gbl (trGlobal s) :@: args
 trHead x args = Builtin b :@: args
  where
   b = case x of
-    A.At       -> T.At 0
+    A.At       -> T.At
     A.And      -> T.And
     A.Or       -> T.Or
     A.Not      -> T.Not

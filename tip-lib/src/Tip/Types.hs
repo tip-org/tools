@@ -43,7 +43,7 @@ data Case a = Case { case_pat :: Pattern a, case_rhs :: Expr a }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Builtin
-  = At Int
+  = At
   | Lit Lit
   | And
   | Or

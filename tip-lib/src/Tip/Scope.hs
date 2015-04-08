@@ -54,7 +54,7 @@ instance Error Doc where
   strMsg = text
 
 scope :: (PrettyVar a, Ord a) => Theory a -> Scope a
-scope thy = runIdentity (checkScopeT (withTheory thy get))
+scope thy = checkScope (withTheory thy get)
 
 runScopeT :: Monad m => ScopeT a m b -> m (Either Doc b)
 runScopeT (ScopeT m) = runErrorT (evalStateT m emptyScope)
@@ -65,8 +65,20 @@ checkScopeT m = runScopeT m >>= check
     check (Left err) = fail (show err)
     check (Right x)  = return x
 
+type ScopeM a = ScopeT a Identity
+
+runScope :: ScopeM a b -> Either Doc b
+runScope = runIdentity . runScopeT
+
+checkScope :: ScopeM a b -> b
+checkScope = runIdentity . checkScopeT
+  
 emptyScope :: Scope a
 emptyScope = Scope S.empty M.empty M.empty M.empty
+
+inContext :: Pretty a => a -> ScopeM a b -> ScopeM a b
+inContext x m =
+  catchError m (\e -> throwError (sep [nest 2 e, text "in context", nest 2 (pp x)]))
 
 local :: Monad m => ScopeT a m b -> ScopeT a m b
 local m = do
@@ -139,7 +151,7 @@ withTheory Theory{..} m = do
   mapM_ newAbsType thy_abs_type_decls
   mapM_ (newFunction . absFunc) thy_func_decls
   mapM_ newFunction thy_abs_func_decls
-  newScope m
+  m
 
 isType, isTyVar, isAbsType, isLocal, isGlobal :: Ord a => Scope a -> a -> Bool
 isType s x = M.member x (types s)

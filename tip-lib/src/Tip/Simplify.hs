@@ -19,7 +19,7 @@ aggressively = SimplifyOpts True (const True)
 simplifyExpr :: (TransformBiM Fresh (Expr a) (f a), Name a) => SimplifyOpts a -> f a -> Fresh (f a)
 simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
   case e0 of
-    Builtin (At _) :@: (Lam vars body:args) -> do
+    Builtin At :@: (Lam vars body:args) -> do
       let (remove, keep) = partition (uncurry (inlineable body)) (zip vars args)
       body' <- substMany remove body
       let e' = case keep of

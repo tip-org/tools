@@ -194,7 +194,7 @@ trExpr e0 = case collectTypeArgs e0 of
     (_, _:_) -> throw (msgTypeApplicationToExpr e0)
     (C.Lit l, _) -> literal <$> trLit l
 
-    (C.App e1 e2, _) -> (\ x y -> Builtin (At 1) :@: [x,y]) <$> trExpr e1 <*> trExpr e2
+    (C.App e1 e2, _) -> (\ x y -> Builtin At :@: [x,y]) <$> trExpr e1 <*> trExpr e2
 
     (C.Lam x e, _) -> do
         t <- lift (trType (varType x))
