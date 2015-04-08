@@ -144,6 +144,29 @@ e // x = transformExprM $ \ e0 -> case e0 of
 substMany :: Name a => [(Local a, Expr a)] -> Expr a -> Fresh (Expr a)
 substMany xs e0 = foldM (\e (x,xe) -> (xe // x) e) e0 xs
 
+matchTypesIn :: Ord a => [a] -> [(Type a, Type a)] -> Maybe [Type a]
+matchTypesIn tvs tys = do
+  sub <- matchTypes tys
+  forM tvs $ \tv -> lookup tv sub
+
+matchTypes :: Ord a => [(Type a, Type a)] -> Maybe [(a, Type a)]
+matchTypes tys = mapM (uncurry match) tys >>= collect . usort . concat
+  where
+    match ty1 ty2 | ty1 == ty2 = Just []
+    match (TyVar x) ty = Just [(x, ty)]
+    match (TyCon x tys1) (TyCon y tys2)
+      | x == y && length tys1 == length tys2 =
+        fmap concat (zipWithM match tys1 tys2)
+    match (args1 :=>: res1) (args2 :=>: res2)
+      | length args1 == length args2 =
+        fmap concat (zipWithM match (res1:args1) (res2:args2))
+    match _ _ = Nothing
+
+    collect [] = Just []
+    collect [x] = Just [x]
+    collect ((x, _):(y, _):_) | x == y = Nothing
+    collect (x:xs) = fmap (x:) (collect xs)
+
 apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin At :@: (e:es)
 apply _ [] = ERROR("tried to construct nullary lambda function")
@@ -170,7 +193,7 @@ exprType :: Ord a => Expr a -> Type a
 exprType (Gbl (Global{..}) :@: _) = res
   where
     (_, res) = applyPolyType gbl_type gbl_args
-exprType (Builtin blt :@: es) = builtinType blt es
+exprType (Builtin blt :@: es) = builtinType blt (map exprType es)
 exprType (Lcl lcl) = lcl_type lcl
 exprType (Lam args body) = map lcl_type args :=>: exprType body
 exprType (Match _ (Case _ body:_)) = exprType body
@@ -178,7 +201,7 @@ exprType (Match _ []) = ERROR("empty case expression")
 exprType (Let _ _ body) = exprType body
 exprType Quant{} = boolType
 
-builtinType :: Ord a => Builtin -> [Expr a] -> Type a
+builtinType :: Ord a => Builtin -> [Type a] -> Type a
 builtinType (Lit Int{}) _ = intType
 builtinType (Lit Bool{}) _ = boolType
 builtinType (Lit String{}) _ = ERROR("strings are not really here")
@@ -191,15 +214,21 @@ builtinType Distinct _ = boolType
 builtinType IntAdd _ = intType
 builtinType IntSub _ = intType
 builtinType IntMul _ = intType
-builtinType IntGt _ = intType
-builtinType IntGe _ = intType
-builtinType IntLt _ = intType
-builtinType IntLe _ = intType
-builtinType At (e:_) =
-  case exprType e of
-    _ :=>: res -> res
-    _ -> ERROR("ill-typed lambda application")
-builtinType At _ = ERROR("ill-formed lambda application")
+builtinType IntGt _ = boolType
+builtinType IntGe _ = boolType
+builtinType IntLt _ = boolType
+builtinType IntLe _ = boolType
+builtinType At ((_  :=>: res):_) = res
+builtinType At _ = ERROR("ill-typed lambda application")
+
+makeGlobal :: Ord a => a -> PolyType a -> [Type a] -> Maybe (Type a) -> Maybe (Global a)
+makeGlobal name polyty@PolyType{..} args mres = do
+  vars <- matchTypesIn polytype_tvs tys
+  return (Global name polyty vars)
+  where
+    tys =
+      (case mres of Nothing -> []; Just res -> [(polytype_res, res)]) ++
+      zip polytype_args args
 
 class Definition f where
   defines :: f a -> a

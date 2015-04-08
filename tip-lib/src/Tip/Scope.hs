@@ -76,9 +76,9 @@ checkScope = runIdentity . checkScopeT
 emptyScope :: Scope a
 emptyScope = Scope S.empty M.empty M.empty M.empty
 
-inContext :: Pretty a => a -> ScopeM a b -> ScopeM a b
+inContext :: Pretty a => a -> ScopeM b c -> ScopeM b c
 inContext x m =
-  catchError m (\e -> throwError (sep [nest 2 e, text "in context", nest 2 (pp x)]))
+  catchError m (\e -> throwError (sep [e, text "in context", nest 2 (pp x)]))
 
 local :: Monad m => ScopeT a m b -> ScopeT a m b
 local m = do
@@ -98,7 +98,7 @@ newInfo x = do
   case S.member x s of
     True ->
       throwError $
-        fsep [text "Info", ppVar x, text "rebound"]
+        fsep [text "Name", ppVar x, text "rebound"]
     False ->
       modify (\s -> s { inner = S.insert x (inner s) })
 
@@ -160,16 +160,19 @@ isGlobal s x = M.member x (globals s)
 isTyVar s x = M.lookup x (types s) == Just TyVarInfo
 isAbsType s x = M.lookup x (types s) == Just AbsTypeInfo
 
-lookupDatatype :: Ord a => Scope a -> a -> Maybe (Datatype a)
-lookupDatatype s x = do
-  DatatypeInfo dt <- M.lookup x (types s)
-  return dt
+lookupType :: Ord a => Scope a -> a -> Maybe (TypeInfo a)
+lookupType s x = M.lookup x (types s)
 
 lookupLocal :: Ord a => Scope a -> a -> Maybe (Type a)
 lookupLocal s x = M.lookup x (locals s)
 
 lookupGlobal :: Ord a => Scope a -> a -> Maybe (GlobalInfo a)
 lookupGlobal s x = M.lookup x (globals s)
+
+lookupDatatype :: Ord a => Scope a -> a -> Maybe (Datatype a)
+lookupDatatype s x = do
+  DatatypeInfo dt <- M.lookup x (types s)
+  return dt
 
 lookupFunction :: Ord a => Scope a -> a -> Maybe (PolyType a)
 lookupFunction s x = do
