@@ -61,7 +61,7 @@ instance Pretty Id where
 ppId :: Id -> String
 ppId (GHCOrigin nm) = ppName nm
 ppId (Eta n)        = "eta" ++ show n
-ppId (Discrim c)    = "is-" ++ show c
+ppId (Discrim c)    = "is-" ++ ppId c
 ppId (Project c i)  = case (i,ppId c) of
                         (0,"Pair") -> "first"
                         (1,"Pair") -> "second"
