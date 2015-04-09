@@ -7,6 +7,8 @@ import System.Environment
 import qualified Data.Foldable as F
 import Data.Ord
 
+import Control.Monad
+
 import Tip
 import Tip.AxiomatizeFuncdefs
 import Tip.Id
@@ -38,15 +40,15 @@ main = do
       }
     -- putStrLn (ppRender thy)
     let rnm = renameWith disambigId thy
-    let dlm = runFreshFrom (maximumOn varMax rnm)
-                           ( return
-                        -- . lint "decase" =<< decase
-                           . lint "simplify2" =<< simplifyExpr aggressively
-                           . lint "commuteMatch" =<< commuteMatch
-                           . lint "simplify1" =<< simplifyExpr aggressively
-                           . lint "delambda" =<< delambda
-                           . lint "denewtype" =<< return . denewtype
-                           . lint "simplify0" =<< simplifyExpr aggressively rnm)
+    let dlm = freshPass ( return
+                        -- . lint "decase" <=< decase
+                        . lint "simplify2" <=< simplifyExpr aggressively
+                        . lint "commuteMatch" <=< commuteMatch
+                        . lint "simplify1" <=< simplifyExpr aggressively
+                        . lint "delambda" <=< delambda
+                        . lint "denewtype" <=< return . denewtype
+                        . lint "simplify0" <=< simplifyExpr aggressively)
+                        rnm
     {- letLift =<< lambdaLift =<< -} --
     -- putStrLn "\n == After delambda and defunctionalization:"
     -- putStrLn (ppRender dlm)
@@ -62,9 +64,6 @@ main = do
     -- putStrLn "\n == After axiomatize function definitions:"
     -- let ax_fns = axiomatizeFuncdefs commute
     -- putStrLn (ppRender ax_fns)
-
-maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
-maximumOn f = f . F.maximumBy (comparing f)
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)
@@ -87,4 +86,7 @@ instance Name Var where
   fresh     = refresh (Var "")
   refresh (Refresh v _) = refresh v
   refresh v@Var{}       = Refresh v `fmap` fresh
+
+  getUnique (Refresh _ i) = i
+  getUnique Var{}         = 0
 

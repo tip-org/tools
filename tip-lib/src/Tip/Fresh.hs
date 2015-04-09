@@ -15,8 +15,11 @@ class (PrettyVar a, Ord a) => Name a where
   refresh :: a -> Fresh a
   refresh _ = fresh
 
+  getUnique :: a -> Int
+
 instance Name Int where
-  fresh = Fresh (state (id &&& succ))
+  fresh     = Fresh (state (id &&& succ))
+  getUnique = id
 
 runFresh :: Fresh a -> a
 runFresh (Fresh m) = evalState m 0

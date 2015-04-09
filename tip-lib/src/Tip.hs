@@ -17,6 +17,7 @@ import qualified Data.Foldable as F
 import Data.Graph
 import Data.Generics.Geniplate
 import Data.List ((\\))
+import Data.Ord
 import Control.Monad
 import qualified Data.Map as Map
 
@@ -326,4 +327,10 @@ renameAvoiding kwds repl = fmap AnotherId . renameWithBlocks kwds (disambig rn)
  where
   rn :: a -> String
   rn = reverse . dropWhile isDigit . reverse . concatMap repl . varStr
+
+freshPass :: (F.Foldable f,Name a) => (f a -> Fresh b) -> f a -> b
+f `freshPass` x = runFreshFrom (succ (maximumOn getUnique x)) (f x)
+
+maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
+maximumOn f = f . F.maximumBy (comparing f)
 

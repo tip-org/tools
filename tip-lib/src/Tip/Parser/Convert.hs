@@ -47,6 +47,12 @@ instance Ord Id where
 instance PrettyVar Id where
   varStr (Id s _ _) = s
 
+instance Name Id where
+  fresh = do u <- fresh
+             return (Id "x" u (0,0))
+
+  getUnique (Id _ u _) = u
+
 ppSym :: Symbol -> Doc
 ppSym (Symbol ((x,y),s)) = text s <+> "(" <> int x <> ":" <> int y <> ")"
 
