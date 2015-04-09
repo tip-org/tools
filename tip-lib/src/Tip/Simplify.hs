@@ -86,5 +86,6 @@ substMatched :: (Name a) => SimplifyOpts a -> Local a -> Expr a -> Expr a -> Fre
 substMatched opts x k_xs = transformExprInM $ \ e0 ->
   case e0 of
     Match (Lcl y) alts | x == y -> simplifyExpr opts (Match k_xs alts)
+    _ | e0 == k_xs -> return (Lcl x)
     _ -> return e0
 
