@@ -46,11 +46,12 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
       | Case pat rhs <- alts
       ]
 
+    Match _ [Case Default body] -> return body
+
     Match (hd :@: args) alts ->
       -- We use reverse because the default case comes first and we want it last
       case filter (matches hd . case_pat) (reverse alts) of
         [] -> return e0
-        Case Default body:_ -> return body
         Case (ConPat _ lcls) body:_ ->
           simplifyExpr opts $
             foldr (uncurry Let) body (zip lcls args)
@@ -58,7 +59,6 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
       where
         matches (Gbl gbl) (ConPat gbl' _) = gbl == gbl'
         matches (Builtin (Lit lit)) (LitPat lit') = lit == lit'
-        matches _ Default = True
         matches _ _ = False
 
     Builtin Equal :@: [Builtin (Lit (Bool x)) :@: [], t]
