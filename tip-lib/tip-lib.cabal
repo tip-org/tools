@@ -19,6 +19,7 @@ library
     Tip.CommuteMatch
     Tip.Denewtype
     Tip.Decase
+    Tip.Deprove
     Tip.Lift
     Tip.Lint
     Tip.Types

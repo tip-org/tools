@@ -113,11 +113,13 @@ trDecl x =
              fns <- zipWithM trFunDef fundefs bodies
              return emptyTheory{ thy_func_decls = fns }
 
-      MonoAssert expr    -> trDecl (ParAssert [] expr)
-      ParAssert tvs expr ->
+      MonoAssert role expr    -> trDecl (ParAssert role [] expr)
+      ParAssert role tvs expr ->
         do tvi <- mapM (addSym LocalId) tvs
            mapM newTyVar tvi
-           fm <- Formula Assert tvi <$> trExpr expr
+           let toRole AssertIt  = Assert
+               toRole AssertNot = Prove
+           fm <- Formula (toRole role) tvi <$> trExpr expr
            return emptyTheory{ thy_form_decls = [fm] }
 
 

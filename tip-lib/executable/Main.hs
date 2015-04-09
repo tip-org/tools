@@ -11,6 +11,7 @@ import Tip.Simplify
 import Tip.Decase
 import Tip.Lift
 import Tip.EqualFunctions
+import Tip.Deprove
 import Tip
 import Control.Monad
 
@@ -32,6 +33,8 @@ main =
                    simplifyExpr gently >=> return . lint "simplify1" >=>
                    decase >=> return . lint "decase" >=>
                    simplifyExpr gently >=> return . lint "simplify2" >=>
+                   deprove >=> return . lint "deprove" >=>
+                   simplifyExpr gently >=> return . lint "simplify3" >=>
                    return . SMT.ppTheory
                  _ ->
                    return . SMT.ppTheory in

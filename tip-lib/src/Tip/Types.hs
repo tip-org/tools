@@ -174,6 +174,8 @@ instanceUniverseBi [t| forall a . (Theory a,Type a) |]
 instanceUniverseBi [t| forall a . (Type a,Type a) |]
 instanceUniverseBi [t| forall a . (Theory a,Constructor a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
+instanceTransformBi [t| forall a . (a,Expr a) |]
+instanceTransformBi [t| forall a . (a,Formula a) |]
 instanceTransformBi [t| forall a . (Expr a,Function a) |]
 instanceTransformBi [t| forall a . (Expr a,Theory a) |]
 instanceTransformBi [t| forall a . (Head a,Expr a) |]
@@ -182,6 +184,7 @@ instanceTransformBi [t| forall a . (Local a,Expr a) |]
 instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
 instanceTransformBi [t| forall a . (Pattern a,Theory a) |]
 instanceTransformBi [t| forall a . (Type a,Theory a) |]
+instanceTransformBi [t| forall a . (Type a,Expr a) |]
 instanceTransformBi [t| forall a . (Type a,Type a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
@@ -212,3 +215,10 @@ transformExprInM = transformBiM
 
 transformType :: (Type a -> Type a) -> Type a -> Type a
 transformType = transformBi
+
+transformTypeInExpr :: (Type a -> Type a) -> Expr a -> Expr a
+transformTypeInExpr =
+  $(genTransformBiT' [[t|PolyType|]] [t|forall a. (Type a -> Type a) -> Expr a -> Expr a|])
+
+
+

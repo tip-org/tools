@@ -130,13 +130,16 @@ freeTyVars e =
 
 -- Rename bound variables in an expression to fresh variables.
 freshen :: Name a => Expr a -> Fresh (Expr a)
-freshen e = do
-  let lcls = bound e
-  sub <- fmap (Map.fromList . zip lcls) (mapM refreshLocal lcls)
-  return . flip transformBi e $ \lcl ->
-    case Map.lookup lcl sub of
-      Nothing -> lcl
-      Just lcl' -> lcl'
+freshen e = freshenNames (map lcl_name (bound e)) e
+
+freshenNames :: (TransformBi a (f a), Name a) =>
+  [a] -> f a -> Fresh (f a)
+freshenNames names e = do
+  sub <- fmap (Map.fromList . zip names) (mapM refresh names)
+  return . flip transformBi e $ \x ->
+    case Map.lookup x sub of
+      Nothing -> x
+      Just y -> y
 
 -- | Substitution, of local variables
 --

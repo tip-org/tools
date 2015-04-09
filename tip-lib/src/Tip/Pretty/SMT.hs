@@ -54,6 +54,10 @@ par :: (Ord a, PrettyVar a) => [a] -> Doc -> Doc
 par [] d = d
 par xs d = parExpr "par" [parens (fsep (map ppVar xs)), parens d]
 
+par' :: (Ord a, PrettyVar a) => [a] -> Doc -> Doc
+par' [] d = d
+par' xs d = parExpr "par" [parens (fsep (map ppVar xs)), d]
+
 ppUninterp :: (Ord a, PrettyVar a) => AbsFunc a -> Doc
 ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
   apply "declare-fun"
@@ -69,13 +73,13 @@ ppFuncs fs = expr "define-funs-rec"
 
 ppFuncSig :: (Ord a, PrettyVar a) => Function a -> Doc
 ppFuncSig (Function f tyvars args res_ty body) =
-  ((if null tyvars then parens else par tyvars)
-    (ppVar f $\ fsep [ppLocals args, ppType res_ty]))
+  (par' tyvars
+    (parens
+      (ppVar f $\ fsep [ppLocals args, ppType res_ty])))
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove tvs term) =  vcat (map (ppSort . flip AbsType 0) tvs)
-                                   $$ ppFormula (Formula Assert [] (neg term))
-ppFormula (Formula Assert tvs term) = apply "assert" (par tvs (ppExpr term))
+ppFormula (Formula Prove tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
+ppFormula (Formula Assert tvs term) = apply "assert"     (par' tvs (ppExpr term))
 
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])

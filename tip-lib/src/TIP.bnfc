@@ -8,8 +8,11 @@ DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] "
 DeclareSort.      Decl ::= "declare-sort" Symbol Integer;
 DeclareFun.       Decl ::= "declare-fun" FunDecl;
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDef] ")" "(" [Expr] ")";
-MonoAssert.       Decl ::= "assert" Expr;
-ParAssert.        Decl ::= "assert" "(" "par" "(" [Symbol] ")" Expr ")";
+MonoAssert.       Decl ::= Assertion Expr;
+ParAssert.        Decl ::= Assertion "(" "par" "(" [Symbol] ")" Expr ")";
+
+AssertIt.  Assertion ::= "assert";
+AssertNot. Assertion ::= "assert-not";
 
 ParFunDef.   FunDef ::= "(" "par" "(" [Symbol] ")" InnerFunDef ")";
 MonoFunDef.  FunDef ::= InnerFunDef;
