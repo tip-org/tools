@@ -5,6 +5,7 @@ import Tip
 import Tip.Fresh
 import Data.Generics.Geniplate
 import Data.List
+import Control.Applicative
 
 data SimplifyOpts a =
   SimplifyOpts {
@@ -36,6 +37,14 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
 
     Match (Let var val body) alts | touch_lets ->
       simplifyExpr opts (Let var val (Match body alts))
+
+    Match (Lcl x) alts -> Match (Lcl x) <$> sequence
+      [ Case pat <$> case pat of
+          ConPat g bs -> substMatched opts x (Gbl g :@: map Lcl bs) rhs
+          LitPat l    -> substMatched opts x (literal l) rhs
+          _           -> return rhs
+      | Case pat rhs <- alts
+      ]
 
     Match (hd :@: args) alts ->
       -- We use reverse because the default case comes first and we want it last
@@ -72,3 +81,10 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
   where
     inlineable body var val = should_inline val || occurrences var body <= 1
     occurrences var body = length (filter (== var) (universeBi body))
+
+substMatched :: (Name a) => SimplifyOpts a -> Local a -> Expr a -> Expr a -> Fresh (Expr a)
+substMatched opts x k_xs = transformExprInM $ \ e0 ->
+  case e0 of
+    Match (Lcl y) alts | x == y -> simplifyExpr opts (Match k_xs alts)
+    _ -> return e0
+
