@@ -321,9 +321,9 @@ instance PrettyVar AnotherId where
 -- Strips off trailing numbers and allows them to be renumbered
 -- Send in your keywords
 -- Todo: don't put everything in the same global scope
-renameAvoiding :: forall a . (Ord a,PrettyVar a) => [String] -> Theory a -> Theory AnotherId
-renameAvoiding kwds = fmap AnotherId . renameWithBlocks kwds (disambig rn)
+renameAvoiding :: forall a . (Ord a,PrettyVar a) => [String] -> (Char -> String) -> Theory a -> Theory AnotherId
+renameAvoiding kwds repl = fmap AnotherId . renameWithBlocks kwds (disambig rn)
  where
   rn :: a -> String
-  rn = reverse . dropWhile isDigit . reverse . varStr
+  rn = reverse . dropWhile isDigit . reverse . concatMap repl . varStr
 

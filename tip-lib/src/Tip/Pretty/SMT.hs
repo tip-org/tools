@@ -7,6 +7,7 @@ import Tip.Pretty
 import Tip.Types
 import Tip (ifView, topsort, neg, exprType, makeGlobal, renameAvoiding)
 import Data.Maybe
+import Data.Char (isAlphaNum)
 
 expr,parExpr :: Doc -> [Doc] -> Doc
 parExpr s [] = "(" <> s <> ")"
@@ -18,8 +19,14 @@ expr s xs = parExpr s xs
 apply :: Doc -> Doc -> Doc
 apply s x = parExpr s [x]
 
+validSMTChar :: Char -> String
+validSMTChar x
+  | isAlphaNum x                 = [x]
+  | x `elem` "~!@$%^&*_-+=<>.?/" = [x]
+  | otherwise                    = ""
+
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding smtKeywords -> Theory{..})
+ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
   = vcat
      (map ppSort thy_abs_type_decls ++
       map ppDatas (topsort thy_data_decls) ++
@@ -208,7 +215,7 @@ smtKeywords =
     , "assert", "check-sat"
     , "abs", "min", "max", "const"
     -- Z3:
-    , "Bool", "Int", "Array", "List", "head", "tail", "nil", "insert"
+    , "Bool", "Int", "Array", "List", "insert"
     , "isZero"
     , "map"
     -- CVC4:

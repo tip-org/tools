@@ -5,6 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
+import Tip.Utils.Renamer (renameWith,disambig)
 import Tip (ifView, topsort, renameAvoiding)
 
 import Data.Char
@@ -20,9 +21,11 @@ instance PrettyVar Why3Var where
   varStr (Why3Var x) = x
 
 why3VarTheory :: forall a . (Ord a,PrettyVar a) => Theory a -> Theory Why3Var
-why3VarTheory thy = fmap (Why3Var . rename) thy
+why3VarTheory thy = renameWith (map Why3Var . disambig rename) thy
  where
   cons = S.fromList [ c | Constructor c _ _ <- universeBi thy ]
+
+  rename :: a -> String
   rename i = (if i `S.member` cons then toUpper else toLower) `mapHead` addAlpha (varStr i)
 
   mapHead :: (Char -> Char) -> String -> String
@@ -52,7 +55,7 @@ separating comb seps docs = comb (go seps docs)
     go []     _      = error "separating: ran out of separators!"
 
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding why3Keywords . why3VarTheory -> Theory{..})
+ppTheory (renameAvoiding why3Keywords return . why3VarTheory -> Theory{..})
   = block ("module" <+> "A") $
     vcat (
       "use HighOrd" :
@@ -131,7 +134,7 @@ ppBuiltin b         = error $ "Why3.ppBuiltin: " ++ show b
 ppBinOp :: Builtin -> Maybe Doc
 ppBinOp And       = Just "&&"
 ppBinOp Or        = Just "||"
-ppBinOp Implies   = Just "=>"
+ppBinOp Implies   = Just "->"
 ppBinOp Equal     = Just "="
 ppBinOp Distinct  = Just "!="
 ppBinOp IntAdd    = Just "+"
@@ -211,4 +214,5 @@ why3Keywords = words $ unlines
     , "unit"
     , "void"
     , "with"
+    , "sign Nil Cons"
     ]
