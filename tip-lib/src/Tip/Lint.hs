@@ -39,7 +39,7 @@ check' x p = do
 
 lintTheory :: (PrettyVar a, Ord a) => Theory a -> Either Doc ()
 lintTheory thy@Theory{..} =
-  runScope . withTheory thy $ do
+  runScope . withTheory thy $ inContext thy $ do
     mapM_ lintDatatype thy_data_decls
     mapM_ lintAbsFunc thy_abs_func_decls
     mapM_ lintFunction thy_func_decls
