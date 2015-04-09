@@ -36,7 +36,7 @@ ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
       ["(check-sat)"])
 
 ppSort :: (Ord a, PrettyVar a) => AbsType a -> Doc
-ppSort (AbsType sort) = parExpr "declare-sort" [ppVar sort, text "0"]
+ppSort (AbsType sort n) = parExpr "declare-sort" [ppVar sort, int n]
 
 ppDatas :: (Ord a, PrettyVar a) => [Datatype a] -> Doc
 ppDatas datatypes@(Datatype _ tyvars _:_) =
@@ -70,7 +70,7 @@ ppFunc (Function f tyvars args res_ty body) =
     (ppVar f $\ fsep [ppLocals args, ppType res_ty, ppExpr body]))
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove tvs term) =  vcat (map (ppSort . AbsType) tvs)
+ppFormula (Formula Prove tvs term) =  vcat (map (ppSort . flip AbsType 0) tvs)
                                    $$ ppFormula (Formula Assert [] (neg term))
 ppFormula (Formula Assert tvs term) = apply "assert" (par tvs (ppExpr term))
 

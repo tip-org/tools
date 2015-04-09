@@ -89,18 +89,18 @@ trDecl x =
     case x of
       DeclareDatatypes tvs datatypes ->
         do -- add their types, abstractly
-           mapM_ (newAbsType (length tvs) <=< addSym GlobalId . dataSym) datatypes
+           forM_ datatypes $ \dt -> do
+             sym <- addSym GlobalId (dataSym dt)
+             newAbsType (AbsType sym (length tvs))
            newScope $
              do tvi <- mapM (addSym LocalId) tvs
                 mapM newTyVar tvi
                 ds <- mapM (trDatatype tvi) datatypes
                 return emptyTheory{ thy_data_decls = ds }
 
-      DeclareSort s 0 ->
+      DeclareSort s n ->
         do i <- addSym GlobalId s
-           return emptyTheory{ thy_abs_type_decls = [AbsType i] }
-
-      DeclareSort s n -> error $ "Sort with kind " ++ show n
+           return emptyTheory{ thy_abs_type_decls = [AbsType i (fromIntegral n)] }
 
       DeclareFun fundecl ->
         do d <- trFunDecl fundecl

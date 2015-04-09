@@ -1,16 +1,21 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 module Tip.Lift (lambdaLift, letLift, axiomatizeLambdas) where
 
+#include "errors.h"
 import Tip
 import Tip.Fresh
+import Tip.Utils
 
 import Data.Either
+import Data.List
 import Data.Generics.Geniplate
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Writer
+import qualified Data.Map as Map
 
 type LiftM a = WriterT [Function a] Fresh
 
@@ -105,20 +110,55 @@ axLamFunc Function{..} =
       in  Just (abs,fm)
     _ -> Nothing
 
-axiomatizeLambdas :: Theory a -> Theory a
-axiomatizeLambdas Theory{..} =
-  Theory{
-    thy_abs_func_decls = new_abs ++ thy_abs_func_decls,
-    thy_func_decls = survivors,
-    thy_form_decls = new_form ++ thy_form_decls,
-    ..
-  }
+axiomatizeLambdas :: forall a. Name a => Theory a -> Fresh (Theory a)
+axiomatizeLambdas thy0 = do
+  arrows <- fmap Map.fromList (mapM makeArrow arities)
+  ats    <- fmap Map.fromList (mapM (makeAt arrows) arities)
+  return $
+    transformBi (eliminateArrows arrows) $
+    transformBi (eliminateAts ats)
+    thy {
+      thy_abs_func_decls = Map.elems ats    ++ thy_abs_func_decls thy,
+      thy_abs_type_decls = Map.elems arrows ++ thy_abs_type_decls thy
+    }
   where
+    thy =
+      thy0 {
+        thy_abs_func_decls = new_abs ++ thy_abs_func_decls thy0,
+        thy_func_decls = survivors,
+        thy_form_decls = new_form ++ thy_form_decls thy0
+      }
     (survivors,new) =
       partitionEithers
         [ maybe (Left fn) Right (axLamFunc fn)
-        | fn <- thy_func_decls
+        | fn <- thy_func_decls thy0
         ]
 
     (new_abs,new_form) = unzip new
 
+    arities = usort [ length args | args :=>: _ <- universeBi thy :: [Type a] ]
+    makeArrow n = do
+      ty <- fresh
+      return (n, AbsType ty (n+1))
+    makeAt arrows n = do
+      name <- fresh
+      tvs <- replicateM n fresh
+      tv  <- fresh
+      let AbsType{..} = Map.findWithDefault __ n arrows
+          ty          = TyCon abs_type_name (map TyVar (tvs ++ [tv]))
+      return $
+        (n, AbsFunc name (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
+
+    eliminateArrows arrows (args :=>: res) =
+      TyCon abs_type_name (map (eliminateArrows arrows) (args ++ [res]))
+      where
+        AbsType{..} = Map.findWithDefault __ (length args) arrows
+    eliminateArrows _ ty = ty
+
+    eliminateAts ats (Builtin At :@: (e:es)) =
+      Gbl (Global abs_func_name abs_func_type (args ++ [res])) :@:
+      map (eliminateAts ats) (e:es)
+      where
+        args :=>: res = exprType e
+        AbsFunc{..} = Map.findWithDefault __ (length args) ats
+    eliminateAts _ e = e

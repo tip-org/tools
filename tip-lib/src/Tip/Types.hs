@@ -115,7 +115,9 @@ data AbsFunc a = AbsFunc
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data AbsType a = AbsType { abs_type_name :: a }
+data AbsType a = AbsType
+  { abs_type_name :: a
+  , abs_type_arity :: Int }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Data definition
@@ -168,6 +170,7 @@ instanceUniverseBi [t| forall a . (Expr a,Pattern a) |]
 instanceUniverseBi [t| forall a . (Expr a,Local a) |]
 instanceUniverseBi [t| forall a . (Expr a,Global a) |]
 instanceUniverseBi [t| forall a . (Theory a,Expr a) |]
+instanceUniverseBi [t| forall a . (Theory a,Type a) |]
 instanceUniverseBi [t| forall a . (Type a,Type a) |]
 instanceUniverseBi [t| forall a . (Theory a,Constructor a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
