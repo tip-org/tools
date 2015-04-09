@@ -1,11 +1,11 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings, PatternGuards #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, PatternGuards, ViewPatterns #-}
 module Tip.Pretty.SMT where
 
 import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip (ifView, topsort, neg, exprType, makeGlobal)
+import Tip (ifView, topsort, neg, exprType, makeGlobal, renameAvoiding)
 import Data.Maybe
 
 expr,parExpr :: Doc -> [Doc] -> Doc
@@ -19,7 +19,7 @@ apply :: Doc -> Doc -> Doc
 apply s x = parExpr s [x]
 
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory Theory{..}
+ppTheory (renameAvoiding smtKeywords -> Theory{..})
   = vcat
      (map ppSort thy_abs_type_decls ++
       map ppDatas (topsort thy_data_decls) ++
@@ -59,7 +59,7 @@ ppFuncs fs = apply "define-funs-rec" (parens (vcat (map ppFunc fs)))
 
 ppFunc :: (Ord a, PrettyVar a) => Function a -> Doc
 ppFunc (Function f tyvars args res_ty body) =
-  (par tyvars
+  ((if null tyvars then parens else par tyvars)
     (ppVar f $\ fsep [ppLocals args, ppType res_ty, ppExpr body]))
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
@@ -169,3 +169,49 @@ instance (Ord a, PrettyVar a) => Pretty (Global a) where
 
 instance (Ord a, PrettyVar a) => Pretty (Head a) where
   pp = ppHead
+
+smtKeywords :: [String]
+smtKeywords =
+    [ "ac"
+    , "and"
+    , "axiom"
+    , "inversion"
+    , "bitv"
+    , "bool"
+    , "check"
+    , "cut"
+    , "distinct"
+    , "else"
+    , "exists"
+    , "false"
+    , "forall"
+    , "function"
+    , "goal"
+    , "if"
+    , "in"
+    , "include"
+    , "int"
+    , "let"
+    , "logic"
+    , "not"
+    , "or"
+    , "predicate"
+    , "prop"
+    , "real"
+    , "rewriting"
+    , "then"
+    , "true"
+    , "type"
+    , "unit"
+    , "void"
+    , "with"
+    , "assert", "check-sat"
+    , "abs", "min", "max", "const"
+    -- Z3:
+    , "Bool", "Int", "Array", "List", "head", "tail", "nil", "insert"
+    , "isZero"
+    , "map"
+    -- CVC4:
+    , "as", "concat"
+    ]
+

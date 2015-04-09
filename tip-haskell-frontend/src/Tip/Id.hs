@@ -65,17 +65,17 @@ ppId (Discrim c)    = "is-" ++ ppId c
 ppId (Project c i)  = case (i,ppId c) of
                         (0,"Pair") -> "first"
                         (1,"Pair") -> "second"
-                        (0,"Cons") -> "head"
-                        (1,"Cons") -> "tail"
+                        (0,"cons") -> "head"
+                        (1,"cons") -> "tail"
                         (0,"S")    -> "p"
                         (0,"Succ") -> "pred"
                         _          -> ppId c ++ "_" ++ show i
 
 ppName :: Name -> String
 ppName nm
-    | k == listTyConKey      = "List"
-    | k == nilDataConKey     = "Nil"
-    | k == consDataConKey    = "Cons"
+    | k == listTyConKey      = "list"
+    | k == nilDataConKey     = "nil"
+    | k == consDataConKey    = "cons"
     | k == unitTyConKey      = "UnitTyCon"
     | k == genUnitDataConKey = "Unit"
     | otherwise = case getOccString nm of

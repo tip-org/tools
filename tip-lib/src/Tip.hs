@@ -2,12 +2,16 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Tip(module Tip, module Tip.Types) where
 
 #include "errors.h"
 import Tip.Types
 import Tip.Fresh
 import Tip.Utils
+import Tip.Pretty
+import Data.Char (isDigit)
+import Tip.Utils.Renamer
 import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Graph
@@ -305,3 +309,20 @@ boolType = BuiltinType Boolean
 letExpr :: Name a => Expr a -> (Local a -> Fresh (Expr a)) -> Fresh (Expr a)
 letExpr (Lcl x) k = k x
 letExpr e k = freshLocal (exprType e) >>= k
+
+newtype AnotherId = AnotherId { anotherString :: String }
+  deriving (Eq,Ord,Show)
+
+instance PrettyVar AnotherId where
+  varStr = anotherString
+
+-- Preserves the case of the first character.
+-- Strips off trailing numbers and allows them to be renumbered
+-- Send in your keywords
+-- Todo: don't put everything in the same global scope
+renameAvoiding :: forall a . (Ord a,PrettyVar a) => [String] -> Theory a -> Theory AnotherId
+renameAvoiding kwds = fmap AnotherId . renameWithBlocks kwds (disambig rn)
+ where
+  rn :: a -> String
+  rn = reverse . dropWhile isDigit . reverse . varStr
+

@@ -56,5 +56,8 @@ rename :: (Ord a,Ord b,Traversable t) => t a -> RenameM a b (t b)
 rename = T.mapM lkup
 
 renameWith :: (Ord a,Ord b,Traversable t) => Suggestor a b -> t a -> t b
-renameWith f = evalRenameM f [] . rename
+renameWith = renameWithBlocks []
+
+renameWithBlocks :: (Ord a,Ord b,Traversable t) => [b] -> Suggestor a b -> t a -> t b
+renameWithBlocks bs f = evalRenameM f bs . rename
 

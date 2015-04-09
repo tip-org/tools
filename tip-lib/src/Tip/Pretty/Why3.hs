@@ -1,11 +1,11 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, PatternGuards, ScopedTypeVariables, ViewPatterns #-}
 module Tip.Pretty.Why3 where
 
 import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip (ifView, topsort)
+import Tip (ifView, topsort, renameAvoiding)
 
 import Data.Char
 
@@ -51,10 +51,8 @@ separating comb seps docs = comb (go seps docs)
     go _      []     = []
     go []     _      = error "separating: ran out of separators!"
 
-
-
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory Theory{..}
+ppTheory (renameAvoiding why3Keywords . why3VarTheory -> Theory{..})
   = block ("module" <+> "A") $
     vcat (
       "use HighOrd" :
@@ -175,3 +173,42 @@ ppType _ (BuiltinType Boolean) = "bool"
 ppTyVar :: PrettyVar a => a -> Doc
 ppTyVar x = "'" <> ppVar x
 
+why3Keywords :: [String]
+why3Keywords = words $ unlines
+    [ "equal not function use import goal int"
+    , "and or"
+    , "forall exists"
+    , "module theory"
+    , "ac"
+    , "and"
+    , "axiom"
+    , "inversion"
+    , "bitv"
+    , "check"
+    , "cut"
+    , "distinct"
+    , "else"
+    , "exists"
+    , "false"
+    , "forall"
+    , "function"
+    , "goal"
+    , "if"
+    , "in"
+    , "include"
+    , "int"
+    , "let"
+    , "logic"
+    , "not"
+    , "or"
+    , "predicate"
+    , "prop"
+    , "real"
+    , "rewriting"
+    , "then"
+    , "true"
+    , "type"
+    , "unit"
+    , "void"
+    , "with"
+    ]

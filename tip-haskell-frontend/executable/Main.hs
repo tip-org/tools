@@ -18,6 +18,7 @@ import Tip.Lift
 import Tip.Fresh
 import Tip.Utils.Renamer
 import Tip.Pretty
+import Tip.Pretty.SMT as SMT
 import Tip.EqualFunctions
 import Tip.Simplify
 import Tip.Lint
@@ -36,13 +37,21 @@ main = do
       , extra_trans = [] -- es
       }
     -- putStrLn (ppRender thy)
-    let rnm = lint "renamer" (renameWith disambigId thy)
+    let rnm = renameWith disambigId thy
     let dlm = runFreshFrom (maximumOn varMax rnm)
-                           ({- letLift =<< lambdaLift =<< -} decase . lint "simplify2" =<< simplifyExpr aggressively . lint "commuteMatch" =<< commuteMatch . lint "simplify1" =<< simplifyExpr aggressively . lint "delambda" =<< delambda (lint "denewtype" (denewtype rnm)))
+                           ( return
+                        -- . lint "decase" =<< decase
+                           . lint "simplify2" =<< simplifyExpr aggressively
+                           . lint "commuteMatch" =<< commuteMatch
+                           . lint "simplify1" =<< simplifyExpr aggressively
+                           . lint "delambda" =<< delambda
+                           . lint "denewtype" =<< return . denewtype
+                           . lint "simplify0" =<< simplifyExpr aggressively rnm)
+    {- letLift =<< lambdaLift =<< -} --
     -- putStrLn "\n == After delambda and defunctionalization:"
     -- putStrLn (ppRender dlm)
     -- putStrLn "\n == After collapse equal:"
-    putStrLn (ppRender (lint "collapseEqual" (collapseEqual (lint "removeAliases" (removeAliases (lint "decase" dlm))))))
+    print (SMT.ppTheory (lint "collapseEqual" (collapseEqual (lint "removeAliases" (removeAliases dlm)))))
     -- putStrLn "\n == After axiomatization:"
     -- let after_ax = axiomatizeLambdas (collapseEqual dlm)
     -- putStrLn (ppRender after_ax)
@@ -76,5 +85,6 @@ disambigId i = vs : [ Refresh vs x | x <- [0..] ]
 
 instance Name Var where
   fresh     = refresh (Var "")
-  refresh v = Refresh v `fmap` fresh
+  refresh (Refresh v _) = refresh v
+  refresh v@Var{}       = Refresh v `fmap` fresh
 
