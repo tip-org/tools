@@ -52,7 +52,8 @@ a ==> b = Builtin Implies :@: [a,b]
 xs ===> y = foldr (==>) y xs
 
 mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
-mkQuant = Quant NoInfo
+mkQuant q [] e = e
+mkQuant q xs e = Quant NoInfo q xs e
 
 bool :: Bool -> Expr a
 bool = literal . Bool
