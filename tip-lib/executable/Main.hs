@@ -6,6 +6,13 @@ import Tip.Parser
 import Tip.Pretty.SMT as SMT
 import Tip.Pretty.Why3 as Why3
 import Tip.Lint
+import Tip.Fresh
+import Tip.Simplify
+import Tip.Decase
+import Tip.Lift
+import Tip.EqualFunctions
+import Tip
+import Control.Monad
 
 main :: IO ()
 main =
@@ -14,7 +21,18 @@ main =
      case parse s of
        Left err  -> error $ "Parse failed: " ++ err
        Right thy ->
-         if "why3" `elem` es
-           then putStrLn (render (Why3.ppTheory (lint "why3" (why3VarTheory (lint "parse" thy)))))
-           else putStrLn (render (SMT.ppTheory (lint "parse" thy)))
-
+         let pipeline =
+               case () of
+                 () | "why3" `elem` es -> return . Why3.ppTheory
+                 () | "cvc4" `elem` es ->
+                   lambdaLift >=> return . lint "lambdaLift" >=>
+                   axiomatizeLambdas >=> return . lint "axiomatizeLambdas" >=>
+                   return . lint "collapseEqual" . collapseEqual >=>
+                   return . lint "removeAliases" . removeAliases >=>
+                   simplifyExpr gently >=> return . lint "simplify1" >=>
+                   decase >=> return . lint "decase" >=>
+                   simplifyExpr gently >=> return . lint "simplify2" >=>
+                   return . SMT.ppTheory
+                 _ ->
+                   return . SMT.ppTheory in
+         print (freshPass pipeline (lint "parse" thy))
