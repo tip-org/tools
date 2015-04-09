@@ -9,9 +9,14 @@ rough around the edges but include:
 
 ## Building the tools
 
-Check out this repository, make sure you have Haskell installed and
-run `cabal update` and then
-`cabal install ./tip-lib ./tip-haskell-frontend`.
+Check out this repository, make sure you have Haskell installed and then:
+
+    cabal update
+    git clone https://github.com/augustss/geniplate.git
+    cabal install bnfc geniplate/ 'mtl < 2.2'
+    ./make_parser.sh
+    cabal install ./tip-lib ./tip-haskell-frontend
+
 The tools will be put in your `~/.cabal/bin` directory.
 
 ## Using the tools
