@@ -68,7 +68,9 @@ ppTheory (renameAvoiding why3Keywords return . why3VarTheory -> Theory{..})
       zipWith ppFormula thy_form_decls [0..])
 
 ppSort :: (PrettyVar a, Ord a) => AbsType a -> Doc
-ppSort (AbsType sort) = "type" $\ ppVar sort
+ppSort (AbsType sort 0) = "type" $\ ppVar sort
+ppSort (AbsType sort n) =
+  error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Why3"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas (d:ds) = vcat (ppData "type" d:map (ppData "with") ds)

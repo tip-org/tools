@@ -108,11 +108,11 @@ newTyVar ty = do
   modify $ \s -> s {
     types = M.insert ty TyVarInfo (types s) }
 
-newAbsType :: (Monad m, Ord a, PrettyVar a) => Int -> a -> ScopeT a m ()
-newAbsType arity ty = do
-  newName ty
+newAbsType :: (Monad m, Ord a, PrettyVar a) => AbsType a -> ScopeT a m ()
+newAbsType AbsType{..} = do
+  newName abs_type_name
   modify $ \s -> s {
-    types = M.insert ty (AbsTypeInfo arity) (types s) }
+    types = M.insert abs_type_name (AbsTypeInfo abs_type_arity) (types s) }
 
 newDatatype :: (Monad m, Ord a, PrettyVar a) => Datatype a -> ScopeT a m ()
 newDatatype dt@Datatype{..} = do
@@ -148,7 +148,7 @@ newLocal Local{..} = do
 withTheory :: (Monad m, Ord a, PrettyVar a) => Theory a -> ScopeT a m b -> ScopeT a m b
 withTheory Theory{..} m = do
   mapM_ newDatatype thy_data_decls
-  mapM_ (newAbsType 0 . abs_type_name) thy_abs_type_decls
+  mapM_ newAbsType thy_abs_type_decls
   mapM_ (newFunction . absFunc) thy_func_decls
   mapM_ newFunction thy_abs_func_decls
   m
