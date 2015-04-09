@@ -60,6 +60,7 @@ ppTheory (renameAvoiding why3Keywords return . why3VarTheory -> Theory{..})
   = block ("module" <+> "A") $
     vcat (
       "use HighOrd" :
+      "use import int.Int" :
       map ppSort thy_abs_type_decls ++
       map ppDatas (topsort thy_data_decls) ++
       map ppUninterp thy_abs_func_decls ++

@@ -62,12 +62,15 @@ ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
         (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
 
 ppFuncs :: (Ord a, PrettyVar a) => [Function a] -> Doc
-ppFuncs fs = apply "define-funs-rec" (parens (vcat (map ppFunc fs)))
+ppFuncs fs = expr "define-funs-rec"
+  [ parens (vcat (map ppFuncSig fs))
+  , parens (vcat (map (ppExpr . func_body) fs))
+  ]
 
-ppFunc :: (Ord a, PrettyVar a) => Function a -> Doc
-ppFunc (Function f tyvars args res_ty body) =
+ppFuncSig :: (Ord a, PrettyVar a) => Function a -> Doc
+ppFuncSig (Function f tyvars args res_ty body) =
   ((if null tyvars then parens else par tyvars)
-    (ppVar f $\ fsep [ppLocals args, ppType res_ty, ppExpr body]))
+    (ppVar f $\ fsep [ppLocals args, ppType res_ty]))
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
 ppFormula (Formula Prove tvs term) =  vcat (map (ppSort . AbsType) tvs)
@@ -157,7 +160,7 @@ instance (Ord a, PrettyVar a) => Pretty (Type a) where
   pp = ppType
 
 instance (Ord a, PrettyVar a) => Pretty (Function a) where
-  pp = ppFunc
+  pp = ppFuncs . return
 
 instance (Ord a, PrettyVar a) => Pretty (Formula a) where
   pp = ppFormula

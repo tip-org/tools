@@ -106,11 +106,11 @@ trDecl x =
         do d <- trFunDecl fundecl
            return emptyTheory{ thy_abs_func_decls = [d] }
 
-      DefineFun fundefs  ->
+      DefineFunsRec fundefs bodies ->
         do -- add their correct types, abstractly
            fds <- mapM (trFunDecl . defToDecl) fundefs
            withTheory emptyTheory{ thy_abs_func_decls = fds } $ do
-             fns <- mapM trFunDef fundefs
+             fns <- zipWithM trFunDef fundefs bodies
              return emptyTheory{ thy_func_decls = fns }
 
       MonoAssert expr    -> trDecl (ParAssert [] expr)
@@ -125,13 +125,13 @@ trDecl x =
 defToDecl :: FunDef -> FunDecl
 defToDecl x = case x of
   MonoFunDef inner -> defToDecl (ParFunDef [] inner)
-  ParFunDef tvs (InnerFunDef fsym bindings res_type body) ->
+  ParFunDef tvs (InnerFunDef fsym bindings res_type) ->
     ParFunDecl tvs (InnerFunDecl fsym (map bindingType bindings) res_type)
 
-trFunDef :: FunDef -> CM (T.Function Id)
-trFunDef x = case x of
-  MonoFunDef inner -> trFunDef (ParFunDef [] inner)
-  ParFunDef tvs (InnerFunDef fsym bindings res_type body) ->
+trFunDef :: FunDef -> A.Expr -> CM (T.Function Id)
+trFunDef x body = case x of
+  MonoFunDef inner -> trFunDef (ParFunDef [] inner) body
+  ParFunDef tvs (InnerFunDef fsym bindings res_type) ->
     newScope $
       do f <- lkSym fsym
          tvi <- mapM (addSym LocalId) tvs
