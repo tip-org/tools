@@ -6,9 +6,10 @@ import Text.PrettyPrint
 import Tip.Pretty
 import Tip.Types
 import Tip.Utils.Renamer (renameWith,disambig)
-import Tip (ifView, topsort, renameAvoiding)
+import Tip (ifView, topsort, renameAvoiding, makeGlobal, exprType)
 
 import Data.Char
+import Data.Maybe
 
 import Data.Generics.Geniplate
 
@@ -65,43 +66,43 @@ ppTheory (renameAvoiding why3Keywords return . why3VarTheory -> Theory{..})
       map ppFuncs (topsort thy_func_decls) ++
       zipWith ppFormula thy_form_decls [0..])
 
-ppSort :: PrettyVar a => AbsType a -> Doc
+ppSort :: (PrettyVar a, Ord a) => AbsType a -> Doc
 ppSort (AbsType sort) = "type" $\ ppVar sort
 
-ppDatas :: PrettyVar a => [Datatype a] -> Doc
+ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas (d:ds) = vcat (ppData "type" d:map (ppData "with") ds)
 
-ppData :: PrettyVar a => Doc -> Datatype a -> Doc
+ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
 ppData header (Datatype tc tvs cons) =
   header $\ (ppVar tc $\ sep (map ppTyVar tvs) $\
     separating fsep ("=":repeat "|") (map ppCon cons))
 
-ppCon :: PrettyVar a => Constructor a -> Doc
+ppCon :: (PrettyVar a, Ord a) => Constructor a -> Doc
 ppCon (Constructor c _d as) = ppVar c <+> fsep (map (ppType 1 . snd) as)
 
-ppQuant :: PrettyVar a => Doc -> [Local a] -> Doc -> Doc
+ppQuant :: (PrettyVar a, Ord a) => Doc -> [Local a] -> Doc -> Doc
 ppQuant _name [] d = d
 ppQuant name  ls d = (name $\ fsep (punctuate "," (map ppLocalBinder ls)) <+> ".") $\ d
 
-ppBinder :: PrettyVar a => a -> Type a -> Doc
+ppBinder :: (PrettyVar a, Ord a) => a -> Type a -> Doc
 ppBinder x t = ppVar x <+> ":" $\ ppType 0 t
 
-ppLocalBinder :: PrettyVar a => Local a -> Doc
+ppLocalBinder :: (PrettyVar a, Ord a) => Local a -> Doc
 ppLocalBinder (Local x t) = ppBinder x t
 
-ppUninterp :: PrettyVar a => AbsFunc a -> Doc
+ppUninterp :: (PrettyVar a, Ord a) => AbsFunc a -> Doc
 ppUninterp (AbsFunc f (PolyType _ arg_types result_type)) =
   "function" $\ ppVar f $\ fsep (map (ppType 1) arg_types) $\ (":" <+> ppType 1 result_type)
 
-ppFuncs :: PrettyVar a => [Function a] -> Doc
+ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
 ppFuncs (fn:fns) = vcat (ppFunc "function" fn:map (ppFunc "with") fns)
 
-ppFunc :: PrettyVar a => Doc -> Function a -> Doc
+ppFunc :: (PrettyVar a, Ord a) => Doc -> Function a -> Doc
 ppFunc header (Function f _tvs xts t e) =
     (header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
      $\ ppExpr 0 e
 
-ppFormula :: PrettyVar a => Formula a -> Int -> Doc
+ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
 ppFormula (Formula role _tvs term) i =
   (ppRole role <+> ("x" <> int i) <+> ":") $\ (ppExpr 0 term)
 
@@ -109,8 +110,12 @@ ppRole :: Role -> Doc
 ppRole Assert = "lemma"
 ppRole Prove  = "goal"
 
-ppExpr :: PrettyVar a => Int -> Expr a -> Doc
+ppExpr :: (PrettyVar a, Ord a) => Int -> Expr a -> Doc
 ppExpr i e | Just (c,t,f) <- ifView e = parIf (i > 0) $ "if" $\ ppExpr 0 c $\ "then" $\ ppExpr 0 t $\ "else" $\ ppExpr 0 f
+ppExpr i e@(hd@(Gbl Global{..}) :@: es)
+  | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
+    parIf (i > 0) $
+    ppHead hd (map (ppExpr 1) es) $\ ":" $\ ppType 0 (exprType e)
 ppExpr i (hd :@: es)  = parIf (i > 0 && not (null es)) $ ppHead hd (map (ppExpr 1) es)
 ppExpr _ (Lcl l)      = ppVar (lcl_name l)
 ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "\\" ls (ppExpr 0 e)
@@ -120,7 +125,7 @@ ppExpr i (Match e alts) =
   parIf (i > 0) $ block ("match" $\ ppExpr 0 e $\ "with")
                         (separating vcat (repeat "|") (map ppCase alts))
 
-ppHead :: PrettyVar a => Head a -> [Doc] -> Doc
+ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
 ppHead (Gbl gbl)   args = ppVar (gbl_name gbl) $\ fsep args
 ppHead (Builtin b) [u,v] | Just d <- ppBinOp b = u <+> d $\ v
 ppHead (Builtin b) args = ppBuiltin b $\ fsep args
@@ -156,16 +161,16 @@ ppQuantName :: Quant -> Doc
 ppQuantName Forall = "forall"
 ppQuantName Exists = "exists"
 
-ppCase :: PrettyVar a => Case a -> Doc
+ppCase :: (PrettyVar a, Ord a) => Case a -> Doc
 ppCase (Case pat rhs) = ppPat pat <+> "->" $\ ppExpr 0 rhs
 
-ppPat :: PrettyVar a => Pattern a -> Doc
+ppPat :: (PrettyVar a, Ord a) => Pattern a -> Doc
 ppPat pat = case pat of
   Default     -> "_"
   ConPat g ls -> ppVar (gbl_name g) $\ fsep (map (ppVar . lcl_name) ls)
   LitPat l    -> ppLit l
 
-ppType :: PrettyVar a => Int -> Type a -> Doc
+ppType :: (PrettyVar a, Ord a) => Int -> Type a -> Doc
 ppType _ (TyVar x)     = ppTyVar x
 ppType i (TyCon tc ts) = parIf (i > 0) $ ppVar tc $\ fsep (map (ppType 1) ts)
 ppType i (ts :=>: r)   = parIf (i > 0) $ fsep (punctuate " ->" (map (ppType 1) (ts ++ [r])))
@@ -173,7 +178,7 @@ ppType _ NoType        = "_"
 ppType _ (BuiltinType Integer) = "int"
 ppType _ (BuiltinType Boolean) = "bool"
 
-ppTyVar :: PrettyVar a => a -> Doc
+ppTyVar :: (PrettyVar a, Ord a) => a -> Doc
 ppTyVar x = "'" <> ppVar x
 
 why3Keywords :: [String]
