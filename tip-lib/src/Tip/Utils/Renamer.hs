@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns, FlexibleContexts #-}
 module Tip.Utils.Renamer where
 
 import Control.Monad.State

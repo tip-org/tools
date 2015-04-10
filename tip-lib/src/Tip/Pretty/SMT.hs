@@ -21,9 +21,9 @@ apply s x = parExpr s [x]
 
 validSMTChar :: Char -> String
 validSMTChar x
-  | isAlphaNum x                 = [x]
-  | x `elem` "~!@$%^&*_-+=<>.?/" = [x]
-  | otherwise                    = ""
+  | isAlphaNum x                             = [x]
+  | x `elem` ("~!@$%^&*_-+=<>.?/" :: String) = [x]
+  | otherwise                                = ""
 
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
