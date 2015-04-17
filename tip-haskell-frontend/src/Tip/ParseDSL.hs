@@ -7,6 +7,7 @@ import Tip.Id
 import Tip
 import qualified Tip.CoreToTip as CTT
 
+import Name hiding (varName)
 import Data.List
 
 import Var hiding (Id)
@@ -18,7 +19,12 @@ varWithPropType x = case CTT.trPolyType (varType x) of
     _                      -> False
 
 varFromPrelude :: Var -> Bool
-varFromPrelude = isInfixOf "Tip.DSL" . showOutputable . varName
+varFromPrelude = isInfixOf "Tip.DSL" . showName . varName
+
+showName :: Name -> String
+showName n
+  | Just m <- nameModule_maybe n = showOutputable m ++ "." ++ showOutputable (nameOccName n)
+  | otherwise = showOutputable n
 
 isPropTyCon :: TyCon -> Bool
 isPropTyCon = isPropId . idFromTyCon
@@ -33,7 +39,7 @@ chaseResult (_ :=>: r) = chaseResult r
 chaseResult r          = r
 
 ghcName :: (String -> Bool) -> Id -> Bool
-ghcName k (tryGetGHCName -> Just n) = k (showOutputable n)
+ghcName k (tryGetGHCName -> Just n) = k (showName n)
 ghcName _ _                         = False
 
 isPropId :: Id -> Bool
