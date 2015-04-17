@@ -42,12 +42,12 @@ main = do
     let rnm = renameWith disambigId thy
     let dlm = freshPass ( return
                         -- . lint "decase" <=< decase
-                        . lint "simplify2" <=< simplifyExpr aggressively
+                        . lint "simplify2" <=< simplifyTheory aggressively
                         . lint "commuteMatch" <=< commuteMatch
-                        . lint "simplify1" <=< simplifyExpr aggressively
+                        . lint "simplify1" <=< simplifyTheory aggressively
                         . lint "delambda" <=< delambda
                         . lint "denewtype" <=< return . denewtype
-                        . lint "simplify0" <=< simplifyExpr aggressively)
+                        . lint "simplify0" <=< simplifyTheory aggressively)
                         rnm
     {- letLift =<< lambdaLift =<< -} --
     -- putStrLn "\n == After delambda and defunctionalization:"

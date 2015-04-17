@@ -30,11 +30,11 @@ main =
                    axiomatizeLambdas >=> return . lint "axiomatizeLambdas" >=>
                    return . lint "collapseEqual" . collapseEqual >=>
                    return . lint "removeAliases" . removeAliases >=>
-                   simplifyExpr gently >=> return . lint "simplify1" >=>
+                   simplifyTheory gently >=> return . lint "simplify1" >=>
                    decase >=> return . lint "decase" >=>
-                   simplifyExpr gently >=> return . lint "simplify2" >=>
+                   simplifyTheory gently >=> return . lint "simplify2" >=>
                    deprove >=> return . lint "deprove" >=>
-                   simplifyExpr gently >=> return . lint "simplify3" >=>
+                   simplifyTheory gently >=> return . lint "simplify3" >=>
                    return . SMT.ppTheory
                  _ ->
                    return . SMT.ppTheory in
