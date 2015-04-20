@@ -3,7 +3,6 @@ module Tip.Pretty.Why3 where
 
 import Text.PrettyPrint
 
-
 import Tip.Pretty
 import Tip.Types
 import Tip.Utils.Renamer (renameWith,disambig)
@@ -17,27 +16,25 @@ import Data.Generics.Geniplate
 
 import qualified Data.Set as S
 
-newtype Why3Var = Why3Var String
+data Why3Var a = Why3Var Bool {-^ is constructor -} a
   deriving (Eq,Ord,Show)
 
-instance PrettyVar Why3Var where
-  varStr (Why3Var x) = x
+instance PrettyVar a => PrettyVar (Why3Var a) where
+  varStr (Why3Var b x) = (if b then toUpper else toLower) `mapHead` addAlpha (varStr x)
+   where
+    mapHead :: (Char -> Char) -> String -> String
+    f `mapHead` []     = [f 'x']
+    f `mapHead` (x:xs) = f x:xs
 
-why3VarTheory :: forall a . (Ord a,PrettyVar a) => Theory a -> Theory Why3Var
-why3VarTheory thy = renameWith (map Why3Var . disambig rename) thy
+    addAlpha :: String -> String
+    addAlpha s@(x:_) | isAlpha x = s
+    addAlpha s                   = "x" ++ s
+
+why3VarTheory :: forall a . Ord a => Theory a -> Theory (Why3Var a)
+why3VarTheory thy = fmap mk thy
  where
   cons = S.fromList [ c | Constructor c _ _ <- universeBi thy ]
-
-  rename :: a -> String
-  rename i = (if i `S.member` cons then toUpper else toLower) `mapHead` addAlpha (varStr i)
-
-  mapHead :: (Char -> Char) -> String -> String
-  f `mapHead` []     = [f 'x']
-  f `mapHead` (x:xs) = f x:xs
-
-  addAlpha :: String -> String
-  addAlpha s@(x:_) | isAlpha x = s
-  addAlpha s                   = "x" ++ s
+  mk x = Why3Var (x `S.member` cons) x
 
 block :: Doc -> Doc -> Doc
 block d c = (d $\ c) $$ "end"
@@ -57,8 +54,12 @@ separating comb seps docs = comb (go seps docs)
     go _      []     = []
     go []     _      = error "separating: ran out of separators!"
 
+escape :: Char -> String
+escape x | isAlphaNum x = [x]
+escape _                = []
+
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding why3Keywords return . why3VarTheory -> Theory{..})
+ppTheory (renameAvoiding why3Keywords escape . why3VarTheory -> Theory{..})
   = block ("module" <+> "A") $
     vcat (
       "use HighOrd" :
