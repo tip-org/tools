@@ -22,9 +22,10 @@ import Data.List
 --   * Default case comes first. No duplicate cases.
 --   * Expressions and formulas not mixed.
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
-lint pass thy = 
+lint pass thy =
+--  trace ("Linting:" ++ pass ++ ":\n" ++ ppRender thy) $
   case lintTheory thy of
-    Left doc -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc)
+    Left doc -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
     Right () -> thy
 
 check :: (PrettyVar a, Ord a) => Doc -> (Scope a -> Bool) -> ScopeM a ()

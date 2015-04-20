@@ -15,7 +15,18 @@ class (PrettyVar a, Ord a) => Name a where
   refresh :: a -> Fresh a
   refresh _ = fresh
 
+  freshNamed :: String -> Fresh a
+  freshNamed _ = fresh
+
+  refreshNamed :: String -> a -> Fresh a
+  refreshNamed s n = freshNamed (s ++ varStr n)
+
   getUnique :: a -> Int
+
+mkTyVarName :: Int -> String
+mkTyVarName x = vars !! x
+  where vars = ["a","b","c","d"] ++ ["t" ++ show i | i <- [0..]]
+
 
 instance Name Int where
   fresh     = Fresh (state (id &&& succ))

@@ -3,10 +3,12 @@ module Tip.Pretty.Why3 where
 
 import Text.PrettyPrint
 
+
 import Tip.Pretty
 import Tip.Types
 import Tip.Utils.Renamer (renameWith,disambig)
-import Tip (ifView, topsort, renameAvoiding, makeGlobal, exprType)
+import Tip.Renamer
+import Tip (ifView, topsort, makeGlobal, exprType)
 
 import Data.Char
 import Data.Maybe
@@ -16,7 +18,7 @@ import Data.Generics.Geniplate
 import qualified Data.Set as S
 
 newtype Why3Var = Why3Var String
-  deriving (Eq,Ord)
+  deriving (Eq,Ord,Show)
 
 instance PrettyVar Why3Var where
   varStr (Why3Var x) = x

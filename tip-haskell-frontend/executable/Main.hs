@@ -33,7 +33,7 @@ main = do
     thy <- readHaskellFile Params
       { file = f
       , include = []
-      , flags = [] -- [PrintCore,PrintProps,PrintExtraIds]
+      , flags = [] -- [PrintCore,PrintProps,PrintExtraIds,PrintInitialTip]
       , only = es -- []
       , extra = []
       , extra_trans = [] -- es
@@ -75,7 +75,7 @@ varMax (Refresh v i) = varMax v `max` i
 instance PrettyVar Var where
   varStr (Var "")      = "x"
   varStr (Var xs)      = xs
-  varStr (Refresh v i) = varStr v ++ show i
+  varStr (Refresh v i) = varStr v
 
 disambigId :: Id -> [Var]
 disambigId i = vs : [ Refresh vs x | x <- [0..] ]
@@ -86,6 +86,8 @@ instance Name Var where
   fresh     = refresh (Var "")
   refresh (Refresh v _) = refresh v
   refresh v@Var{}       = Refresh v `fmap` fresh
+
+  freshNamed s = refresh (Var s)
 
   getUnique (Refresh _ i) = i
   getUnique Var{}         = 0

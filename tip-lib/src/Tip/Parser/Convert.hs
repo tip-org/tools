@@ -48,8 +48,13 @@ instance PrettyVar Id where
   varStr (Id s _ _) = s
 
 instance Name Id where
-  fresh = do u <- fresh
-             return (Id "x" u (0,0))
+  freshNamed n
+    = do u <- fresh
+         return (Id n u (0,0))
+
+  fresh = freshNamed "fresh"
+
+  refresh = refreshNamed ""
 
   getUnique (Id _ u _) = u
 

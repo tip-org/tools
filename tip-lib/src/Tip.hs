@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Tip(module Tip, module Tip.Types) where
 
@@ -10,8 +11,7 @@ import Tip.Types
 import Tip.Fresh
 import Tip.Utils
 import Tip.Pretty
-import Data.Char (isDigit)
-import Tip.Utils.Renamer
+import Data.Traversable (Traversable)
 import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Graph
@@ -313,27 +313,19 @@ boolType = BuiltinType Boolean
 
 letExpr :: Name a => Expr a -> (Local a -> Fresh (Expr a)) -> Fresh (Expr a)
 letExpr (Lcl x) k = k x
-letExpr e k = freshLocal (exprType e) >>= k
-
-newtype AnotherId = AnotherId { anotherString :: String }
-  deriving (Eq,Ord,Show)
-
-instance PrettyVar AnotherId where
-  varStr = anotherString
-
--- Preserves the case of the first character.
--- Strips off trailing numbers and allows them to be renumbered
--- Send in your keywords
--- Todo: don't put everything in the same global scope
-renameAvoiding :: forall a . (Ord a,PrettyVar a) => [String] -> (Char -> String) -> Theory a -> Theory AnotherId
-renameAvoiding kwds repl = fmap AnotherId . renameWithBlocks kwds (disambig rn)
- where
-  rn :: a -> String
-  rn = reverse . dropWhile isDigit . reverse . concatMap repl . varStr
+letExpr b k =
+  do v <- freshLocal (exprType b)
+     rest <- k v
+     return (Let v b rest)
 
 freshPass :: (F.Foldable f,Name a) => (f a -> Fresh b) -> f a -> b
 f `freshPass` x = runFreshFrom (succ (maximumOn getUnique x)) (f x)
 
 maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
 maximumOn f = f . F.maximumBy (comparing f)
+
+-- Theory
+
+mapDecls :: forall a b . (forall t . Traversable t => t a -> t b) -> Theory a -> Theory b
+mapDecls k (Theory a b c d e) = Theory (map k a) (map k b) (map k c) (map k d) (map k e)
 

@@ -17,7 +17,7 @@ deprove thy =
     isProve _ = False
 
     deprove1 thy (Formula Prove tvs form) = do
-      tvs' <- mapM refresh tvs
+      tvs' <- mapM (refreshNamed "sk_") tvs
       return thy {
         thy_form_decls = Formula Assert [] (neg (makeTyCons (zip tvs tvs') form)):thy_form_decls thy,
         thy_abs_type_decls = [ AbsType tv 0 | tv <- tvs' ] ++ thy_abs_type_decls thy }

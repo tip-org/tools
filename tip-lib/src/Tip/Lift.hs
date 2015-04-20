@@ -48,7 +48,7 @@ lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
   case e0 of
     Lam lam_args lam_body ->
-      do g_name <- lift fresh
+      do g_name <- lift (freshNamed "lam")
          let g_args = free e0
          let g_tvs  = freeTyVars e0
          let g_type = map lcl_type lam_args :=>: exprType lam_body
@@ -138,12 +138,12 @@ axiomatizeLambdas thy0 = do
 
     arities = usort [ length args | args :=>: _ <- universeBi thy :: [Type a] ]
     makeArrow n = do
-      ty <- fresh
+      ty <- freshNamed ("fun" ++ show n)
       return (n, AbsType ty (n+1))
     makeAt arrows n = do
-      name <- fresh
-      tvs <- replicateM n fresh
-      tv  <- fresh
+      name <- freshNamed ("apply" ++ show n)
+      tvs <- mapM (freshNamed . mkTyVarName) [0..(n-1)]
+      tv  <- freshNamed (mkTyVarName n)
       let AbsType{..} = Map.findWithDefault __ n arrows
           ty          = TyCon abs_type_name (map TyVar (tvs ++ [tv]))
       return $

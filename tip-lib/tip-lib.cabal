@@ -28,6 +28,7 @@ library
     Tip.Fresh
     Tip.Utils
     Tip.Utils.Renamer
+    Tip.Renamer
     Tip.Delambda
     Tip.WorkerWrapper
     Tip.Simplify

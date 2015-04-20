@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Tip.Unfoldings (unfolding,maybeUnfolding,fixUnfoldings,fixId) where
 
 import qualified Data.Map as M
@@ -28,8 +29,8 @@ unfolding i  = fromMaybe (error err) . maybeUnfolding $ i
 -- | Fixes identifiers according to some core binds
 fixId :: [(Var,CoreExpr)] -> Id -> Id
 fixId bs = \ i -> case M.lookup i bind_map of
-    Just rhs -> i `setIdUnfoldingLazily` mkCompulsoryUnfolding rhs
-    Nothing -> i
+    Just rhs -> i `setIdUnfoldingLazily` mkInlineUnfolding Nothing rhs
+    Nothing  -> i
   where
     bind_map = M.fromList bs
 

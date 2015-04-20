@@ -57,7 +57,9 @@ readHaskellFile params@Params{..} = do
         tcs = filter (\ x -> isAlgTyCon x && not (isPropTyCon x))
                      (delete boolTyCon (bindsTyCons' binds))
 
-    when (PrintCore `elem` flags) (putStrLn (showOutputable binds))
+    when (PrintCore `elem` flags) $ do
+        putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
+        putStrLn (showOutputable binds)
 
     let tip_data =
           [ case trTyCon tc of
@@ -73,7 +75,9 @@ readHaskellFile params@Params{..} = do
           | (v,e) <- binds
           ]
 
-    when (PrintInitialTip `elem` flags) (mapM_ (putStrLn . ppRender) tip_fns0)
+    when (PrintInitialTip `elem` flags) $ do
+        putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
+        mapM_ (putStrLn . ppRender) tip_fns0
 
         -- Now, split these into properties and non-properties
     let (prop_fns,tip_fns) = partition (isPropType . func_res) tip_fns0

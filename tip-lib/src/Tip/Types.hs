@@ -145,6 +145,9 @@ data Theory a = Theory
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
+class ToTheory m where
+  toTheory :: m a -> Theory a
+
 emptyTheory :: Theory a
 emptyTheory = Theory [] [] [] [] []
 
@@ -173,6 +176,7 @@ instanceUniverseBi [t| forall a . (Theory a,Expr a) |]
 instanceUniverseBi [t| forall a . (Theory a,Type a) |]
 instanceUniverseBi [t| forall a . (Type a,Type a) |]
 instanceUniverseBi [t| forall a . (Theory a,Constructor a) |]
+instanceUniverseBi [t| forall a . (Theory a,Global a) |]
 instanceTransformBi [t| forall a . (Expr a,Expr a) |]
 instanceTransformBi [t| forall a . (a,Expr a) |]
 instanceTransformBi [t| forall a . (a,Formula a) |]

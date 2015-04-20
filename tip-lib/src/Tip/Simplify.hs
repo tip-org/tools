@@ -41,7 +41,7 @@ simplifyExpr opts@SimplifyOpts{..} = transformExprInM $ \e0 ->
     Match (Lcl x) alts -> Match (Lcl x) <$> sequence
       [ Case pat <$> case pat of
           ConPat g bs -> substMatched opts x (Gbl g :@: map Lcl bs) rhs
-          LitPat l    -> substMatched opts x (literal l) rhs
+          -- LitPat l    -> substMatched opts x (literal l) rhs
           _           -> return rhs
       | Case pat rhs <- alts
       ]

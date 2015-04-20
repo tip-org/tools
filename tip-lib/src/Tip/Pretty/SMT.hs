@@ -5,16 +5,24 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip (ifView, topsort, neg, exprType, makeGlobal, renameAvoiding)
+import Tip (ifView, topsort, neg, exprType, makeGlobal)
+import Tip.Renamer
 import Data.Maybe
 import Data.Char (isAlphaNum)
 
-expr,parExpr :: Doc -> [Doc] -> Doc
-parExpr s [] = "(" <> s <> ")"
-parExpr s xs = ("(" <> s) $\ fsep (init xs ++ [last xs<>")"])
+expr,parExpr,parExprSep :: Doc -> [Doc] -> Doc
+parExpr s [] = parens s
+parExpr s xs = ("(" <> s) $\ (fsep xs <> ")")
+
+parExprSep s [x]    = sep ["(" <> s,x <> ")"]
+parExprSep s (x:xs) = sep ["(" <> s,x] $\ (fsep xs <> ")")
+parExprSep s xs     = parExpr s xs
 
 expr s [] = s
 expr s xs = parExpr s xs
+
+exprSep s [] = s
+exprSep s xs = parExprSep s xs
 
 apply :: Doc -> Doc -> Doc
 apply s x = parExpr s [x]
@@ -40,23 +48,24 @@ ppSort (AbsType sort n) = parExpr "declare-sort" [ppVar sort, int n]
 
 ppDatas :: (Ord a, PrettyVar a) => [Datatype a] -> Doc
 ppDatas datatypes@(Datatype _ tyvars _:_) =
-  parExpr "declare-datatypes" [parens (fsep (map ppVar tyvars)), parens (fsep (map ppData datatypes))]
+  parExprSep "declare-datatypes" [parens (fsep (map ppVar tyvars)), parens (fsep (map ppData datatypes))]
 
 ppData :: (Ord a, PrettyVar a) => Datatype a -> Doc
 ppData (Datatype tycon _ datacons) =
-  parExpr (ppVar tycon) (map ppCon datacons)
+  parExprSep (ppVar tycon) (map ppCon datacons)
 
 ppCon :: (Ord a, PrettyVar a) => Constructor a -> Doc
-ppCon (Constructor datacon _ args) =
-  parExpr (ppVar datacon) [apply (ppVar p) (ppType t) | (p,t) <- args]
+ppCon (Constructor datacon selector args) =
+  parExprSep (ppVar datacon) [apply (ppVar p) (ppType t) | (p,t) <- args]
+
 
 par :: (Ord a, PrettyVar a) => [a] -> Doc -> Doc
 par [] d = d
-par xs d = parExpr "par" [parens (fsep (map ppVar xs)), parens d]
+par xs d = parExprSep "par" [parens (fsep (map ppVar xs)), parens d]
 
 par' :: (Ord a, PrettyVar a) => [a] -> Doc -> Doc
 par' [] d = d
-par' xs d = parExpr "par" [parens (fsep (map ppVar xs)), d]
+par' xs d = parExprSep "par" [parens (fsep (map ppVar xs)), d]
 
 ppUninterp :: (Ord a, PrettyVar a) => AbsFunc a -> Doc
 ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
@@ -85,13 +94,13 @@ ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
 ppExpr e@(hd@(Gbl Global{..}) :@: es)
   | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
-    "(as" $\ expr (ppHead hd) (map ppExpr es) $\ ppType (exprType e) <> ")"
-ppExpr (hd :@: es)  = expr (ppHead hd) (map ppExpr es)
+        exprSep "as" [exprSep (ppHead hd) (map ppExpr es), ppType (exprType e)]
+ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVar (lcl_name l)
-ppExpr (Lam ls e)   = parExpr "lambda" [ppLocals ls,ppExpr e]
+ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]
 ppExpr (Match e as) = "(match" $\ ppExpr e $\ (vcat (map ppCase as) <> ")")
-ppExpr (Let x b e)  = parExpr "let" [parens (ppLocal x $\ ppExpr b), ppExpr e]
-ppExpr (Quant _ q ls e) = parExpr (ppQuant q) [ppLocals ls, ppExpr e]
+ppExpr (Let x b e)  = parExprSep "let" [parens (ppLocal x $\ ppExpr b), ppExpr e]
+ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: (Ord a, PrettyVar a) => [Local a] -> Doc
 ppLocals ls = parens (fsep (map ppLocal ls))
@@ -131,7 +140,7 @@ ppQuant Forall = "forall"
 ppQuant Exists = "exists"
 
 ppCase :: (Ord a, PrettyVar a) => Case a -> Doc
-ppCase (Case pat rhs) = parExpr "case" [ppPat pat,ppExpr rhs]
+ppCase (Case pat rhs) = parExprSep "case" [ppPat pat,ppExpr rhs]
 
 ppPat :: (Ord a, PrettyVar a) => Pattern a -> Doc
 ppPat Default         = "default"

@@ -46,7 +46,7 @@ compileHaskellFile params@Params{..} = do
                 addWay' WayDyn $
 #endif
                      dflags0 { ghcMode = CompManager
-                             , optLevel = 1
+                             , optLevel = 0
                              , profAuto = NoProfAuto
                              , importPaths = include ++ includePaths dflags0 ++ ["."]
                              }
@@ -85,8 +85,8 @@ compileHaskellFile params@Params{..} = do
         let fix_id :: Id -> Id
             fix_id = fixId binds
 
-        when (PrintCore `elem` flags)
-             (liftIO (putStrLn (showOutputable binds)))
+        liftIO $ when (PrintCore `elem` flags) $
+             putStrLn ("Tip.Compile, PrintCore:\n" ++ showOutputable binds)
 
         -- Set the context for evaluation
         setContext $
@@ -105,14 +105,15 @@ compileHaskellFile params@Params{..} = do
 
             props :: [Var]
             props =
-                [ i
+                [ fix_id i
                 | i <- ids_in_scope
                 , varWithPropType i
                 , not (varFromPrelude i)
                 , null only || varToString i `elem` only'
                 ]
 
-        when (PrintProps `elem` flags) (liftIO (putStrLn (showOutputable props)))
+        when (PrintProps `elem` flags)
+             (liftIO (putStrLn ("Tip.Compile, PrintProps:\n" ++ showOutputable props)))
 
         extra_ids <- extraIds params props
 
@@ -156,6 +157,7 @@ extraIds p@Params{..} prop_ids = do
     ids_in_scope <- filterM in_scope ids
 
     liftIO $ when (PrintExtraIds `elem` flags) $ do
+        putStrLn "Tip.Compile, PrintExtraIds:"
         let out :: String -> [Id] -> IO ()
             out lbl os = putStrLn $ lbl ++ " =\n " ++ showOutputable [ (o{-,maybeUnfolding o-}) | o <- os ]
 #define OUT(i) out "i" (i)
