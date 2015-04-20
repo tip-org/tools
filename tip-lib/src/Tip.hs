@@ -161,7 +161,6 @@ matchTypesIn tvs tys = do
 matchTypes :: Ord a => [(Type a, Type a)] -> Maybe [(a, Type a)]
 matchTypes tys = mapM (uncurry match) tys >>= collect . usort . concat
   where
-    match ty1 ty2 | ty1 == ty2 = Just []
     match (TyVar x) ty = Just [(x, ty)]
     match (TyCon x tys1) (TyCon y tys2)
       | x == y && length tys1 == length tys2 =
@@ -169,6 +168,7 @@ matchTypes tys = mapM (uncurry match) tys >>= collect . usort . concat
     match (args1 :=>: res1) (args2 :=>: res2)
       | length args1 == length args2 =
         fmap concat (zipWithM match (res1:args1) (res2:args2))
+    match ty1 ty2 | ty1 == ty2 = Just []
     match _ _ = Nothing
 
     collect [] = Just []

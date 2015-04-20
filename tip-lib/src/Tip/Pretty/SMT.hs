@@ -70,7 +70,7 @@ par' xs d = parExprSep "par" [parens (fsep (map ppVar xs)), d]
 ppUninterp :: (Ord a, PrettyVar a) => AbsFunc a -> Doc
 ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
   apply "declare-fun"
-    (par tyvars
+    (par' tyvars
       (apply (ppVar f)
         (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
 
