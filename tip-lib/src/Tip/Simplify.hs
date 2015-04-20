@@ -98,6 +98,7 @@ simplifyExpr opts@SimplifyOpts{..} mthy = aux
     isConstructor (Gbl gbl) = isJust $ do
       scp <- mscp
       lookupConstructor (gbl_name gbl) scp
+    isConstructor _ = False
 
 simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
 simplifyTheory opts thy = simplifyExpr opts (Just thy) thy
