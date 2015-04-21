@@ -67,10 +67,10 @@ collapseEqual thy@(Theory{ thy_func_decls = fns0 })
 withPrevious :: [a] -> [(a,[a])]
 withPrevious xs = zip xs (inits xs)
 
-renameGlobals :: Eq a => [(a,Head a)] -> Theory a -> Theory a
+renameGlobals :: Eq a => [(a,[Type a] -> Head a)] -> Theory a -> Theory a
 renameGlobals rns = transformBi $ \ h0 ->
   case h0 of
-    Gbl (Global g _ _) | Just hd <- lookup g rns -> hd
+    Gbl (Global g _ ts) | Just hd <- lookup g rns -> hd ts
     _ -> h0
 
 -- If we have
@@ -81,12 +81,13 @@ removeAliases thy@(Theory{thy_func_decls=fns0})
     = renameGlobals renamings thy{ thy_func_decls = survivors }
   where
     renamings =
-      [ (g,hd)
+      [ (g,k)
       | Function g ty_vars vars _res_ty (hd :@: args) <- fns0
       , map Lcl vars == args
-      , case hd of
-          Gbl (Global f _ ty_args) -> map TyVar ty_vars == ty_args
-          Builtin{}                -> null ty_vars
+      , let (ok,k) = case hd of
+              Gbl (Global f pty ty_args) -> (map TyVar ty_vars == ty_args, \ ts -> Gbl (Global f pty ts))
+              Builtin{}                  -> (null ty_vars, \ [] -> hd)
+      , ok
       ]
 
     remove = map fst renamings
