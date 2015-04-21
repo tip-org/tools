@@ -1,10 +1,11 @@
-{-# LANGUAGE CPP, RecordWildCards, OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE CPP, RecordWildCards, OverloadedStrings, FlexibleContexts, ViewPatterns #-}
 module Tip.Lint where
 
 #include "errors.h"
 import Tip
 import Tip.Scope
 import Tip.Pretty
+import Tip.Renamer
 import Control.Monad
 import Control.Monad.Error
 import Control.Monad.State
@@ -12,6 +13,7 @@ import Data.Maybe
 import Text.PrettyPrint
 import Tip.Pretty.SMT
 import Data.List
+--import Debug.Trace
 
 -- Check that a theory is well-typed.
 -- Invariants:
@@ -22,11 +24,12 @@ import Data.List
 --   * Default case comes first. No duplicate cases.
 --   * Expressions and formulas not mixed.
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
-lint pass thy =
---  trace ("Linting:" ++ pass ++ ":\n" ++ ppRender thy) $
-  case lintTheory thy of
-    Left doc -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
-    Right () -> thy
+lint pass thy0@(renameAvoiding [] return -> thy) =
+  -- trace ("Linting:" ++ pass ++ ":\n" ++ ppRender thy) $
+  case (lintTheory thy,lintTheory thy0) of
+    (Left doc,_)        -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
+    (Right{},Left doc)  -> error ("Non-renamed linting pass failed!? " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
+    (Right (),Right ()) -> thy0
 
 check :: (PrettyVar a, Ord a) => Doc -> (Scope a -> Bool) -> ScopeM a ()
 check x p = check' x (guard . p)
