@@ -37,7 +37,9 @@ denewtype thy@Theory{..} =
               Case Default body:_ -> body
               Case (ConPat _ [x]) body:_ -> Let x e body
               _ -> ERROR("type-incorrect pattern?")
-          Gbl con :@: [e] | isJust (lookupNewtype (data_name (fst (whichConstructor (gbl_name con) scp)))) ->
+          Gbl con :@: [e]
+            | Just (dt, _) <- lookupConstructor (gbl_name con) scp
+            , isJust (lookupNewtype (data_name dt)) ->
             e
           _ -> e0
 
