@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
-{-# LANGUAGE PatternGuards, TypeSynonymInstances, FlexibleInstances, CPP, RecordWildCards, FlexibleContexts #-}
+{-# LANGUAGE PatternGuards, TypeSynonymInstances, FlexibleInstances, CPP, RecordWildCards, FlexibleContexts, NamedFieldPuns, ScopedTypeVariables #-}
 
 -- | Translation from GHC Core to the Tip IR
 module Tip.CoreToTip where
@@ -9,6 +9,7 @@ import Prelude hiding (log)
 import Control.Applicative
 import Control.Monad.Error
 import Control.Monad.Reader
+import Control.Monad.Writer
 
 #if __GLASGOW_HASKELL__ >= 708
 import Data.ByteString (unpack)
@@ -23,6 +24,7 @@ import CoreUtils as C
 import CoreSyn as C
 
 import Data.Char (ord)
+import Data.List ((\\),union)
 
 import PrimOp
 
@@ -48,6 +50,7 @@ import Tip.GHCUtils (showOutputable,rmClass)
 import Tip.DataConPattern
 import Tip.TyAppBeta
 import Tip.Id
+import Tip.Utils (usort)
 
 -- | The binders in our translated expressions.
 --
@@ -59,7 +62,9 @@ import Tip.Id
 --
 --   The list of var is the variables in scope
 
-type TM a = ReaderT [Var] (Either String) a
+type TM = ReaderT [Var] (Either String)
+
+type TMW = WriterT [Function Id] TM
 
 runTM :: TM a -> Either String a
 runTM m = runReaderT m []
@@ -114,20 +119,20 @@ trTyCon tc = do
             }
 
 -- | Translate a definition
-trDefn :: Var -> CoreExpr -> TM (Function Id)
+trDefn :: Var -> CoreExpr -> TM [Function Id]
 trDefn v e = do
     let (tvs,ty) = splitForAllTys (C.exprType e)
     ty' <- lift (trType ty)
     let (tvs',body) = collectTyBinders e
     when (tvs /= tvs') (fail "Type variables do not match in type and lambda!")
-    body' <- trExpr (tyAppBeta body)
-    return Function
+    (body',fns) <- runWriterT (trExpr (tyAppBeta body))
+    return $ [Function
         { func_name    = idFromVar v
         , func_tvs     = map idFromTyVar tvs
         , func_args    = []
         , func_res     = ty'
         , func_body    = body'
-        }
+        }] ++ fns
 
 log :: Outputable a => a -> b -> b
 log x = trace (showOutputable x)
@@ -138,7 +143,7 @@ log x = trace (showOutputable x)
 -- they might differ from case alternatives
 -- (example: created tuples in partition's where clause)
 -- It is unclear what disasters this might bring.
-trVar :: Var -> [Tip.Type Id] -> TM (Tip.Expr Id)
+trVar :: Var -> [Tip.Type Id] -> TMW (Tip.Expr Id)
 trVar x [] | x == trueDataConId  = return (bool True)
 trVar x [] | x == falseDataConId = return (bool False)
 trVar x _
@@ -147,7 +152,7 @@ trVar x _
              , getUnique (getOccName x) == getUnique (primOpOcc ghc)
              ] = return tip
 trVar x tys = do
-    ty <- lift (trPolyType (varType x))
+    ty <- ll (trPolyType (varType x))
     lcl <- asks (x `elem`)
     if lcl
         then case ty of
@@ -181,6 +186,9 @@ trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) ty
         ty' = uncurryTy ty { polytype_res = res }
     uncurryTy ty = ty
 
+ll :: Either String a -> TMW a
+ll = lift . lift
+
 -- | Translating expressions
 --
 -- GHC Core allows application of types to arbitrary expressions,
@@ -188,29 +196,55 @@ trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) ty
 --
 -- The type variables applied to constructors in case patterns is
 -- not immediately available in GHC Core, so this has to be reconstructed.
-trExpr :: CoreExpr -> TM (Tip.Expr Id)
+trExpr :: CoreExpr -> TMW (Tip.Expr Id)
 trExpr e0 = case collectTypeArgs e0 of
-    (C.Var x, tys) -> mapM (lift . trType) tys >>= trVar x
+    (C.Var x, tys) -> mapM (ll . trType) tys >>= trVar x
     (_, _:_) -> throw (msgTypeApplicationToExpr e0)
     (C.Lit l, _) -> literal <$> trLit l
 
     (C.App e1 e2, _) -> (\ x y -> Builtin At :@: [x,y]) <$> trExpr e1 <*> trExpr e2
 
     (C.Lam x e, _) -> do
-        t <- lift (trType (varType x))
+        t <- ll (trType (varType x))
         e' <- local (x:) (trExpr e)
         return (Tip.Lam [Local (idFromVar x) t] e')
 
     (C.Let (C.NonRec v b) e, _) -> do
-        vt <- lift (trType (varType v))
+        vt <- ll (trType (varType v))
         b' <- trExpr b
         e' <- local (v:) (trExpr e)
         return (Tip.Let (Local (idFromVar v) vt) b' e')
 
-    (C.Let C.Rec{} _, _) -> fail $ "Recursive local bindings!" ++ showOutputable e0
-      -- need to lift them now immediately to support it
-      -- which is probably a good idea anyway
-      -- need to know the type variables in scope to do that
+    (C.Let (C.Rec vses) b, _) -> do
+        fns <- concat <$> mapM (lift . uncurry trDefn) vses
+        body <- trExpr b
+        let free_vars = usort $ concatMap fn_free_vars fns
+        let free_tvs  = usort $ concatMap fn_free_tvs fns
+
+        -- now each function in fns gets these fvs and vars and prepended
+        let map_body = su_globals
+                [ (func_name,\ ts es -> Gbl (Global func_name new_type (map TyVar free_tvs ++ ts)) :@: (map Lcl free_vars ++ es))
+                | fn@Function{func_name} <- fns
+                , let PolyType tvs args res = funcType fn
+                      new_type = PolyType (free_tvs ++ tvs) (map lcl_type free_vars ++ args) res
+                ]
+
+        tell [ Function func_name (free_tvs ++ func_tvs) (free_vars ++ func_args) func_res (map_body func_body)
+             | Function{..} <- fns
+             ]
+
+        return (map_body body)
+      where
+        fn_free_vars Function{func_args,func_body} = free func_body \\ func_args
+        fn_free_tvs fn@Function{func_body} =
+            (freeTyVars func_body `union` tyVars (args :=>: res)) \\ tvs
+          where
+            PolyType tvs args res = funcType fn
+
+        su_globals :: [(Id,[Tip.Type Id] -> [Tip.Expr Id] -> Tip.Expr Id)] -> Tip.Expr Id -> Tip.Expr Id
+        su_globals xks = transformExpr $ \ e0 -> case e0 of
+            Gbl (Global y _ ts) :@: es | Just k <- lookup y xks -> k ts es
+            _                                                   -> e0
 
     (C.Case e x _ alts, _) -> do
 
@@ -218,9 +252,9 @@ trExpr e0 = case collectTypeArgs e0 of
 
         let t = C.exprType e
 
-        t' <- lift (trType t)
+        t' <- ll (trType t)
 
-        let tr_alt :: CoreAlt -> TM (Tip.Case Id)
+        let tr_alt :: CoreAlt -> TMW (Tip.Case Id)
             tr_alt alt = case alt of
                 (DEFAULT   ,[],rhs) -> Tip.Case Default <$> trExpr rhs
 
@@ -232,11 +266,11 @@ trExpr e0 = case collectTypeArgs e0 of
                     case mu of
                         Just u -> case mapM (lookupTyVar u) dc_tvs of
                             Just tys -> do
-                                tys' <- mapM (lift . trType) tys
+                                tys' <- mapM (ll . trType) tys
                                 bs' <- forM bs $ \ b ->
-                                    (,) (idFromVar b) <$> lift (trType (varType b))
+                                    (,) (idFromVar b) <$> ll (trType (varType b))
                                 rhs' <- local (bs++) (trExpr rhs)
-                                dct <- lift (trPolyType (dataConType dc))
+                                dct <- ll (trPolyType (dataConType dc))
                                 return $ Tip.Case
                                     (trPattern dc dct tys' (map (uncurry Local) bs'))
                                     rhs'
@@ -269,7 +303,7 @@ collectTypeArgs (C.App e (Type t)) = (e', tys ++ [t])
     (e', tys) = collectTypeArgs e
 collectTypeArgs e = (e, [])
 
-trLit :: Literal -> TM Lit
+trLit :: Literal -> TMW Lit
 trLit (LitInteger x _type) = return (Int x)
 trLit (MachInt x)          = return (Int x)
 trLit (MachInt64 x)        = return (Int x)
@@ -286,8 +320,8 @@ trPolyType t0 =
     let (tv,t) = splitForAllTys (expandTypeSynonyms t0)
     in  PolyType (map idFromTyVar tv) [] <$> trType (rmClass t)
 
-throw :: String -> TM a
-throw = lift . throwError
+throw :: String -> TMW a
+throw = ll . throwError
 
 essentiallyInteger :: TyCon -> Bool
 essentiallyInteger tc = tc == TysPrim.intPrimTyCon

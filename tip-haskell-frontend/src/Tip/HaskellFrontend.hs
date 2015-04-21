@@ -68,7 +68,7 @@ readHaskellFile params@Params{..} = do
           | tc <- tcs
           ]
 
-    let tip_fns0 =
+    let tip_fns0 = concat
           [ case runTM (trDefn v e) of
               Right fn -> fn
               Left err -> error $ showOutputable v ++ ": " ++ err
