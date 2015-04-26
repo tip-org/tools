@@ -9,7 +9,6 @@ import DataCon
 import Id
 import TyCon
 import Type
-import DynFlags (DynFlags)
 
 #if __GLASGOW_HASKELL__ >= 708
 import DynFlags (unsafeGlobalDynFlags)
@@ -17,16 +16,11 @@ import DynFlags (unsafeGlobalDynFlags)
 import DynFlags (tracingDynFlags)
 #endif
 
-tempDynFlags :: DynFlags
-#if __GLASGOW_HASKELL__ >= 708
-tempDynFlags = unsafeGlobalDynFlags
-#else
-tempDynFlags = tracingDynFlags
-#endif
-
 portableShowSDoc :: SDoc -> String
-#if __GLASGOW_HASKELL__ >= 706
-portableShowSDoc = showSDoc tempDynFlags
+#if __GLASGOW_HASKELL__ >= 708
+portableShowSDoc = showSDoc unsafeGlobalDynFlags
+#elif __GLASGOW_HASKELL__ >= 706
+portableShowSDoc = showSDoc tracingDynFlags
 #else
 portableShowSDoc = showSDoc
 #endif

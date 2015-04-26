@@ -4,7 +4,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Tip.Dicts (inlineDicts,maybeUnfolding) where
 
-import Tip.GHCUtils (showOutputable,tempDynFlags)
+import Tip.GHCUtils (showOutputable)
+#if __GLASGOW_HASKELL__ >= 708
+import DynFlags (unsafeGlobalDynFlags)
+#endif
 import CoreSyn
 import CoreUtils()
 import IdInfo
@@ -40,15 +43,16 @@ maybeUnfolding v = case ri of
   where
     ri = realIdUnfolding v
 
-emptyInScopeEnv :: InScopeEnv
-emptyInScopeEnv = (emptyInScopeSet,realIdUnfolding)
+
 
 inlineDicts :: TransformBi (Expr Id) t => t -> t
 inlineDicts = transformBi $ \ e0 -> case e0 of
     App (App (Var f) (Type t)) (Var d)
+#if __GLASGOW_HASKELL__ >= 708
         | [try] <- [ try | BuiltinRule _ _ 2 try <- idCoreRules f ]
-        , Just e <- try tempDynFlags emptyInScopeEnv f [Type t,Var d]
+        , Just e <- try unsafeGlobalDynFlags (emptyInScopeSet,realIdUnfolding) f [Type t,Var d]
         -> e
+#endif
         | Just cl <- isClassOpId_maybe f
         , DFunId{} <- idDetails d
         -> case maybeUnfolding f of

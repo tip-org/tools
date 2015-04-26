@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards,StandaloneDeriving #-}
+{-# LANGUAGE PatternGuards,StandaloneDeriving,CPP #-}
 module Tip.Id where
 
 import Tip.Pretty
@@ -122,6 +122,18 @@ primops =
     , (IntMulOp, IntMul)
     ]
   ] ++
+#if __GLASGOW_HASKELL__ <= 706
+  [ (ghc_op,Lam [int 0] (Lam [int 1] (Builtin tip_id :@: [Lcl (int 0),Lcl (int 1)])))
+  | (ghc_op,tip_id) <-
+    [ (IntEqOp, Equal)
+    , (IntNeOp, Distinct)
+    , (IntGtOp, IntGt)
+    , (IntGeOp, IntGe)
+    , (IntLtOp, IntLt)
+    , (IntLeOp, IntLe)
+    ]
+  ]
+#else
   [ (ghc_op,Lam [int 0] (Lam [int 1]
               (makeIf (Builtin tip_id :@: [Lcl (int 0),Lcl (int 1)])
                       (literal (Int 1)) (literal (Int 0)))))
@@ -139,6 +151,7 @@ primops =
                                 , Case (LitPat (Int 1)) (bool True)
                                 ]))
   ]
+#endif
  where
   int i = Local (Eta i) intType
 
