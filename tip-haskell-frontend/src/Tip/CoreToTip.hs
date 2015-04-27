@@ -37,6 +37,7 @@ import Type as C
 import GHC (dataConType)
 
 import TysWiredIn
+import PrelNames (gHC_REAL)
 
 import qualified TysPrim
 import qualified PrelNames
@@ -146,6 +147,26 @@ log x = trace (showOutputable x)
 trVar :: Var -> [Tip.Type Id] -> TMW (Tip.Expr Id)
 trVar x [] | x == trueDataConId  = return (bool True)
 trVar x [] | x == falseDataConId = return (bool False)
+trVar x []
+  | nameModule_maybe (Var.varName x) == Just gHC_REAL
+  , Just bu <- case getOccString x of
+                "div" -> Just IntDiv
+                "mod" -> Just IntMod
+  = return
+      $ Tip.Lam [ghcInt 0]
+      $ Tip.Lam [ghcInt 1]
+      $ Match (Lcl (ghcInt 0))
+      [ Tip.Case (intPat [int 2])
+      $ Match (Lcl (ghcInt 1))
+      [ Tip.Case (intPat [int 3])
+      $ Gbl iHash :@: [Builtin bu :@: [Lcl (int 2),Lcl (int 3)]]
+      ]]
+ where
+  ghcInt i = Local (Eta i) ghcIntType
+  ghcIntType = Tip.TyCon (idFromTyCon intTyCon) []
+  int i = Local (Eta i) intType
+  iHash = trConstructor intDataCon (Tip.PolyType [] [intType] ghcIntType) []
+  intPat = ConPat iHash
 trVar x _
   | tip:_ <- [ tip
              | (ghc,tip) <- primops
