@@ -237,6 +237,7 @@ smtKeywords =
     , "with"
     , "assert", "check-sat"
     , "abs", "min", "max", "const"
+    , "mod", "div"
     , "=", "=>", "+", "-", "*", ">", ">=", "<", "<=", "@", "!"
     -- Z3:
     , "Bool", "Int", "Array", "List", "insert"

@@ -229,4 +229,6 @@ why3Keywords = words $ unlines
     , "void"
     , "with"
     , "sign Nil Cons"
+    , "div"
+    , "mod"
     ]
