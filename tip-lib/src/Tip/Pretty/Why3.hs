@@ -64,6 +64,7 @@ ppTheory (renameAvoiding why3Keywords escape . why3VarTheory -> Theory{..})
     vcat (
       "use HighOrd" :
       "use import int.Int" :
+      "use import int.EuclideanDivision" :
       map ppSort thy_abs_type_decls ++
       map ppDatas (topsort thy_data_decls) ++
       map ppUninterp thy_abs_func_decls ++
