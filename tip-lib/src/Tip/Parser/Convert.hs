@@ -248,6 +248,8 @@ trHead _ x args = return (Builtin b :@: args)
     A.IntAdd   -> T.IntAdd
     A.IntSub   -> T.IntSub
     A.IntMul   -> T.IntMul
+    A.IntDiv   -> T.IntDiv
+    A.IntMod   -> T.IntMod
     A.IntGt    -> T.IntGt
     A.IntGe    -> T.IntGe
     A.IntLt    -> T.IntLt

@@ -26,8 +26,6 @@ import Coercion
 import Name (getOccString,nameModule_maybe)
 import PrelNames (gHC_REAL)
 
-import Debug.Trace
-
 instanceTransformBiT
     [ [t|Var|], [t|Coercion|] , [t|Tickish Id|], [t|Literal|], [t|Type|], [t|AltCon|] ]
     [t| forall a . (Expr a,Expr a) |]
