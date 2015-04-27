@@ -29,7 +29,7 @@ import System.Exit
 import qualified Id as GHC
 import qualified CoreSubst as GHC
 import Var (Var)
-import TyCon (isAlgTyCon)
+import TyCon (isAlgTyCon,isClassTyCon)
 import TysWiredIn (boolTyCon)
 import UniqSupply
 
@@ -54,7 +54,7 @@ readHaskellFile params@Params{..} = do
             , Just e <- [maybeUnfolding v]
             ]
 
-        tcs = filter (\ x -> isAlgTyCon x && not (isPropTyCon x))
+        tcs = filter (\ x -> isAlgTyCon x && not (isPropTyCon x) && not (isClassTyCon x))
                      (delete boolTyCon (bindsTyCons' binds))
 
     when (PrintCore `elem` flags) $ do
@@ -75,14 +75,16 @@ readHaskellFile params@Params{..} = do
           | (v,e) <- binds
           ]
 
-    when (PrintInitialTip `elem` flags) $ do
-        putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
-        mapM_ (putStrLn . ppRender) tip_fns0
-
         -- Now, split these into properties and non-properties
     let (prop_fns,tip_fns) = partition (isPropType . func_res) tip_fns0
 
         tip_props = either error id (mapM trProperty prop_fns)
 
-    return $ Theory tip_data [] [] tip_fns tip_props
+        thy = Theory tip_data [] [] tip_fns tip_props
+
+    when (PrintInitialTip `elem` flags) $ do
+        putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
+        putStrLn (ppRender thy)
+
+    return thy
 

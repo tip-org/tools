@@ -26,3 +26,5 @@ apa n = n:apa (n-1)
 
 prop_apa n = [] =:= apa n
 
+prop_div_mod :: Int -> Prop Int
+prop_div_mod x = x `div` 2 =:= x `mod` 2

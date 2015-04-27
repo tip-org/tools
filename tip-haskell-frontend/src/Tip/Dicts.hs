@@ -23,6 +23,11 @@ import Type
 import Literal
 import Coercion
 
+import Name (getOccString,nameModule_maybe)
+import PrelNames (gHC_REAL)
+
+import Debug.Trace
+
 instanceTransformBiT
     [ [t|Var|], [t|Coercion|] , [t|Tickish Id|], [t|Literal|], [t|Type|], [t|AltCon|] ]
     [t| forall a . (Expr a,Expr a) |]
@@ -48,6 +53,8 @@ maybeUnfolding v = case ri of
 inlineDicts :: TransformBi (Expr Id) t => t -> t
 inlineDicts = transformBi $ \ e0 -> case e0 of
     App (App (Var f) (Type t)) (Var d)
+        | getOccString f == "div" && nameModule_maybe (varName f) == Just gHC_REAL -> Var f
+        | getOccString f == "mod" && nameModule_maybe (varName f) == Just gHC_REAL -> Var f
 #if __GLASGOW_HASKELL__ >= 708
         | [try] <- [ try | BuiltinRule _ _ 2 try <- idCoreRules f ]
         , Just e <- try unsafeGlobalDynFlags (emptyInScopeSet,realIdUnfolding) f [Type t,Var d]

@@ -54,6 +54,8 @@ data Builtin
   | IntAdd
   | IntSub
   | IntMul
+  | IntDiv
+  | IntMod
   | IntGt
   | IntGe
   | IntLt

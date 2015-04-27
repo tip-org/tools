@@ -134,12 +134,14 @@ ppExpr i (Match e alts) =
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
 ppHead (Gbl gbl)   args = ppVar (gbl_name gbl) $\ fsep args
 ppHead (Builtin b) [u,v] | Just d <- ppBinOp b = u <+> d $\ v
+ppHead (Builtin At{}) args = fsep args
 ppHead (Builtin b) args = ppBuiltin b $\ fsep args
 
 ppBuiltin :: Builtin -> Doc
 ppBuiltin (Lit lit) = ppLit lit
+ppBuiltin IntDiv    = "div"
+ppBuiltin IntMod    = "mod"
 ppBuiltin Not       = "not"
-ppBuiltin At{}      = ""
 ppBuiltin b         = error $ "Why3.ppBuiltin: " ++ show b
 
 ppBinOp :: Builtin -> Maybe Doc
