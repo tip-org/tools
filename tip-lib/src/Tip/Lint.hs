@@ -135,22 +135,17 @@ lintExpr _ (Lcl lcl@Local{..}) = do
   check ("Unbound variable" <+> pp lcl) (isLocal lcl_name)
   check ("Inconsistent type for local" <+> pp lcl) $
     \scp -> whichLocal lcl_name scp == lcl_type
-lintExpr FormulaKind Lam{} =
-  throwError "Lambda expression found in formula"
-lintExpr ExprKind (Lam lcls expr) =
+lintExpr kind (Lam lcls expr) =
   local $ do
     mapM_ lintBinder lcls
     lintExpr ExprKind expr
 lintExpr kind (Match expr cases) = do
-  lintExpr kind expr
+  lintExpr (if kind == FormulaKind && exprType expr /= boolType then ExprKind else kind)
+    expr
   when (null cases) $
     throwError "Case with no alternatives"
   mapM_ (lintCase kind expr) cases
 
-  when (kind == FormulaKind && exprType expr /= boolType) $
-    throwError (fsep [
-      "Formula matches on non-boolean expression", nest 2 (pp expr),
-      "of type", nest 2 (pp (exprType expr))])
   when (Default `elem` drop 1 (map case_pat cases)) $
     throwError "Default case is in wrong position"
   unless (Default `elem` map case_pat cases) $ do
