@@ -78,9 +78,10 @@ renameGlobals rns = transformBi $ \ h0 ->
 -- then we remove g and replace it with f everywhere
 removeAliases :: Eq a => Theory a -> Theory a
 removeAliases thy@(Theory{thy_func_decls=fns0})
-    = renameGlobals renamings thy{ thy_func_decls = survivors }
+    | null renamings = thy
+    | otherwise = removeAliases $ renameGlobals renamings thy{ thy_func_decls = survivors }
   where
-    renamings =
+    renamings = take 1
       [ (g,k)
       | Function g ty_vars vars _res_ty (hd :@: args) <- fns0
       , map Lcl vars == args
