@@ -9,19 +9,32 @@ import Data.List
 import Data.Maybe
 import Control.Applicative
 
+-- | Options for the simplifier
 data SimplifyOpts a =
   SimplifyOpts {
     touch_lets    :: Bool,
+    -- ^ Allow simplifications on lets
     should_inline :: Expr a -> Bool
+    -- ^ Inlining predicate
   }
 
-gently, aggressively :: SimplifyOpts a
+-- | Gentle options: if there is risk for code duplication, only inline atomic expressions
+gently :: SimplifyOpts a
 gently       = SimplifyOpts True atomic
+
+-- | Aggressive options: inline everything
+aggressively :: SimplifyOpts a
 aggressively = SimplifyOpts True (const True)
 
+-- | Simplify an entire theory
+simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
+simplifyTheory opts thy = simplifyExprIn (Just thy) opts thy
+
+-- | Simplify an expression, without knowing its theory
 simplifyExpr :: forall f a. (TransformBiM Fresh (Expr a) (f a), Name a) => SimplifyOpts a -> f a -> Fresh (f a)
 simplifyExpr opts = simplifyExprIn Nothing opts
 
+-- | Simplify an expression within a theory
 simplifyExprIn :: forall f a. (TransformBiM Fresh (Expr a) (f a), Name a) => Maybe (Theory a) -> SimplifyOpts a -> f a -> Fresh (f a)
 simplifyExprIn mthy opts@SimplifyOpts{..} = aux
   where
@@ -103,6 +116,4 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
       lookupConstructor (gbl_name gbl) scp
     isConstructor _ = False
 
-simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
-simplifyTheory opts thy = simplifyExprIn (Just thy) opts thy
 

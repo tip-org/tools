@@ -1,12 +1,19 @@
 {-# LANGUAGE CPP, RecordWildCards, OverloadedStrings, FlexibleContexts, ViewPatterns #-}
 -- | Check that a theory is well-typed.
+--
 -- Invariants:
---   * No shadowing---checked by scope monad.
---   * Each local is bound before it's used.
---   * All expressions are well-typed.
---   * The result of each constructor should be a value of that datatype.
---   * Default case comes first. No duplicate cases.
---   * Expressions and formulas not mixed.
+--
+--  * No shadowing---checked by scope monad.
+--
+--  * Each local is bound before it's used.
+--
+--  * All expressions are well-typed.
+--
+--  * The result of each constructor should be a value of that datatype.
+--
+--  * Default case comes first. No duplicate cases.
+--
+--  * Expressions and formulas not mixed.
 module Tip.Lint (lint, lintM, lintTheory) where
 
 #include "errors.h"
