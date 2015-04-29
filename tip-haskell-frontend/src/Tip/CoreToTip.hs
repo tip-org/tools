@@ -25,6 +25,7 @@ import CoreSyn as C
 
 import Data.Char (ord)
 import Data.List ((\\),union)
+import Data.Maybe (fromMaybe)
 
 import PrimOp
 
@@ -127,13 +128,19 @@ trDefn v e = do
     let (tvs',body) = collectTyBinders e
     when (tvs /= tvs') (fail "Type variables do not match in type and lambda!")
     (body',fns) <- runWriterT (trExpr (tyAppBeta body))
-    return $ [Function
-        { func_name    = idFromVar v
+    let v' = idFromVar v
+    let rn x | x `elem` map func_name fns = Just (x `LiftedFrom` v')
+             | otherwise                  = Nothing
+    return $ fmap (rename rn) $ [Function
+        { func_name    = v'
         , func_tvs     = map idFromTyVar tvs
         , func_args    = []
         , func_res     = ty'
         , func_body    = body'
         }] ++ fns
+
+rename :: (Functor f,Ord a) => (a -> Maybe a) -> f a -> f a
+rename lk = fmap (\ x -> fromMaybe x (lk x))
 
 log :: Outputable a => a -> b -> b
 log x = trace (showOutputable x)

@@ -5,6 +5,11 @@ import qualified Prelude
 import Prelude (Bool(..),otherwise, id, ($), (.))
 import Tip.DSL
 
+map f xs = [ f x | x <- xs ]
+
+prop_mc f g = map (f . g) =:= map f . map g
+
+
 filter :: (a -> Bool) -> [a] -> [a]
 filter p (x:xs) = case p x of { True -> (x:); False -> id } $ filter p xs
 filter p []     = []

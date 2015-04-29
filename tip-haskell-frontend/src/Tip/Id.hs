@@ -47,6 +47,7 @@ tryGetGHCName _              = Nothing
 -- The 'PrettyVar' instance is one way to print the names.
 data Id
     = GHCOrigin Name
+    | Id `LiftedFrom` Id
     | Eta Int
     | Discrim Id
     | Project Id Int
@@ -57,6 +58,7 @@ instance Show Id where
     show (Eta n)       = "eta" ++ show n
     show (Discrim c)   = "is-" ++ show c
     show (Project c i) = show c ++ "_" ++ show i
+    show (i `LiftedFrom` j) = show i ++ " `LiftedFrom` " ++ show j
 
 instance PrettyVar Id where
     varStr = ppId
@@ -65,6 +67,11 @@ ppId :: Id -> String
 ppId (GHCOrigin nm) = ppName nm
 ppId (Eta n)        = "eta" ++ show n
 ppId (Discrim c)    = "is-" ++ ppId c
+ppId ((i `LiftedFrom` j) `LiftedFrom` k) = ppId (i `LiftedFrom` (j `LiftedFrom` k))
+ppId (i `LiftedFrom` j)
+  | Just nm <- tryGetGHCName i, isSystemName nm    = ppId j
+  | ppId i /= ppId j && "prop_" /= take 5 (ppId j) = ppId j ++ "_" ++ ppId i
+  | otherwise                                      = ppId i
 ppId (Project c i)  = case (i,ppId c) of
                         (0,"Pair") -> "first"
                         (1,"Pair") -> "second"
