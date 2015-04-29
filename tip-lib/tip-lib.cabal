@@ -35,12 +35,12 @@ library
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.Lift
     Tip.Pass.CommuteMatch
-    Tip.Pass.AddCase
-    Tip.Pass.Denewtype
-    Tip.Pass.Decase
-    Tip.Pass.Deprove
+    Tip.Pass.AddMatch
+    Tip.Pass.RemoveNewtype
+    Tip.Pass.RemoveMatch
+    Tip.Pass.NegateConjecture
     Tip.Pass.EqualFunctions
-    Tip.Pass.Delambda
+    Tip.Pass.Uncurry
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP

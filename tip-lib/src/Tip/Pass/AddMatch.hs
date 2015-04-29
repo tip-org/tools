@@ -1,5 +1,5 @@
 {-# LANGUAGE PatternGuards, RecordWildCards #-}
-module Tip.Pass.AddCase where
+module Tip.Pass.AddMatch where
 
 import Tip
 import Tip.Fresh
@@ -9,8 +9,8 @@ import Data.Map(Map)
 
 -- | Replace SMTLIB-style selector and discriminator functions
 --   (@is-nil@, @head@, @tail@) with case expressions.
-addCase :: Name a => Theory a -> Fresh (Theory a)
-addCase thy =
+addMatch :: Name a => Theory a -> Fresh (Theory a)
+addMatch thy =
   flip transformExprInM thy $ \e ->
     case e of
       Gbl Global{..} :@: [t] | Just (d, c) <- lookupDiscriminator gbl_name scp -> do

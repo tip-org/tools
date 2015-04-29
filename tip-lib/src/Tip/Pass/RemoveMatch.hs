@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards, CPP #-}
-module Tip.Pass.Decase where
+module Tip.Pass.RemoveMatch where
 
 #include "errors.h"
 import Tip
@@ -9,8 +9,8 @@ import qualified Data.Map as Map
 import Data.Generics.Geniplate
 
 -- | Turn case expressions into @is-Cons@, @head@, @tail@ etc.
-decase :: Name a => Theory a -> Fresh (Theory a)
-decase thy@Theory{..} = transformBiM go thy
+removeMatch :: Name a => Theory a -> Fresh (Theory a)
+removeMatch thy@Theory{..} = transformBiM go thy
   where
     scp = scope thy
     go = transformBiM $ \e0 ->

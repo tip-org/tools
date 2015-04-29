@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards, PatternGuards, CPP #-}
-module Tip.Pass.Denewtype where
+module Tip.Pass.RemoveNewtype where
 
 #include "errors.h"
 import Tip
@@ -11,9 +11,9 @@ import Data.Generics.Geniplate
 import Data.Maybe
 
 -- | Remove datatypes that have only one constructor with one field.
---   Can only be run after the @addCase@ pass.
-denewtype :: Name a => Theory a -> Theory a
-denewtype thy@Theory{..} =
+--   Can only be run after the @addMatch@ pass.
+removeNewtype :: Name a => Theory a -> Theory a
+removeNewtype thy@Theory{..} =
   -- Replace e.g.:
   -- I# x -> x
   -- (case x of _ -> e) -> e

@@ -6,14 +6,14 @@ module Tip.Passes
 
   -- * Simplifications
   , simplifyTheory, gently, aggressively, SimplifyOpts(..)
-  , denewtype
-  , delambda
-  , deprove
+  , removeNewtype
+  , uncurryTheory
+  , negateConjecture
 
   -- * Match expressions
-  , addCase
+  , addMatch
   , commuteMatch
-  , decase
+  , removeMatch
 
   -- * Duplicated functions
   , collapseEqual
@@ -29,12 +29,12 @@ import Tip.Simplify
 
 import Tip.Fresh
 
-import Tip.Pass.AddCase
+import Tip.Pass.AddMatch
 import Tip.Pass.CommuteMatch
-import Tip.Pass.Decase
-import Tip.Pass.Delambda
-import Tip.Pass.Denewtype
-import Tip.Pass.Deprove
+import Tip.Pass.RemoveMatch
+import Tip.Pass.Uncurry
+import Tip.Pass.RemoveNewtype
+import Tip.Pass.NegateConjecture
 import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
 

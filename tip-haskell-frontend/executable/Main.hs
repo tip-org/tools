@@ -36,12 +36,12 @@ main = do
     let renamed_thy = renameWith disambigId thy
     let pipeline = freshPass $
                 simplifyTheory aggressively >=> lintM "simplify0"
-            >=> return . denewtype          >=> lintM "denewtype"
-            >=> delambda                    >=> lintM "delambda"
+            >=> return . removeNewtype          >=> lintM "removeNewtype"
+            >=> uncurryTheory                    >=> lintM "uncurryTheory"
             >=> simplifyTheory aggressively >=> lintM "simplify1"
             >=> commuteMatch                >=> lintM "commuteMatch"
             >=> simplifyTheory aggressively >=> lintM "simplify2"
---            >=> decase                      >=> lintM "decase"
+--            >=> removeMatch                      >=> lintM "removeMatch"
             >=> return . removeAliases      >=> lintM "removeAliases"
             >=> return . collapseEqual      >=> lintM "collapseEqual"
 

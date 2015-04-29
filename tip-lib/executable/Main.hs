@@ -30,9 +30,9 @@ main =
                    lintM "collapseEqual" . collapseEqual >=>
                    lintM "removeAliases" . removeAliases >=>
                    simplifyTheory gently >=> lintM "simplify1" >=>
-                   decase >=> lintM "decase" >=>
+                   removeMatch >=> lintM "removeMatch" >=>
                    simplifyTheory gently >=> lintM "simplify2" >=>
-                   deprove >=> lintM "deprove" >=>
+                   negateConjecture >=> lintM "negateConjecture" >=>
                    simplifyTheory gently >=> lintM "simplify3" >=>
                    return . SMT.ppTheory
                  _ ->

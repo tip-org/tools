@@ -1,5 +1,5 @@
 {-# LANGUAGE PatternGuards #-}
-module Tip.Pass.Deprove where
+module Tip.Pass.NegateConjecture where
 
 import Tip
 import Tip.Fresh
@@ -8,16 +8,16 @@ import Data.Generics.Geniplate
 
 -- | Negates the conjecture: changes assert-not into assert, and
 --   introduce skolem types in case the goal is polymorphic.
-deprove :: Name a => Theory a -> Fresh (Theory a)
-deprove thy =
-  foldM deprove1
+negateConjecture :: Name a => Theory a -> Fresh (Theory a)
+negateConjecture thy =
+  foldM negateConjecture1
     thy { thy_form_decls = filter (not . isProve) (thy_form_decls thy) }
     (filter isProve (thy_form_decls thy))
   where
     isProve (Formula Prove _ form) = True
     isProve _ = False
 
-    deprove1 thy (Formula Prove tvs form) = do
+    negateConjecture1 thy (Formula Prove tvs form) = do
       tvs' <- mapM (refreshNamed "sk_") tvs
       return thy {
         thy_form_decls = Formula Assert [] (neg (makeTyCons (zip tvs tvs') form)):thy_form_decls thy,
