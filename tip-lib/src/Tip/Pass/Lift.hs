@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
-module Tip.Lift (lambdaLift, letLift, axiomatizeLambdas) where
+module Tip.Pass.Lift (lambdaLift, letLift, axiomatizeLambdas) where
 
 #include "errors.h"
 import Tip
@@ -30,20 +30,6 @@ liftTheory top thy0 =
   do (Theory{..},new_func_decls) <- liftAnywhere top thy0
      return Theory{thy_func_decls = new_func_decls ++ thy_func_decls,..}
 
--- Defunctionalization.
---
--- Transforms
---
---    f x = ... \ y -> e [ x ] ...
---
--- into
---
---    f x = ... g x ...
---    g x = \ y -> e [ x ]
---
--- where g is a fresh function.
---
--- After this pass, lambdas only exist at the top level of functions
 lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
   case e0 of
@@ -57,18 +43,21 @@ lambdaLiftTop e0 =
          return (applyFunction g (map TyVar g_tvs) (map Lcl g_args))
     _ -> return e0
 
+-- | Defunctionalization.
+--
+-- > f x = ... \ y -> e [ x ] ...
+--
+-- becomes
+--
+-- > f x = ... g x ...
+-- > g x = \ y -> e [ x ]
+--
+-- where @g@ is a fresh function.
+--
+-- After this pass, lambdas only exist at the top level of functions.
 lambdaLift :: Name a => Theory a -> Fresh (Theory a)
 lambdaLift = liftTheory lambdaLiftTop
 
--- Transforms
---
---    let x = b[fvs] in e[x]
---
--- into
---
---    e[x fvs]
---
--- +  x fvs = b[fvs]
 letLiftTop :: Name a => TopLift a
 letLiftTop e0 =
   case e0 of
@@ -80,20 +69,17 @@ letLiftTop e0 =
          lift ((applyFunction xfn (map TyVar tvs) (map Lcl fvs) // xl) e)
     _ -> return e0
 
+-- | Lift lets to the top level.
+--
+-- > let x = b[fvs] in e[x]
+--
+-- becomes
+--
+-- > e[f fvs]
+-- > f fvs = b[fvs]
 letLift :: Name a => Theory a -> Fresh (Theory a)
 letLift = liftTheory letLiftTop
 
--- Axiomatize lambdas
---
--- turns
---
---   f x = \ y -> E[x,y]
---
--- into
---
---   declare-fun f ...
---
---   assert (forall x y . @ (f x) y = E[x,y]
 axLamFunc :: Function a -> Maybe (AbsFunc a,Formula a)
 axLamFunc Function{..} =
   case func_body of
@@ -110,6 +96,14 @@ axLamFunc Function{..} =
       in  Just (abs,fm)
     _ -> Nothing
 
+-- | Axiomatize lambdas.
+--
+-- > f x = \ y -> E[x,y]
+--
+-- becomes
+--
+-- > declare-fun f ...
+-- > assert (forall x y . @ (f x) y = E[x,y])
 axiomatizeLambdas :: forall a. Name a => Theory a -> Fresh (Theory a)
 axiomatizeLambdas thy0 = do
   arrows <- fmap Map.fromList (mapM makeArrow arities)
@@ -162,3 +156,8 @@ axiomatizeLambdas thy0 = do
         args :=>: res = exprType e
         AbsFunc{..} = Map.findWithDefault __ (length args) ats
     eliminateAts _ e = e
+
+mkTyVarName :: Int -> String
+mkTyVarName x = vars !! x
+  where vars = ["a","b","c","d"] ++ ["t" ++ show i | i <- [0..]]
+

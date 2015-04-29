@@ -30,11 +30,12 @@ type CM a = ScopeT Id (StateT (Map String (Id,IdKind)) Fresh) a
 runCM :: CM a -> Either String a
 runCM m = either (Left . show) Right $ runFresh (evalStateT (runScopeT m) M.empty)
 
-
+-- | Identifiers from parsed Tip syntax
 data Id = Id
   { idString :: String
   , idUnique :: Int
-  , idPos    :: (Int,Int)
+  , idPos    :: Maybe (Int,Int)
+  -- ^ A source position of the identifier, if available
   }
   deriving Show
 
@@ -50,7 +51,7 @@ instance PrettyVar Id where
 instance Name Id where
   freshNamed n
     = do u <- fresh
-         return (Id n u (0,0))
+         return (Id n u Nothing)
 
   fresh = freshNamed "fresh"
 
@@ -65,7 +66,7 @@ lkSym :: Symbol -> CM Id
 lkSym sym@(Symbol (p,s)) =
   do mik <- lift $ gets (M.lookup s)
      case mik of
-       Just (i,_) -> return $ i { idPos = p }
+       Just (i,_) -> return $ i { idPos = Just p }
        Nothing    -> throwError $ "Symbol" <+> ppSym sym <+> "not bound"
 
 addSym :: IdKind -> Symbol -> CM Id
@@ -76,7 +77,7 @@ addSym ik sym@(Symbol (p,s)) =
        Just _ | ik == GlobalId -> throwError $ "Symbol" <+> ppSym sym <+> "is locally bound, and cannot be overwritten by a global"
        _                       -> return ()
      u <- lift (lift fresh)
-     let i = Id s u p
+     let i = Id s u (Just p)
      lift $ modify (M.insert s (i,ik))
      return i
 

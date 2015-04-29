@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Tip.AxiomatizeFuncdefs where
+module Tip.Pass.AxiomatizeFuncdefs where
 
 #include "errors.h"
 import Tip

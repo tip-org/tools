@@ -59,6 +59,12 @@ mkQuant q xs e = Quant NoInfo q xs e
 bool :: Bool -> Expr a
 bool = literal . Bool
 
+trueExpr :: Expr a
+trueExpr  = bool True
+
+falseExpr :: Expr a
+falseExpr = bool False
+
 intLit :: Integer -> Expr a
 intLit = literal . Int
 
@@ -276,6 +282,16 @@ ifView _ = Nothing
 makeIf :: Expr a -> Expr a -> Expr a -> Expr a
 makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
 
+-- | Transforms @and@, @or@, @=>@ and @not@ into if (i.e. case)
+boolOpsToIf :: TransformBi (Expr a) (f a) => f a -> f a
+boolOpsToIf = transformExprIn $
+  \ e0 -> case e0 of
+    Builtin And :@: [a,b]     -> makeIf a b falseExpr
+    Builtin Or  :@: [a,b]     -> makeIf a trueExpr b
+    Builtin Not :@: [a]       -> makeIf a falseExpr trueExpr
+    Builtin Implies :@: [a,b] -> boolOpsToIf (neg a \/ b)
+    _ -> e0
+
 -- Turn a Constructor into a Global.
 constructorType :: Datatype a -> Constructor a -> PolyType a
 constructorType Datatype{..} Constructor{..} =
@@ -319,12 +335,6 @@ letExpr b k =
   do v <- freshLocal (exprType b)
      rest <- k v
      return (Let v b rest)
-
-freshPass :: (F.Foldable f,Name a) => (f a -> Fresh b) -> f a -> b
-f `freshPass` x = runFreshFrom (succ (maximumOn getUnique x)) (f x)
-
-maximumOn :: (F.Foldable f,Ord b) => (a -> b) -> f a -> b
-maximumOn f = f . F.maximumBy (comparing f)
 
 -- Theory
 

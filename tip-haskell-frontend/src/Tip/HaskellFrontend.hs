@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards, DisambiguateRecordFields, NamedFieldPuns #-}
-module Tip.HaskellFrontend where
+-- | The Haskell frontend to Tip
+module Tip.HaskellFrontend(readHaskellFile,Id(..),module Tip.Params) where
 
 import Tip
 import Tip.Calls
@@ -33,6 +34,7 @@ import TyCon (isAlgTyCon,isClassTyCon)
 import TysWiredIn (boolTyCon)
 import UniqSupply
 
+-- | Transforms a Haskell file to a Tip Theory, crashing if unsuccessful
 readHaskellFile :: Params -> IO (Theory Id)
 readHaskellFile params@Params{..} = do
 

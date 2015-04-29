@@ -14,29 +14,34 @@ cabal-version:       >=1.10
 library
   exposed-modules:
     Tip
-    Tip.AddCase
-    Tip.AxiomatizeFuncdefs
-    Tip.CommuteMatch
-    Tip.Denewtype
-    Tip.Decase
-    Tip.Deprove
-    Tip.Lift
     Tip.Lint
     Tip.Types
     Tip.Scope
-    Tip.EqualFunctions
     Tip.Fresh
-    Tip.Utils
-    Tip.Utils.Renamer
-    Tip.Renamer
-    Tip.Delambda
     Tip.WorkerWrapper
     Tip.Simplify
+    Tip.Passes
     Tip.Pretty
     Tip.Pretty.SMT
     Tip.Pretty.Why3
 
     Tip.Parser
+
+    Tip.Utils
+
+    Tip.Renamer
+    Tip.Utils.Renamer
+  other-modules:
+    Tip.Pass.AxiomatizeFuncdefs
+    Tip.Pass.Lift
+    Tip.Pass.CommuteMatch
+    Tip.Pass.AddCase
+    Tip.Pass.Denewtype
+    Tip.Pass.Decase
+    Tip.Pass.Deprove
+    Tip.Pass.EqualFunctions
+    Tip.Pass.Delambda
+
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
     Tip.Parser.LexTIP

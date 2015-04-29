@@ -42,6 +42,9 @@ tryGetGHCName :: Id -> Maybe Name
 tryGetGHCName (GHCOrigin nm) = Just nm
 tryGetGHCName _              = Nothing
 
+-- | A representation of identifiers that come from GHC.
+--
+-- The 'PrettyVar' instance is one way to print the names.
 data Id
     = GHCOrigin Name
     | Eta Int

@@ -1,5 +1,13 @@
 {-# LANGUAGE CPP, RecordWildCards, OverloadedStrings, FlexibleContexts, ViewPatterns #-}
-module Tip.Lint where
+-- | Check that a theory is well-typed.
+-- Invariants:
+--   * No shadowing---checked by scope monad.
+--   * Each local is bound before it's used.
+--   * All expressions are well-typed.
+--   * The result of each constructor should be a value of that datatype.
+--   * Default case comes first. No duplicate cases.
+--   * Expressions and formulas not mixed.
+module Tip.Lint (lint, lintM, lintTheory) where
 
 #include "errors.h"
 import Tip
@@ -15,21 +23,18 @@ import Tip.Pretty.SMT
 import Data.List
 --import Debug.Trace
 
--- Check that a theory is well-typed.
--- Invariants:
---   * No shadowing---checked by scope monad.
---   * Each local is bound before it's used.
---   * All expressions are well-typed.
---   * The result of each constructor should be a value of that datatype.
---   * Default case comes first. No duplicate cases.
---   * Expressions and formulas not mixed.
+-- | Crashes if the theory is malformed
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
 lint pass thy0@(renameAvoiding [] return -> thy) =
   -- trace ("Linting:" ++ pass ++ ":\n" ++ ppRender thy) $
   case (lintTheory thy,lintTheory thy0) of
-    (Left doc,_)        -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
-    (Right{},Left doc)  -> error ("Non-renamed linting pass failed!? " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
-    (Right (),Right ()) -> thy0
+    (Just doc,_) -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
+    (_,Just doc) -> error ("Non-renamed linting pass failed!? " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
+    (_,_)        -> thy0
+
+-- | Same as 'lint', but returns in a monad, for convenience
+lintM :: (PrettyVar a, Ord a, Monad m) => String -> Theory a -> m (Theory a)
+lintM pass = return . lint pass
 
 check :: (PrettyVar a, Ord a) => Doc -> (Scope a -> Bool) -> ScopeM a ()
 check x p = check' x (guard . p)
@@ -41,8 +46,10 @@ check' x p = do
     Nothing -> throwError x
     Just y  -> return y
 
-lintTheory :: (PrettyVar a, Ord a) => Theory a -> Either Doc ()
+-- | Returns the error if the theory is malformed
+lintTheory :: (PrettyVar a, Ord a) => Theory a -> Maybe Doc
 lintTheory thy@Theory{..} =
+  either Just (const Nothing) .
   runScope . withTheory thy $ inContext thy $ do
     mapM_ lintDatatype thy_data_decls
     mapM_ lintAbsFunc thy_abs_func_decls

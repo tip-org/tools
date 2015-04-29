@@ -1,4 +1,5 @@
-module Tip.Parser where
+-- | Parses the TIP format
+module Tip.Parser(parse,Id,idPos) where
 
 import Data.Monoid
 
@@ -9,6 +10,7 @@ import Tip.Parser.ErrM
 import Tip.Parser.Convert
 import Tip
 
+-- | Parse, and get either an error or the string's theory
 parse :: String -> Either String (Theory Id)
 parse s =
   case pStart . myLexer $ s of

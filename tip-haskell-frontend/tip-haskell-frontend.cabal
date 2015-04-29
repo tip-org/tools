@@ -6,19 +6,23 @@ author:              Dan Rosén
 maintainer:          danr@chalmers.se
 build-type:          Simple
 cabal-version:       >=1.10
+description:         Convert from Haskell to Tip
+synopsis:            Convert from Haskell to Tip
 
 library
   exposed-modules:
+    Tip.HaskellFrontend
+    Tip.DSL
+  other-modules:
+    Tip.Params
+    Tip.Id
+    Tip.GHCUtils
     Tip.Calls
     Tip.Compile
     Tip.CoreToTip
     Tip.DataConPattern
     Tip.Dicts
-    Tip.DSL
     Tip.FreeTyCons
-    Tip.HaskellFrontend
-    Tip.Id
-    Tip.Params
     Tip.ParseDSL
     Tip.Property
     Tip.RemoveDefault
@@ -26,8 +30,6 @@ library
     Tip.TyAppBeta
     Tip.Unfoldings
     Tip.Uniquify
-    Tip.GHCUtils
-  -- other-modules:
   hs-source-dirs:      src
   include-dirs:        src
   default-language:    Haskell2010

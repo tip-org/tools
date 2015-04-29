@@ -137,7 +137,6 @@ trDefn v e = do
 
 log :: Outputable a => a -> b -> b
 log x = trace (showOutputable x)
-
 -- | Translating variables
 --
 -- Need to conflate worker and wrapper data constructors otherwise
@@ -345,9 +344,10 @@ throw :: String -> TMW a
 throw = ll . throwError
 
 essentiallyInteger :: TyCon -> Bool
-essentiallyInteger tc = tc == TysPrim.intPrimTyCon
-                     -- || tc == TysPrim.charPrimTyCon
-                     -- || tyConUnique tc == PrelNames.integerTyConKey
+essentiallyInteger tc = tc == TysPrim.intPrimTyCon {-
+                      || tc == TysPrim.charPrimTyCon
+                      || tyConUnique tc == PrelNames.integerTyConKey
+                      -}
 
 
 trType :: C.Type -> Either String (Tip.Type Id)

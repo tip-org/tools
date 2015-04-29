@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Tip.CommuteMatch where
+module Tip.Pass.CommuteMatch where
 
 #include "errors.h"
 import Tip
@@ -10,6 +10,10 @@ import Tip.Fresh
 import Data.Generics.Geniplate
 import Control.Applicative
 
+-- | Makes an effort to move match statements upwards: moves match above
+-- function applications, and moves matches inside scrutinees outside.
+--
+-- Does not move past quantifiers, lets, and lambdas.
 commuteMatch :: (Name a, TransformBiM Fresh (Expr a) (f a)) => f a -> Fresh (f a)
 commuteMatch = transformExprInM $ \ e0 ->
   case e0 of

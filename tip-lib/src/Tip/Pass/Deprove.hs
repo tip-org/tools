@@ -1,12 +1,13 @@
--- Remove "prove" constructs from file.
 {-# LANGUAGE PatternGuards #-}
-module Tip.Deprove where
+module Tip.Pass.Deprove where
 
 import Tip
 import Tip.Fresh
 import Control.Monad
 import Data.Generics.Geniplate
 
+-- | Negates the conjecture: changes assert-not into assert, and
+--   introduce skolem types in case the goal is polymorphic.
 deprove :: Name a => Theory a -> Fresh (Theory a)
 deprove thy =
   foldM deprove1

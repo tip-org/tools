@@ -16,7 +16,7 @@ import Data.Generics.Geniplate
 
 import qualified Data.Set as S
 
-data Why3Var a = Why3Var Bool {-^ is constructor -} a
+data Why3Var a = Why3Var Bool {- is constructor -} a
   deriving (Eq,Ord,Show)
 
 instance PrettyVar a => PrettyVar (Why3Var a) where

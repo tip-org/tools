@@ -1,3 +1,4 @@
+-- | The abstract syntax
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 module Tip.Types where
@@ -147,9 +148,6 @@ data Theory a = Theory
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-class ToTheory m where
-  toTheory :: m a -> Theory a
-
 emptyTheory :: Theory a
 emptyTheory = Theory [] [] [] [] []
 
@@ -160,7 +158,7 @@ instance Monoid (Theory a) where
   mempty  = emptyTheory
   mappend = joinTheories
 
-data Formula a = Formula Role [a] {- ^ type variables -} (Expr a)
+data Formula a = Formula Role [a] {- type variables -} (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Role = Assert | Prove

@@ -110,9 +110,10 @@ ppLocal (Local l t) = expr (ppVar l) [ppType t]
 
 ppHead :: PrettyVar a => Head a -> Doc
 ppHead (Builtin b) = ppBuiltin b
-ppHead (Gbl gbl)   = ppVar (gbl_name gbl) -- $$ ";" <> ppPolyType (gbl_type gbl)
-                                          -- $$ ";" <> fsep (map ppType (gbl_args gbl))
-                                          -- $$ text ""
+ppHead (Gbl gbl)   = ppVar (gbl_name gbl) {- -- $$ ";" <> ppPolyType (gbl_type gbl)
+                                             -- $$ ";" <> fsep (map ppType (gbl_args gbl))
+                                             -- $$ text ""
+                                          -}
 
 ppBuiltin :: Builtin -> Doc
 ppBuiltin (Lit lit) = ppLit lit

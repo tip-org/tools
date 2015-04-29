@@ -139,16 +139,14 @@ parseToId s = do
 extraIds :: Params -> [Var] -> Ghc [Var]
 extraIds p@Params{..} prop_ids = do
 
-    extra_trans_ids <- mapM parseToId (concatMap (splitOn ",") extra_trans)
+    extra_ids <- mapM parseToId (concatMap (splitOn ",") extra)
 
     let trans_ids :: VarSet
         trans_ids = unionVarSets $
-            map (transCalls With) (prop_ids ++ extra_trans_ids)
-
-    extra_ids <- mapM parseToId (concatMap (splitOn ",") extra)
+            map (transCalls With) (prop_ids ++ extra_ids)
 
     let ids = varSetElems $ filterVarSet (\ x -> not (varFromPrelude x || varWithPropType x) && not (hasClass (varType x)))
-            trans_ids `unionVarSet` mkVarSet extra_ids
+            trans_ids
 
     -- Filters out silly things like
     -- Control.Exception.Base.patError and GHC.Prim.realWorld#
@@ -162,7 +160,6 @@ extraIds p@Params{..} prop_ids = do
             out lbl os = putStrLn $ lbl ++ " =\n " ++ showOutputable [ (o{-,maybeUnfolding o-}) | o <- os ]
 #define OUT(i) out "i" (i)
         OUT(prop_ids)
-        OUT(extra_trans_ids)
         OUT(extra_ids)
         OUT(ids)
         OUT(ids_in_scope)

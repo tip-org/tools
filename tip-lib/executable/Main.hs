@@ -2,17 +2,16 @@ module Main where
 
 import System.Environment
 import Text.PrettyPrint
+
 import Tip.Parser
 import Tip.Pretty.SMT as SMT
 import Tip.Pretty.Why3 as Why3
+
+import Tip.Passes
 import Tip.Lint
 import Tip.Fresh
-import Tip.Simplify
-import Tip.Decase
-import Tip.Lift
-import Tip.EqualFunctions
-import Tip.Deprove
 import Tip
+
 import Control.Monad
 
 main :: IO ()
@@ -21,21 +20,21 @@ main =
      s <- readFile f
      case parse s of
        Left err  -> error $ "Parse failed: " ++ err
-       Right thy ->
+       Right thy -> do
          let pipeline =
                case () of
                  () | "why3" `elem` es -> return . Why3.ppTheory
                  () | "cvc4" `elem` es ->
-                   lambdaLift >=> return . lint "lambdaLift" >=>
-                   axiomatizeLambdas >=> return . lint "axiomatizeLambdas" >=>
-                   return . lint "collapseEqual" . collapseEqual >=>
-                   return . lint "removeAliases" . removeAliases >=>
-                   simplifyTheory gently >=> return . lint "simplify1" >=>
-                   decase >=> return . lint "decase" >=>
-                   simplifyTheory gently >=> return . lint "simplify2" >=>
-                   deprove >=> return . lint "deprove" >=>
-                   simplifyTheory gently >=> return . lint "simplify3" >=>
+                   lambdaLift >=> lintM "lambdaLift" >=>
+                   axiomatizeLambdas >=> lintM "axiomatizeLambdas" >=>
+                   lintM "collapseEqual" . collapseEqual >=>
+                   lintM "removeAliases" . removeAliases >=>
+                   simplifyTheory gently >=> lintM "simplify1" >=>
+                   decase >=> lintM "decase" >=>
+                   simplifyTheory gently >=> lintM "simplify2" >=>
+                   deprove >=> lintM "deprove" >=>
+                   simplifyTheory gently >=> lintM "simplify3" >=>
                    return . SMT.ppTheory
                  _ ->
-                   return . SMT.ppTheory in
+                   return . SMT.ppTheory
          print (freshPass pipeline (lint "parse" thy))

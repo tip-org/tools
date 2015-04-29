@@ -1,7 +1,5 @@
--- Remove datatypes that have only one constructor with one field.
--- Can only be run after the AddCase pass.
 {-# LANGUAGE RecordWildCards, PatternGuards, CPP #-}
-module Tip.Denewtype where
+module Tip.Pass.Denewtype where
 
 #include "errors.h"
 import Tip
@@ -12,6 +10,8 @@ import qualified Data.Set as Set
 import Data.Generics.Geniplate
 import Data.Maybe
 
+-- | Remove datatypes that have only one constructor with one field.
+--   Can only be run after the @addCase@ pass.
 denewtype :: Name a => Theory a -> Theory a
 denewtype thy@Theory{..} =
   -- Replace e.g.:

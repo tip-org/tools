@@ -1,7 +1,5 @@
--- Turn case expressions into null/head/tail etc.
-
 {-# LANGUAGE RecordWildCards, CPP #-}
-module Tip.Decase where
+module Tip.Pass.Decase where
 
 #include "errors.h"
 import Tip
@@ -10,6 +8,7 @@ import Tip.Scope
 import qualified Data.Map as Map
 import Data.Generics.Geniplate
 
+-- | Turn case expressions into @is-Cons@, @head@, @tail@ etc.
 decase :: Name a => Theory a -> Fresh (Theory a)
 decase thy@Theory{..} = transformBiM go thy
   where

@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Tip.Renamer(renameAvoiding,RenamedId) where
+module Tip.Renamer(renameAvoiding,RenamedId(..)) where
 
 #include "errors.h"
 import Data.Char (isDigit)
@@ -13,8 +13,7 @@ import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 
--- Renaming
-
+-- | The representation of renamed Ids.
 newtype RenamedId = RenamedId String
   deriving (Eq,Ord,Show)
 
@@ -49,10 +48,12 @@ renameRest kwds mk_name =
          Renamed s -> RenamedId s:__
          Remain a  -> map RenamedId (mk_name a))
 
--- Preserves the case of the first character.
--- Strips off trailing numbers and allows them to be renumbered
--- Send in your keywords
-renameAvoiding :: forall a . (Ord a,PrettyVar a) => [String] -> (Char -> String) -> Theory a -> Theory RenamedId
+-- | Renames a theory
+renameAvoiding :: forall a . (Ord a,PrettyVar a) =>
+       [String]         -- ^ Keywords to avoid
+    -> (Char -> String) -- ^ Escaping
+    -> Theory a         -- ^ Theory to be renamed
+    -> Theory RenamedId -- ^ The renamed theory
 renameAvoiding kwds repl thy
    = mapDecls (renameRest kwds (filter (`notElem` assigned_gbl_names) . disambig rn)) first_pass
  where
@@ -63,9 +64,5 @@ renameAvoiding kwds repl thy
   assigned_gbl_names   = [ s | Renamed s <- F.toList first_pass ]
 
   rn :: a -> String
-  rn = ifLast (not . isDigit) (reverse . dropWhile isDigit . reverse) . concatMap repl . varStr
-
-  ifLast p f [] = f []
-  ifLast p f xs | p (last xs) = f xs
-                | otherwise   = xs
+  rn = concatMap repl . varStr
 

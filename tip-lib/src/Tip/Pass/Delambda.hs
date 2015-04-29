@@ -1,13 +1,11 @@
--- Replace "fat arrow" (=>) functions with normal functions
--- wherever possible.
-
 {-# LANGUAGE RecordWildCards #-}
-module Tip.Delambda where
+module Tip.Pass.Delambda(delambda) where
 
 import Tip
 import Tip.Fresh
 import Tip.WorkerWrapper
 
+-- | Replace "fat arrow", @=>@, functions with normal functions wherever possible.
 delambda :: Name a => Theory a -> Fresh (Theory a)
 delambda thy =
   workerWrapperFunctions outerDelambdaWW thy >>=

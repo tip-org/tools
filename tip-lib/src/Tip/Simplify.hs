@@ -19,8 +19,11 @@ gently, aggressively :: SimplifyOpts a
 gently       = SimplifyOpts True atomic
 aggressively = SimplifyOpts True (const True)
 
-simplifyExpr :: forall f a. (TransformBiM Fresh (Expr a) (f a), Name a) => SimplifyOpts a -> Maybe (Theory a) -> f a -> Fresh (f a)
-simplifyExpr opts@SimplifyOpts{..} mthy = aux
+simplifyExpr :: forall f a. (TransformBiM Fresh (Expr a) (f a), Name a) => SimplifyOpts a -> f a -> Fresh (f a)
+simplifyExpr opts = simplifyExprIn Nothing opts
+
+simplifyExprIn :: forall f a. (TransformBiM Fresh (Expr a) (f a), Name a) => Maybe (Theory a) -> SimplifyOpts a -> f a -> Fresh (f a)
+simplifyExprIn mthy opts@SimplifyOpts{..} = aux
   where
     aux :: forall f. TransformBiM Fresh (Expr a) (f a) => f a -> Fresh (f a)
     aux = transformExprInM $ \e0 ->
@@ -101,5 +104,5 @@ simplifyExpr opts@SimplifyOpts{..} mthy = aux
     isConstructor _ = False
 
 simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
-simplifyTheory opts thy = simplifyExpr opts (Just thy) thy
+simplifyTheory opts thy = simplifyExprIn (Just thy) opts thy
 

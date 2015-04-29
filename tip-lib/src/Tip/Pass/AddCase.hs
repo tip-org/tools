@@ -1,8 +1,5 @@
--- Replace SMTLIB-style selector and discriminator functions
--- (is-nil, head, tail) with case expressions.
-
 {-# LANGUAGE PatternGuards, RecordWildCards #-}
-module Tip.AddCase where
+module Tip.Pass.AddCase where
 
 import Tip
 import Tip.Fresh
@@ -10,6 +7,8 @@ import Tip.Scope
 import qualified Data.Map as Map
 import Data.Map(Map)
 
+-- | Replace SMTLIB-style selector and discriminator functions
+--   (@is-nil@, @head@, @tail@) with case expressions.
 addCase :: Name a => Theory a -> Fresh (Theory a)
 addCase thy =
   flip transformExprInM thy $ \e ->

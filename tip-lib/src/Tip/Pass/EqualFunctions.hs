@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternGuards #-}
-module Tip.EqualFunctions(collapseEqual, removeAliases) where
+module Tip.Pass.EqualFunctions(collapseEqual, removeAliases) where
 
 import Tip
 import Tip.Fresh
@@ -41,10 +41,12 @@ rename d x = case lookup x d of
     Just y  -> y
     Nothing -> x
 
--- If we have
---   f x = E[x]
---   g y = E[y]
--- then we remove g and replace it with f everywhere
+-- | If we have
+--
+-- > f x = E[x]
+-- > g y = E[y]
+--
+-- then we remove @g@ and replace it with @f@ everywhere
 collapseEqual :: forall a . Ord a => Theory a -> Theory a
 collapseEqual thy@(Theory{ thy_func_decls = fns0 })
     = fmap (rename renamings) thy{ thy_func_decls = survivors }
@@ -73,9 +75,11 @@ renameGlobals rns = transformBi $ \ h0 ->
     Gbl (Global g _ ts) | Just hd <- lookup g rns -> hd ts
     _ -> h0
 
--- If we have
---    g x y = f x y
--- then we remove g and replace it with f everywhere
+-- | If we have
+--
+-- > g x y = f x y
+--
+-- then we remove @g@ and replace it with @f@ everywhere
 removeAliases :: Eq a => Theory a -> Theory a
 removeAliases thy@(Theory{thy_func_decls=fns0})
     | null renamings = thy
@@ -87,7 +91,7 @@ removeAliases thy@(Theory{thy_func_decls=fns0})
       , map Lcl vars == args
       , let (ok,k) = case hd of
               Gbl (Global f pty ty_args) -> (map TyVar ty_vars == ty_args, \ ts -> Gbl (Global f pty ts))
-              Builtin{}                  -> (null ty_vars, \ [] -> hd)
+              Builtin{}                  -> (True, \ _ -> hd)
       , ok
       ]
 
