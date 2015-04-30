@@ -21,20 +21,20 @@ main =
      case parse s of
        Left err  -> error $ "Parse failed: " ++ err
        Right thy -> do
+         let passes :: [StandardPass]
+             (passes,extra) = parsePasses es
          let pipeline =
                case () of
-                 () | "why3" `elem` es -> return . Why3.ppTheory
                  () | "cvc4" `elem` es ->
-                   lambdaLift >=> lintM "lambdaLift" >=>
-                   axiomatizeLambdas >=> lintM "axiomatizeLambdas" >=>
-                   lintM "collapseEqual" . collapseEqual >=>
-                   lintM "removeAliases" . removeAliases >=>
-                   simplifyTheory gently >=> lintM "simplify1" >=>
-                   removeMatch >=> lintM "removeMatch" >=>
-                   simplifyTheory gently >=> lintM "simplify2" >=>
-                   negateConjecture >=> lintM "negateConjecture" >=>
-                   simplifyTheory gently >=> lintM "simplify3" >=>
-                   return . SMT.ppTheory
-                 _ ->
-                   return . SMT.ppTheory
+                   fmap SMT.ppTheory .
+                   runPasses
+                     [ LambdaLift, AxiomatizeLambdas
+                     , CollapseEqual, RemoveAliases
+                     , SimplifyGently, RemoveMatch
+                     , SimplifyGently, NegateConjecture
+                     , SimplifyGently
+                     ]
+                 () | "why3" `elem` es -> fmap Why3.ppTheory . runPasses passes
+                 ()                    -> fmap SMT.ppTheory .  runPasses passes
+         when (not (null passes)) (putStrLn $ "; " ++ show passes)
          print (freshPass pipeline (lint "parse" thy))

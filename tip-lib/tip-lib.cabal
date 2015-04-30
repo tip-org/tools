@@ -41,6 +41,7 @@ library
     Tip.Pass.NegateConjecture
     Tip.Pass.EqualFunctions
     Tip.Pass.Uncurry
+    Tip.Pass.Pipeline
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
@@ -54,6 +55,7 @@ library
   default-language:    Haskell2010
   build-depends:       base >=4 && <5,
                        geniplate-mirror >=0.6.0.6,
+                       split,
                        containers,
                        mtl,
                        pretty,

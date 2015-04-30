@@ -34,17 +34,18 @@ main = do
       }
     -- putStrLn (ppRender thy)
     let renamed_thy = renameWith disambigId thy
-    let pipeline = freshPass $
-                simplifyTheory aggressively >=> lintM "simplify0"
-            >=> return . removeNewtype          >=> lintM "removeNewtype"
-            >=> uncurryTheory                    >=> lintM "uncurryTheory"
-            >=> simplifyTheory aggressively >=> lintM "simplify1"
-            >=> commuteMatch                >=> lintM "commuteMatch"
-            >=> simplifyTheory aggressively >=> lintM "simplify2"
---            >=> removeMatch                      >=> lintM "removeMatch"
-            >=> return . removeAliases      >=> lintM "removeAliases"
-            >=> return . collapseEqual      >=> lintM "collapseEqual"
-
+    let pipeline =
+          freshPass $
+            runPasses
+              [ SimplifyAggressively
+              , RemoveNewtype
+              , UncurryTheory
+              , SimplifyAggressively
+              , CommuteMatch
+              , SimplifyAggressively
+              , RemoveAliases, CollapseEqual
+              , SimplifyGently
+              ]
     print (SMT.ppTheory (pipeline renamed_thy))
 
 data Var = Var String | Refresh Var Int
