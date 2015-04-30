@@ -58,10 +58,10 @@ lintTheory :: (PrettyVar a, Ord a) => Theory a -> Maybe Doc
 lintTheory thy@Theory{..} =
   either Just (const Nothing) .
   runScope . withTheory thy $ inContext thy $ do
-    mapM_ lintDatatype thy_data_decls
-    mapM_ lintAbsFunc thy_abs_func_decls
-    mapM_ lintFunction thy_func_decls
-    mapM_ lintFormula thy_form_decls
+    mapM_ lintDatatype thy_datatypes
+    mapM_ lintSignature thy_sigs
+    mapM_ lintFunction thy_funcs
+    mapM_ lintFormula thy_asserts
 
 lintDatatype :: (PrettyVar a, Ord a) => Datatype a -> ScopeM a ()
 lintDatatype dt@Datatype{..} =
@@ -94,7 +94,7 @@ lintType (TyCon x tys) = do
   case info of
     TyVarInfo ->
       throwError (fsep ["Type variable", nest 2 (ppVar x), "used as type constructor"])
-    AbsTypeInfo n -> checkArity n
+    SortInfo n -> checkArity n
     DatatypeInfo Datatype{..} -> checkArity (length data_tvs)
   mapM_ lintType tys
 lintType (args :=>: res) = do
@@ -103,9 +103,9 @@ lintType (args :=>: res) = do
 lintType BuiltinType{} = return ()
 lintType NoType = return ()
 
-lintAbsFunc :: (PrettyVar a, Ord a) => AbsFunc a -> ScopeM a ()
-lintAbsFunc func@AbsFunc{..} =
-  inContext func (lintPolyType abs_func_type)
+lintSignature :: (PrettyVar a, Ord a) => Signature a -> ScopeM a ()
+lintSignature func@Signature{..} =
+  inContext func (lintPolyType sig_type)
 
 lintFunction :: (PrettyVar a, Ord a) => Function a -> ScopeM a ()
 lintFunction func@Function{..} =

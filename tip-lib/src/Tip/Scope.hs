@@ -33,7 +33,7 @@ data Scope a = Scope
 data TypeInfo a =
     TyVarInfo
   | DatatypeInfo (Datatype a)
-  | AbsTypeInfo Int
+  | SortInfo Int
   deriving (Eq, Show)
 
 data GlobalInfo a =
@@ -50,13 +50,13 @@ globalType (ProjectorInfo dt _ _ ty) = destructorType dt ty
 globalType (DiscriminatorInfo dt _) = destructorType dt (BuiltinType Boolean)
 
 
-isType, isTyVar, isAbsType, isLocal, isGlobal :: Ord a => a -> Scope a -> Bool
+isType, isTyVar, isSort, isLocal, isGlobal :: Ord a => a -> Scope a -> Bool
 isType x s = M.member x (types s)
 isLocal x s = M.member x (locals s)
 isGlobal x s = M.member x (globals s)
 isTyVar x s = M.lookup x (types s) == Just TyVarInfo
-isAbsType x s = case M.lookup x (types s) of Just AbsTypeInfo{} -> True
-                                             _                  -> False
+isSort x s = case M.lookup x (types s) of Just SortInfo{} -> True
+                                          _               -> False
 
 lookupType :: Ord a => a -> Scope a -> Maybe (TypeInfo a)
 lookupType x s = M.lookup x (types s)
@@ -172,11 +172,11 @@ newTyVar ty = do
   modify $ \s -> s {
     types = M.insert ty TyVarInfo (types s) }
 
-newAbsType :: (Monad m, Ord a, PrettyVar a) => AbsType a -> ScopeT a m ()
-newAbsType AbsType{..} = do
-  newName abs_type_name
+newSort :: (Monad m, Ord a, PrettyVar a) => Sort a -> ScopeT a m ()
+newSort Sort{..} = do
+  newName sort_name
   modify $ \s -> s {
-    types = M.insert abs_type_name (AbsTypeInfo abs_type_arity) (types s) }
+    types = M.insert sort_name (SortInfo sort_arity) (types s) }
 
 newDatatype :: (Monad m, Ord a, PrettyVar a) => Datatype a -> ScopeT a m ()
 newDatatype dt@Datatype{..} = do
@@ -197,11 +197,11 @@ newConstructor dt con@Constructor{..} = do
       (con_discrim, DiscriminatorInfo dt con):
       [(name, ProjectorInfo dt con i ty) | (i, (name, ty)) <- zip [0..] con_args]
 
-newFunction :: (Monad m, Ord a, PrettyVar a) => AbsFunc a -> ScopeT a m ()
-newFunction AbsFunc{..} = do
-  newName abs_func_name
+newFunction :: (Monad m, Ord a, PrettyVar a) => Signature a -> ScopeT a m ()
+newFunction Signature{..} = do
+  newName sig_name
   modify $ \s -> s {
-    globals = M.insert abs_func_name (FunctionInfo abs_func_type) (globals s) }
+    globals = M.insert sig_name (FunctionInfo sig_type) (globals s) }
 
 newLocal :: (Monad m, Ord a, PrettyVar a) => Local a -> ScopeT a m ()
 newLocal Local{..} = do
@@ -212,9 +212,9 @@ newLocal Local{..} = do
 -- | Add everything in a theory
 withTheory :: (Monad m, Ord a, PrettyVar a) => Theory a -> ScopeT a m b -> ScopeT a m b
 withTheory Theory{..} m = do
-  mapM_ newDatatype thy_data_decls
-  mapM_ newAbsType thy_abs_type_decls
-  mapM_ (newFunction . absFunc) thy_func_decls
-  mapM_ newFunction thy_abs_func_decls
+  mapM_ newDatatype thy_datatypes
+  mapM_ newSort thy_sorts
+  mapM_ (newFunction . signature) thy_funcs
+  mapM_ newFunction thy_sigs
   m
 

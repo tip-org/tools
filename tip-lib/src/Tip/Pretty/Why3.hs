@@ -65,15 +65,15 @@ ppTheory (renameAvoiding why3Keywords escape . why3VarTheory -> Theory{..})
       "use HighOrd" :
       "use import int.Int" :
       "use import int.EuclideanDivision" :
-      map ppSort thy_abs_type_decls ++
-      map ppDatas (topsort thy_data_decls) ++
-      map ppUninterp thy_abs_func_decls ++
-      map ppFuncs (topsort thy_func_decls) ++
-      zipWith ppFormula thy_form_decls [0..])
+      map ppSort thy_sorts ++
+      map ppDatas (topsort thy_datatypes) ++
+      map ppUninterp thy_sigs ++
+      map ppFuncs (topsort thy_funcs) ++
+      zipWith ppFormula thy_asserts [0..])
 
-ppSort :: (PrettyVar a, Ord a) => AbsType a -> Doc
-ppSort (AbsType sort 0) = "type" $\ ppVar sort
-ppSort (AbsType sort n) =
+ppSort :: (PrettyVar a, Ord a) => Sort a -> Doc
+ppSort (Sort sort 0) = "type" $\ ppVar sort
+ppSort (Sort sort n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Why3"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
@@ -97,8 +97,8 @@ ppBinder x t = ppVar x <+> ":" $\ ppType 0 t
 ppLocalBinder :: (PrettyVar a, Ord a) => Local a -> Doc
 ppLocalBinder (Local x t) = ppBinder x t
 
-ppUninterp :: (PrettyVar a, Ord a) => AbsFunc a -> Doc
-ppUninterp (AbsFunc f (PolyType _ arg_types result_type)) =
+ppUninterp :: (PrettyVar a, Ord a) => Signature a -> Doc
+ppUninterp (Signature f (PolyType _ arg_types result_type)) =
   "function" $\ ppVar f $\ fsep (map (ppType 1) arg_types) $\ (":" <+> ppType 1 result_type)
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc

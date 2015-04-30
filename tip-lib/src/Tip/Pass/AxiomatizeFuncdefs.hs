@@ -21,12 +21,12 @@ conProjs = undefined
 axiomatizeFuncdefs :: Theory a -> Theory a
 axiomatizeFuncdefs thy@Theory{..} =
   thy{
-    thy_func_decls     = [],
-    thy_abs_func_decls = thy_abs_func_decls ++ abs,
-    thy_form_decls     = fms ++ thy_form_decls
+    thy_funcs   = [],
+    thy_sigs    = thy_sigs ++ abs,
+    thy_asserts = fms ++ thy_asserts
   }
  where
-  (abs,fms) = unzip (map axiomatize thy_func_decls)
+  (abs,fms) = unzip (map axiomatize thy_funcs)
 
 -- Passes needed afterwards:
 --
@@ -41,9 +41,9 @@ axiomatizeFuncdefs thy@Theory{..} =
 --
 -- (TODO)
 
-axiomatize :: forall a . Function a -> (AbsFunc a, Formula a)
+axiomatize :: forall a . Function a -> (Signature a, Formula a)
 axiomatize fn@Function{..} =
-  ( AbsFunc func_name (funcType fn)
+  ( Signature func_name (funcType fn)
   , Formula Assert func_tvs (ax func_body)
   )
  where

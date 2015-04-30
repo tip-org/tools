@@ -80,9 +80,9 @@ applyFunction :: Function a -> [Type a] -> [Expr a] -> Expr a
 applyFunction fn@Function{..} tyargs args
   = Gbl (Global func_name (funcType fn) tyargs) :@: args
 
-applyAbsFunc :: AbsFunc a -> [Type a] -> [Expr a] -> Expr a
-applyAbsFunc AbsFunc{..} tyargs args
-  = Gbl (Global abs_func_name abs_func_type tyargs) :@: args
+applySignature :: Signature a -> [Type a] -> [Expr a] -> Expr a
+applySignature Signature{..} tyargs args
+  = Gbl (Global sig_name sig_type tyargs) :@: args
 
 apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin At :@: (e:es)
@@ -133,8 +133,8 @@ atomic Lcl{}      = True
 atomic _          = False
 
 -- | The signature of a function
-absFunc :: Function a -> AbsFunc a
-absFunc func@Function{..} = AbsFunc func_name (funcType func)
+signature :: Function a -> Signature a
+signature func@Function{..} = Signature func_name (funcType func)
 
 -- | The type of a function
 funcType :: Function a -> PolyType a

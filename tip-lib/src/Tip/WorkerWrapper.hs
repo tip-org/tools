@@ -25,13 +25,13 @@ workerWrapperTheory f thy = do
 
 workerWrapperFunctions :: Name a => (Function a -> Maybe (Fresh (WorkerWrapper a))) -> Theory a -> Fresh (Theory a)
 workerWrapperFunctions f =
-  workerWrapperTheory (sequence . catMaybes . map f . thy_func_decls)
+  workerWrapperTheory (sequence . catMaybes . map f . thy_funcs)
 
 workerWrapper :: Name a => [WorkerWrapper a] -> Theory a -> Fresh (Theory a)
 workerWrapper wws thy@Theory{..} =
   transformExprInM updateUse thy' >>= simplifyTheory gently
   where
-    thy' = thy { thy_func_decls = map updateDef thy_func_decls }
+    thy' = thy { thy_funcs = map updateDef thy_funcs }
     m = Map.fromList [(func_name (ww_func ww), ww) | ww <- wws]
     updateDef func@Function{..} =
       case Map.lookup func_name m of

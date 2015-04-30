@@ -29,8 +29,11 @@ data Expr a
   = Head a :@: [Expr a]
   | Lcl (Local a)
   | Lam [Local a] (Expr a)
+  -- Merge with Quant?
   | Match (Expr a) [Case a]
+  -- ^ The default case comes first if there is one
   | Let (Local a) (Expr a) (Expr a)
+  -- Allow a list of bound variables, like in SMT-LIB?
   | Quant QuantInfo Quant [Local a] (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -74,7 +77,6 @@ data Lit
 
 -- | Patterns in branches
 data Pattern a
-    -- Default should be first if there is a default case
   = Default
   | ConPat { pat_con  :: Global a, pat_args :: [Local a] }
   | LitPat Lit
@@ -112,15 +114,17 @@ data Function a = Function
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data AbsFunc a = AbsFunc
-  { abs_func_name :: a
-  , abs_func_type :: PolyType a
+-- | Uninterpreted function
+data Signature a = Signature
+  { sig_name :: a
+  , sig_type :: PolyType a
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data AbsType a = AbsType
-  { abs_type_name :: a
-  , abs_type_arity :: Int }
+-- | Uninterpreted sort
+data Sort a = Sort
+  { sort_name :: a
+  , sort_arity :: Int }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Data definition
@@ -139,12 +143,11 @@ data Constructor a = Constructor
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Theory a = Theory
-  { thy_data_decls     :: [Datatype a] -- thy_datatypes
-  , thy_abs_type_decls :: [AbsType a]  -- thy_sorts     and Sort?
-  , thy_abs_func_decls :: [AbsFunc a]  -- thy_abs_sigs  and Abstract? (Or uninterpreted)
-                                       -- or thy_sigs and just FuncSig or Signature
-  , thy_func_decls     :: [Function a] -- thy_funcs
-  , thy_form_decls     :: [Formula a]  -- thy_forms
+  { thy_datatypes   :: [Datatype a]
+  , thy_sorts       :: [Sort a]
+  , thy_sigs        :: [Signature a]
+  , thy_funcs       :: [Function a]
+  , thy_asserts     :: [Formula a]
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -158,7 +161,12 @@ instance Monoid (Theory a) where
   mempty  = emptyTheory
   mappend = joinTheories
 
-data Formula a = Formula Role [a] {- type variables -} (Expr a)
+data Formula a = Formula
+  { fm_role :: Role
+  , fm_tvs  :: [a]
+  -- ^ top-level quantified type variables
+  , fm_body :: Expr a
+  }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Role = Assert | Prove

@@ -45,7 +45,7 @@ removeNewtype thy@Theory{..} =
 
     thy' =
       thy {
-        thy_data_decls = [ d | d <- thy_data_decls, isNothing (lookupNewtype (data_name d)) ]}
+        thy_datatypes = [ d | d <- thy_datatypes, isNothing (lookupNewtype (data_name d)) ]}
     lookupNewtype ty = do
       Datatype{data_cons = [Constructor{con_args = [(_, ty')]}]} <- lookupDatatype ty scp
       return ty'

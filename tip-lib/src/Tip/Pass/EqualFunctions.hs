@@ -48,8 +48,8 @@ rename d x = case lookup x d of
 --
 -- then we remove @g@ and replace it with @f@ everywhere
 collapseEqual :: forall a . Ord a => Theory a -> Theory a
-collapseEqual thy@(Theory{ thy_func_decls = fns0 })
-    = fmap (rename renamings) thy{ thy_func_decls = survivors }
+collapseEqual thy@(Theory{ thy_funcs = fns0 })
+    = fmap (rename renamings) thy{ thy_funcs = survivors }
   where
     rfs :: [(Function a,Function (Either a Int))]
     rfs = [ (f,renameFn f) | f <- fns0 ]
@@ -81,9 +81,9 @@ renameGlobals rns = transformBi $ \ h0 ->
 --
 -- then we remove @g@ and replace it with @f@ everywhere
 removeAliases :: Eq a => Theory a -> Theory a
-removeAliases thy@(Theory{thy_func_decls=fns0})
+removeAliases thy@(Theory{thy_funcs=fns0})
     | null renamings = thy
-    | otherwise = removeAliases $ renameGlobals renamings thy{ thy_func_decls = survivors }
+    | otherwise = removeAliases $ renameGlobals renamings thy{ thy_funcs = survivors }
   where
     renamings = take 1
       [ (g,k)

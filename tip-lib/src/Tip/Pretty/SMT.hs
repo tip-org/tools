@@ -36,15 +36,15 @@ validSMTChar x
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
   = vcat
-     (map ppSort thy_abs_type_decls ++
-      map ppDatas (topsort thy_data_decls) ++
-      map ppUninterp thy_abs_func_decls ++
-      map ppFuncs (topsort thy_func_decls) ++
-      map ppFormula thy_form_decls ++
+     (map ppSort thy_sorts ++
+      map ppDatas (topsort thy_datatypes) ++
+      map ppUninterp thy_sigs ++
+      map ppFuncs (topsort thy_funcs) ++
+      map ppFormula thy_asserts ++
       ["(check-sat)"])
 
-ppSort :: PrettyVar a => AbsType a -> Doc
-ppSort (AbsType sort n) = parExpr "declare-sort" [ppVar sort, int n]
+ppSort :: PrettyVar a => Sort a -> Doc
+ppSort (Sort sort n) = parExpr "declare-sort" [ppVar sort, int n]
 
 ppDatas :: PrettyVar a => [Datatype a] -> Doc
 ppDatas datatypes@(Datatype _ tyvars _:_) =
@@ -67,8 +67,8 @@ par' :: (PrettyVar a) => [a] -> Doc -> Doc
 par' [] d = d
 par' xs d = parExprSep "par" [parens (fsep (map ppVar xs)), d]
 
-ppUninterp :: PrettyVar a => AbsFunc a -> Doc
-ppUninterp (AbsFunc f (PolyType tyvars arg_types result_type)) =
+ppUninterp :: PrettyVar a => Signature a -> Doc
+ppUninterp (Signature f (PolyType tyvars arg_types result_type)) =
   apply "declare-fun"
     (par' tyvars
       (apply (ppVar f)
@@ -189,7 +189,7 @@ instance (Ord a, PrettyVar a) => Pretty (Formula a) where
 instance PrettyVar a => Pretty (Datatype a) where
   pp = ppDatas . return
 
-instance PrettyVar a => Pretty (AbsFunc a) where
+instance PrettyVar a => Pretty (Signature a) where
   pp = ppUninterp
 
 instance PrettyVar a => Pretty (Local a) where

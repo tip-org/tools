@@ -97,27 +97,27 @@ trDecl x =
         do -- add their types, abstractly
            forM_ datatypes $ \dt -> do
              sym <- addSym GlobalId (dataSym dt)
-             newAbsType (AbsType sym (length tvs))
+             newSort (Sort sym (length tvs))
            newScope $
              do tvi <- mapM (addSym LocalId) tvs
                 mapM newTyVar tvi
                 ds <- mapM (trDatatype tvi) datatypes
-                return emptyTheory{ thy_data_decls = ds }
+                return emptyTheory{ thy_datatypes = ds }
 
       DeclareSort s n ->
         do i <- addSym GlobalId s
-           return emptyTheory{ thy_abs_type_decls = [AbsType i (fromIntegral n)] }
+           return emptyTheory{ thy_sorts = [Sort i (fromIntegral n)] }
 
       DeclareFun fundecl ->
         do d <- trFunDecl fundecl
-           return emptyTheory{ thy_abs_func_decls = [d] }
+           return emptyTheory{ thy_sigs = [d] }
 
       DefineFunsRec fundefs bodies ->
         do -- add their correct types, abstractly
            fds <- mapM (trFunDecl . defToDecl) fundefs
-           withTheory emptyTheory{ thy_abs_func_decls = fds } $ do
+           withTheory emptyTheory{ thy_sigs = fds } $ do
              fns <- zipWithM trFunDef fundefs bodies
-             return emptyTheory{ thy_func_decls = fns }
+             return emptyTheory{ thy_funcs = fns }
 
       MonoAssert role expr    -> trDecl (ParAssert role [] expr)
       ParAssert role tvs expr ->
@@ -126,7 +126,7 @@ trDecl x =
            let toRole AssertIt  = Assert
                toRole AssertNot = Prove
            fm <- Formula (toRole role) tvi <$> trExpr expr
-           return emptyTheory{ thy_form_decls = [fm] }
+           return emptyTheory{ thy_asserts = [fm] }
 
 
 
@@ -147,7 +147,7 @@ trFunDef x body = case x of
          args <- mapM trLocalBinding bindings
          Function f tvi args <$> trType res_type <*> trExpr body
 
-trFunDecl :: FunDecl -> CM (T.AbsFunc Id)
+trFunDecl :: FunDecl -> CM (T.Signature Id)
 trFunDecl x = case x of
   MonoFunDecl inner -> trFunDecl (ParFunDecl [] inner)
   ParFunDecl tvs (InnerFunDecl fsym args res) ->
@@ -156,7 +156,7 @@ trFunDecl x = case x of
          tvi <- mapM (addSym LocalId) tvs
          mapM newTyVar tvi
          pt <- PolyType tvi <$> mapM trType args <*> trType res
-         return (AbsFunc f pt)
+         return (Signature f pt)
 
 dataSym :: A.Datatype -> Symbol
 dataSym (A.Datatype sym _) = sym

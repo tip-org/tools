@@ -28,7 +28,7 @@ liftAnywhere top = runWriterT . transformExprInM top
 liftTheory :: Name a => TopLift a -> Theory a -> Fresh (Theory a)
 liftTheory top thy0 =
   do (Theory{..},new_func_decls) <- liftAnywhere top thy0
-     return Theory{thy_func_decls = new_func_decls ++ thy_func_decls,..}
+     return Theory{thy_funcs = new_func_decls ++ thy_funcs,..}
 
 lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
@@ -80,17 +80,17 @@ letLiftTop e0 =
 letLift :: Name a => Theory a -> Fresh (Theory a)
 letLift = liftTheory letLiftTop
 
-axLamFunc :: Function a -> Maybe (AbsFunc a,Formula a)
+axLamFunc :: Function a -> Maybe (Signature a,Formula a)
 axLamFunc Function{..} =
   case func_body of
     Lam lam_args e ->
-      let abs = AbsFunc func_name (PolyType func_tvs (map lcl_type func_args) func_res)
+      let abs = Signature func_name (PolyType func_tvs (map lcl_type func_args) func_res)
           fm  = Formula Assert func_tvs
                   (mkQuant
                     Forall
                     (func_args ++ lam_args)
                     (apply
-                      (applyAbsFunc abs (map TyVar func_tvs) (map Lcl func_args))
+                      (applySignature abs (map TyVar func_tvs) (map Lcl func_args))
                       (map Lcl lam_args)
                      === e))
       in  Just (abs,fm)
@@ -112,20 +112,20 @@ axiomatizeLambdas thy0 = do
     transformBi (eliminateArrows arrows) $
     transformBi (eliminateAts ats)
     thy {
-      thy_abs_func_decls = Map.elems ats    ++ thy_abs_func_decls thy,
-      thy_abs_type_decls = Map.elems arrows ++ thy_abs_type_decls thy
+      thy_sigs = Map.elems ats    ++ thy_sigs thy,
+      thy_sorts = Map.elems arrows ++ thy_sorts thy
     }
   where
     thy =
       thy0 {
-        thy_abs_func_decls = new_abs ++ thy_abs_func_decls thy0,
-        thy_func_decls = survivors,
-        thy_form_decls = new_form ++ thy_form_decls thy0
+        thy_sigs = new_abs ++ thy_sigs thy0,
+        thy_funcs = survivors,
+        thy_asserts = new_form ++ thy_asserts thy0
       }
     (survivors,new) =
       partitionEithers
         [ maybe (Left fn) Right (axLamFunc fn)
-        | fn <- thy_func_decls thy0
+        | fn <- thy_funcs thy0
         ]
 
     (new_abs,new_form) = unzip new
@@ -133,28 +133,28 @@ axiomatizeLambdas thy0 = do
     arities = usort [ length args | args :=>: _ <- universeBi thy :: [Type a] ]
     makeArrow n = do
       ty <- freshNamed ("fun" ++ show n)
-      return (n, AbsType ty (n+1))
+      return (n, Sort ty (n+1))
     makeAt arrows n = do
       name <- freshNamed ("apply" ++ show n)
       tvs <- mapM (freshNamed . mkTyVarName) [0..(n-1)]
       tv  <- freshNamed (mkTyVarName n)
-      let AbsType{..} = Map.findWithDefault __ n arrows
-          ty          = TyCon abs_type_name (map TyVar (tvs ++ [tv]))
+      let Sort{..} = Map.findWithDefault __ n arrows
+          ty          = TyCon sort_name (map TyVar (tvs ++ [tv]))
       return $
-        (n, AbsFunc name (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
+        (n, Signature name (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
 
     eliminateArrows arrows (args :=>: res) =
-      TyCon abs_type_name (map (eliminateArrows arrows) (args ++ [res]))
+      TyCon sort_name (map (eliminateArrows arrows) (args ++ [res]))
       where
-        AbsType{..} = Map.findWithDefault __ (length args) arrows
+        Sort{..} = Map.findWithDefault __ (length args) arrows
     eliminateArrows _ ty = ty
 
     eliminateAts ats (Builtin At :@: (e:es)) =
-      Gbl (Global abs_func_name abs_func_type (args ++ [res])) :@:
+      Gbl (Global sig_name sig_type (args ++ [res])) :@:
       map (eliminateAts ats) (e:es)
       where
         args :=>: res = exprType e
-        AbsFunc{..} = Map.findWithDefault __ (length args) ats
+        Signature{..} = Map.findWithDefault __ (length args) ats
     eliminateAts _ e = e
 
 mkTyVarName :: Int -> String
