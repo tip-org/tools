@@ -12,8 +12,7 @@ rough around the edges but include:
 Check out this repository, make sure you have Haskell installed and then:
 
     cabal update
-    git clone https://github.com/augustss/geniplate.git
-    cabal install bnfc geniplate/ 'mtl < 2.2'
+    cabal install bnfc
     ./make_parser.sh
     cabal install ./tip-lib ./tip-haskell-frontend
 
