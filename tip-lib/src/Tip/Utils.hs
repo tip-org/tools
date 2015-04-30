@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Handy utilities
 module Tip.Utils where
 
@@ -5,6 +6,9 @@ import Data.List
 import Data.Graph
 import Data.List.Split
 import Data.Char
+import Data.Foldable (Foldable)
+import qualified Data.Foldable as F
+import Data.Ord
 
 -- | Sort and remove duplicates
 usort :: Ord a => [a] -> [a]
@@ -32,4 +36,10 @@ flagify
 -- | Makes a flag from something @Show@-able
 flagifyShow :: Show a => a -> String
 flagifyShow = flagify . show
+
+-- | Calculates the maximum value of a foldable value.
+--
+-- Useful to find the highest unique in a structure
+maximumOn :: forall f a b . (F.Foldable f,Ord b) => (a -> b) -> f a -> b
+maximumOn f = f . F.maximumBy (comparing f)
 

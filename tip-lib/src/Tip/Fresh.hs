@@ -3,14 +3,13 @@
 -- | Fresh monad and the Name type class
 module Tip.Fresh where
 
+import Tip.Utils
 import Tip.Pretty
 import Control.Applicative hiding (empty)
 import Control.Monad.State
 import Control.Arrow ((&&&))
 
 import Data.Foldable (Foldable)
-import qualified Data.Foldable as F
-import Data.Ord
 
 -- | The Fresh monad
 newtype Fresh a = Fresh (State Int a)
@@ -18,11 +17,8 @@ newtype Fresh a = Fresh (State Int a)
 
 -- | Continues making unique names after the highest
 --   numbered name in a foldable value.
-freshPass :: (F.Foldable f,Name a) => (f a -> Fresh b) -> f a -> b
+freshPass :: (Foldable f,Name a) => (f a -> Fresh b) -> f a -> b
 f `freshPass` x = runFreshFrom (succ (maximumOn getUnique x)) (f x)
- where
-  maximumOn :: forall f a b . (F.Foldable f,Ord b) => (a -> b) -> f a -> b
-  maximumOn f = f . F.maximumBy (comparing f)
 
 -- | Run fresh, starting from zero
 runFresh :: Fresh a -> a
