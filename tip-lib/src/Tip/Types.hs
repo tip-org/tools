@@ -89,7 +89,6 @@ data PolyType a =
     , polytype_args :: [Type a]
     , polytype_res  :: Type a
     }
-  | NoPolyType
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Types
@@ -98,7 +97,6 @@ data Type a
   | TyCon a [Type a]
   | [Type a] :=>: Type a
   | BuiltinType BuiltinType
-  | NoType
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data BuiltinType

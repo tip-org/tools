@@ -183,7 +183,6 @@ ppType :: (PrettyVar a, Ord a) => Int -> Type a -> Doc
 ppType _ (TyVar x)     = ppTyVar x
 ppType i (TyCon tc ts) = parIf (i > 0) $ ppVar tc $\ fsep (map (ppType 1) ts)
 ppType i (ts :=>: r)   = parIf (i > 0) $ fsep (punctuate " ->" (map (ppType 1) (ts ++ [r])))
-ppType _ NoType        = "_"
 ppType _ (BuiltinType Integer) = "int"
 ppType _ (BuiltinType Boolean) = "bool"
 

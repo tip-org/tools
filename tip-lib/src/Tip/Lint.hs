@@ -101,7 +101,6 @@ lintType (args :=>: res) = do
   mapM_ lintType args
   lintType res
 lintType BuiltinType{} = return ()
-lintType NoType = return ()
 
 lintSignature :: (PrettyVar a, Ord a) => Signature a -> ScopeM a ()
 lintSignature func@Signature{..} =
