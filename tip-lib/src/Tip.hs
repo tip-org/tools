@@ -20,6 +20,7 @@ import Data.List ((\\))
 import Data.Ord
 import Control.Monad
 import qualified Data.Map as Map
+import Control.Applicative ((<|>))
 
 infix  4 ===
 -- infixr 3 /\
@@ -109,6 +110,44 @@ makeIf :: Expr a -> Expr a -> Expr a -> Expr a
 makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
 
 -- * Predicates and examinations on expressions
+
+-- | A representation of Nested patterns, used in 'patternMatchingView'
+data DeepPattern a
+  = DeepConPat (Global a) [DeepPattern a]
+  | DeepVarPat (Local a)
+  | DeepLitPat Lit
+
+-- | Match as left-hand side pattern-matching definitions
+--
+-- Stops at default patterns, for simplicity
+patternMatchingView :: Eq a => [Local a] -> Expr a -> [([DeepPattern a],Expr a)]
+patternMatchingView = go . map DeepVarPat
+  where
+  go ps (Match (Lcl l) brs)
+    | null [ () | Case Default _ <- brs ]
+    , Just k <- modDeepPatterns l ps
+    = concat [ go (k (deep p)) rhs | Case p rhs <- brs ]
+  go ps e = [(ps,e)]
+
+  (<$$>) :: (Functor f,Functor g) => (a -> b) -> f (g a) -> f (g b)
+  (<$$>) = fmap . fmap
+
+  -- Variable not in pattern: returns Nothing
+  modDeepPattern :: Eq a => Local a -> DeepPattern a -> Maybe (DeepPattern a -> DeepPattern a)
+  modDeepPattern l (DeepConPat g nps) = DeepConPat g <$$> modDeepPatterns l nps
+  modDeepPattern l (DeepVarPat l') | l == l'   = Just id
+                                   | otherwise = Nothing
+  modDeepPattern l (DeepLitPat lit) = Nothing
+
+  -- Variable not in patterns in the: returns Nothing
+  modDeepPatterns :: Eq a => Local a -> [DeepPattern a] -> Maybe (DeepPattern a -> [DeepPattern a])
+  modDeepPatterns l (np:nps) = ((:nps) <$$> modDeepPattern l np) <|> ((np:) <$$> modDeepPatterns l nps)
+  modDeepPatterns l []       = Nothing
+
+  deep :: Pattern a -> DeepPattern a
+  deep (ConPat g ls) = DeepConPat g (map DeepVarPat ls)
+  deep (LitPat lit)  = DeepLitPat lit
+  deep Default       = error "deep: Default"
 
 ifView :: Expr a -> Maybe (Expr a,Expr a,Expr a)
 ifView (Match c [Case _ e1,Case (LitPat (Bool b)) e2])
