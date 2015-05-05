@@ -7,7 +7,7 @@ import Tip.Pretty
 import Tip.Types
 import Tip.Utils.Renamer (renameWith,disambig)
 import Tip.Renamer
-import Tip (ifView, topsort, makeGlobal, exprType)
+import Tip (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
 import Data.Char
 import Data.Maybe
@@ -106,8 +106,16 @@ ppFuncs (fn:fns) = vcat (ppFunc "function" fn:map (ppFunc "with") fns)
 
 ppFunc :: (PrettyVar a, Ord a) => Doc -> Function a -> Doc
 ppFunc header (Function f _tvs xts t e) =
-    (header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
+   ((header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
      $\ ppExpr 0 e
+   ) $$
+   ("(*" <+> vcat [ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
+                  | (dps,rhs) <- patternMatchingView xts e ] <+> "*)")
+
+ppDeepPattern :: PrettyVar a => DeepPattern a -> Doc
+ppDeepPattern (DeepConPat (Global k _ _) dps) = parens (ppVar k <+> fsep (map ppDeepPattern dps))
+ppDeepPattern (DeepVarPat (Local x _)) = ppVar x
+ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
 ppFormula (Formula role _tvs term) i =
