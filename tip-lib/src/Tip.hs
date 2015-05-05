@@ -120,13 +120,13 @@ data DeepPattern a
 -- | Match as left-hand side pattern-matching definitions
 --
 -- Stops at default patterns, for simplicity
-patternMatchingView :: Eq a => [Local a] -> Expr a -> [([DeepPattern a],Expr a)]
+patternMatchingView :: Ord a => [Local a] -> Expr a -> [([DeepPattern a],Expr a)]
 patternMatchingView = go . map DeepVarPat
   where
   go ps (Match (Lcl l) brs)
     | null [ () | Case Default _ <- brs ]
     , Just k <- modDeepPatterns l ps
-    = concat [ go (k (deep p)) rhs | Case p rhs <- brs ]
+    = concat [ go (k (deep p)) ((patToExpr p `unsafeSubst` l) rhs) | Case p rhs <- brs ]
   go ps e = [(ps,e)]
 
   (<$$>) :: (Functor f,Functor g) => (a -> b) -> f (g a) -> f (g b)
@@ -139,7 +139,7 @@ patternMatchingView = go . map DeepVarPat
                                    | otherwise = Nothing
   modDeepPattern l (DeepLitPat lit) = Nothing
 
-  -- Variable not in patterns in the: returns Nothing
+  -- Variable not in patterns: returns Nothing
   modDeepPatterns :: Eq a => Local a -> [DeepPattern a] -> Maybe (DeepPattern a -> [DeepPattern a])
   modDeepPatterns l (np:nps) = ((:nps) <$$> modDeepPattern l np) <|> ((np:) <$$> modDeepPatterns l nps)
   modDeepPatterns l []       = Nothing
@@ -147,7 +147,12 @@ patternMatchingView = go . map DeepVarPat
   deep :: Pattern a -> DeepPattern a
   deep (ConPat g ls) = DeepConPat g (map DeepVarPat ls)
   deep (LitPat lit)  = DeepLitPat lit
-  deep Default       = error "deep: Default"
+  deep Default       = error "patternMatchingView.deep: Default"
+
+  patToExpr :: Pattern a -> Expr a
+  patToExpr (ConPat g ls) = Gbl g :@: map Lcl ls
+  patToExpr (LitPat lit)  = literal lit
+  patToExpr Default       = error "patternMatchingView.patToExpr: Default"
 
 ifView :: Expr a -> Maybe (Expr a,Expr a,Expr a)
 ifView (Match c [Case _ e1,Case (LitPat (Bool b)) e2])
@@ -287,6 +292,14 @@ letExpr b k =
      rest <- k v
      return (Let v b rest)
 
+-- | Substitution, but without refreshing. Only use when the replacement
+-- expression contains no binders (i.e. no lambdas, no lets, no quantifiers),
+-- since the binders are not refreshed at every insertion point.
+unsafeSubst :: Ord a => Expr a -> Local a -> Expr a -> Expr a
+e `unsafeSubst` _ | not (null (bound e)) = error "Tip.unsafeSubst: contains binders"
+e `unsafeSubst` x = transformExpr $ \ e0 -> case e0 of
+  Lcl y | x == y -> e
+  _              -> e0
 
 -- * Making new locals and functions
 
