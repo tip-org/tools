@@ -6,6 +6,7 @@ import Text.PrettyPrint
 import Tip.Parser
 import Tip.Pretty.SMT as SMT
 import Tip.Pretty.Why3 as Why3
+import Tip.Pretty.Isabelle as Isabelle
 
 import Tip.Passes
 import Tip.Lint
@@ -23,9 +24,8 @@ main =
        Right thy -> do
          let passes :: [StandardPass]
              (passes,extra) = parsePasses es
-         let pipeline =
-               case () of
-                 () | "cvc4" `elem` es ->
+         let pipeline
+               | "cvc4" `elem` es =
                    fmap SMT.ppTheory .
                    runPasses
                      [ LambdaLift, AxiomatizeLambdas
@@ -34,7 +34,8 @@ main =
                      , SimplifyGently, NegateConjecture
                      , SimplifyGently
                      ]
-                 () | "why3" `elem` es -> fmap Why3.ppTheory . runPasses passes
-                 ()                    -> fmap SMT.ppTheory .  runPasses passes
+               | "why3" `elem` es     = fmap Why3.ppTheory . runPasses passes
+               | "isabelle" `elem` es = fmap Isabelle.ppTheory . runPasses passes
+               | otherwise            = fmap SMT.ppTheory .  runPasses passes
          when (not (null passes)) (putStrLn $ "; " ++ show passes)
          print (freshPass pipeline (lint "parse" thy))

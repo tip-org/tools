@@ -1,5 +1,5 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings, PatternGuards, ScopedTypeVariables, ViewPatterns #-}
-module Tip.Pretty.Why3 where
+module Tip.Pretty.Isabelle where
 
 import Text.PrettyPrint
 
@@ -7,7 +7,7 @@ import Tip.Pretty
 import Tip.Types
 import Tip.Utils.Renamer (renameWith,disambig)
 import Tip.Renamer
-import Tip (ifView, topsort, makeGlobal, exprType)
+import Tip (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
 import Data.Char
 import Data.Maybe
@@ -64,7 +64,9 @@ ppTheory :: (Ord a, PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
   = block ("theory" <+> "A") $
     vcat (
-      "imports $HIPSTER_HOME/IsaHipster"
+      --"imports $HIPSTER_HOME/IsaHipster" :
+      "imports Datatypes" : 
+      "begin" :
       map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++
       map ppUninterp thy_sigs ++
@@ -103,7 +105,7 @@ ppUninterp (Signature f (PolyType _ arg_types result_type)) =
   error $ "Can't translate uninterpreted function " ++ varStr f
 
 quote :: Doc -> Doc
-qoute d = "\""<+> d <+> "\""
+quote d = "\""<+> d <+> "\""
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
 ppFuncs (fn:[]) = ppFunc fn
@@ -111,18 +113,27 @@ ppFuncs (fn:[]) = ppFunc fn
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> Doc
 ppFunc (Function f _tvs xts t e) =
-     "fun" <+> ppVar f <+> "::" <+> qoute (ppTypeSig (map snd xts) t)
+     "fun" <+> ppVar f <+> "::" <+> "" --qoute (ppTypeSig (map snd xts) t)
      $$ "where" $$ 
+     (vcat [ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
+                  | (dps,rhs) <- patternMatchingView xts e ])
+
    -- (header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
    --  $\ ppExpr 0 e
+
+ppDeepPattern :: PrettyVar a => DeepPattern a -> Doc
+ppDeepPattern (DeepConPat (Global k _ _) dps) = parens (ppVar k <+> fsep (map ppDeepPattern dps))
+ppDeepPattern (DeepVarPat (Local x _)) = ppVar x
+ppDeepPattern (DeepLitPat lit) = ppLit lit
+
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
 ppFormula (Formula role _tvs term) i =
   (ppRole role <+> ("x" <> int i) <+> ":") $\ (ppExpr 0 term)
 
 ppRole :: Role -> Doc
-ppRole Assert = "lemma"
-ppRole Prove  = "goal"
+ppRole Assert = "lemma" --Better with lemma and sorry-proof here. Then need to insert 'sorry' on the line below somehow.
+ppRole Prove  = "theorem"
 
 ppExpr :: (PrettyVar a, Ord a) => Int -> Expr a -> Doc
 ppExpr i e | Just (c,t,f) <- ifView e = parIf (i > 0) $ "if" $\ ppExpr 0 c $\ "then" $\ ppExpr 0 t $\ "else" $\ ppExpr 0 f
@@ -196,8 +207,9 @@ ppType _ (BuiltinType Boolean) = "bool"
 ppTyVar :: (PrettyVar a, Ord a) => a -> Doc
 ppTyVar x = "'" <> ppVar x
 
-why3Keywords :: [String]
-why3Keywords = words $ unlines
+-- FIXME: THESE are just copied from the Why3-file
+isabelleKeywords :: [String]
+isabelleKeywords = words $ unlines
     [ "equal not function use import goal int"
     , "and or"
     , "forall exists"

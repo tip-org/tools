@@ -24,6 +24,7 @@ library
     Tip.Pretty
     Tip.Pretty.SMT
     Tip.Pretty.Why3
+    Tip.Pretty.Isabelle
 
     Tip.Parser
 
