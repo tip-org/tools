@@ -62,11 +62,11 @@ escape _                = []
 
 ppTheory :: (Ord a, PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
-  = block ("theory" <+> "A") $
+  = block (vcat ["theory" <+> "A",  
+                --"imports $HIPSTER_HOME/IsaHipster",
+                "imports Datatypes", 
+                 "begin"]) $
     vcat (
-      --"imports $HIPSTER_HOME/IsaHipster" :
-      "imports Datatypes" : 
-      "begin" :
       map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++
       map ppUninterp thy_sigs ++
@@ -79,12 +79,14 @@ ppSort (Sort sort n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Isabelle"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
-ppDatas (d:ds) = vcat (ppData "type" d:map (ppData "with") ds)
+ppDatas (d:ds) = ppData "datatype" d
+        -- FIXME: No mutual recusion for now... 
+        --vcat (ppData "type" d:map (ppData "with") ds)
 
 ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
 ppData header (Datatype tc tvs cons) =
-  header $\ (ppVar tc $\ sep (map ppTyVar tvs) $\
-    separating fsep ("=":repeat "|") (map ppCon cons))
+  header $\ ( sep (map ppTyVar tvs) $\ ppVar tc ) $\
+    separating fsep ("=":repeat "|") (map ppCon cons)
 
 ppCon :: (PrettyVar a, Ord a) => Constructor a -> Doc
 ppCon (Constructor c _d as) = ppVar c <+> fsep (map (ppType 1 . snd) as)
@@ -105,7 +107,7 @@ ppUninterp (Signature f (PolyType _ arg_types result_type)) =
   error $ "Can't translate uninterpreted function " ++ varStr f
 
 quote :: Doc -> Doc
-quote d = "\""<+> d <+> "\""
+quote d = "\""<> d <> "\""
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
 ppFuncs (fn:[]) = ppFunc fn
@@ -113,7 +115,7 @@ ppFuncs (fn:[]) = ppFunc fn
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> Doc
 ppFunc (Function f _tvs xts t e) =
-     "fun" <+> ppVar f <+> "::" <+> "" --qoute (ppTypeSig (map snd xts) t)
+     "fun" <+> ppVar f <+> "::" <+> quote (ppType 0 (map lcl_type xts :=>: t))
      $$ "where" $$ 
      (vcat [ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
@@ -199,8 +201,8 @@ ppPat pat = case pat of
 
 ppType :: (PrettyVar a, Ord a) => Int -> Type a -> Doc
 ppType _ (TyVar x)     = ppTyVar x
-ppType i (TyCon tc ts) = parIf (i > 0) $ ppVar tc $\ fsep (map (ppType 1) ts)
-ppType i (ts :=>: r)   = parIf (i > 0) $ fsep (punctuate " ->" (map (ppType 1) (ts ++ [r])))
+ppType i (TyCon tc ts) = parIf (i > 1) $ fsep (map (ppType 2) ts) $\ ppVar tc
+ppType i (ts :=>: r)   = parIf (i > 0) $ fsep (punctuate " =>" (map (ppType 1) (ts ++ [r])))
 ppType _ (BuiltinType Integer) = "int"
 ppType _ (BuiltinType Boolean) = "bool"
 
