@@ -76,20 +76,25 @@ quoteWhen p t | p t       = quote
 ppAsTuple :: [a] -> (a -> Doc) -> Doc
 ppAsTuple ts toDoc = parIf (length ts > 1) ((sep.punctuate ",") (map toDoc ts))
 
+($-$) :: Doc -> Doc -> Doc
+d $-$ b = vcat [d,"",b]--d <> ("\n" $$ b)
+
 ppTheory :: (Ord a, PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
-  = block (vcat ["theory" <+> "A",  
-                --"imports $HIPSTER_HOME/IsaHipster",
-                 "imports Main",
-                 "        \"../../IsaHipster\"",
-                 "begin"]) $
-    vcat (
+  = vcat ["theory" <+> "A",  
+          --"imports $HIPSTER_HOME/IsaHipster",
+          "imports Main",
+          "        \"../../IsaHipster\"",
+          "begin"] $$
+    foldl ($-$) empty (
       map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++
       map ppUninterp thy_sigs ++
       map ppFuncs (topsort thy_funcs) ++
       ["(*hipster" <+> sep (map (ppVar.func_name) thy_funcs) <+> "*)"] ++
       zipWith ppFormula thy_asserts [0..])
+    $-$
+    "end"
 
 ppSort :: (PrettyVar a, Ord a) => Sort a -> Doc
 --ppSort (Sort sort 0) = "type" $\ ppVar sort
@@ -97,11 +102,11 @@ ppSort (Sort sort n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Isabelle"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
-ppDatas (d:ds) = vcat (ppData "datatype" d:map (ppData "and") ds)
+ppDatas [d] = ppData "datatype" d-- vcat (ppData "datatype" d:map (ppData "and") ds)
 
 ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
 ppData header (Datatype tc tvs cons) =
-  header $\ ppAsTuple tvs ppTyVar {-parIf (length tvs > 1) ((sep.punctuate ",") (map ppTyVar tvs))-} $\
+  header $\ ppAsTuple tvs ppTyVar $\
     ppVar tc $\ separating fsep ("=":repeat "|") (map ppCon cons)
 --ppDatas (d:ds) = ppData "datatype" d
         -- FIXME: No mutual recusion for now... 
@@ -126,15 +131,21 @@ ppUninterp (Signature f (PolyType _ arg_types result_type)) =
   error $ "Can't translate uninterpreted function " ++ varStr f
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
-ppFuncs (fn:[]) = ppFunc fn
 ppFuncs []       = empty
---"and"ppFuncs (fn:fns) = vcat ("function":ppFunc fn:intersperse "with" (map ppFunc fns))
+ppFuncs (fn:fns) = header <+>
+    vcat (intersperseWithPre ($\) "and" fTys) <+> "where" $$
+    vcat (intersperseWithPre ($\) "|" fDefs) $$
+    termination
+  where (header,termination) | null fns  = ("fun","by pat_completeness auto")
+                             | otherwise = ("function",empty)
+        (fTys, fDefs) = foldr (\(ppFunc -> (pf,pds)) (ftys,fdefs) ->
+                                  (pf:ftys, pds++fdefs))
+                        ([],[]) (fn:fns)
 
-ppFunc :: (PrettyVar a, Ord a) => Function a -> Doc
+ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
 ppFunc (Function f _tvs xts t e) =
-     "fun" <+> ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)) <+> "where" $$ 
-     (vcat $ intersperseWithPre ($\) "|"
-	     [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
+     (ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
+      [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
 
    -- (header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
