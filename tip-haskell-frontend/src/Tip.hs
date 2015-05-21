@@ -16,7 +16,7 @@ module Tip
     , neg
     , forAll
     , exists
-    , quickCheck
+    , module Test.QuickCheck
     ) where
 
 import Test.QuickCheck hiding ((===), (==>), (.&&.), (.||.), forAll)
