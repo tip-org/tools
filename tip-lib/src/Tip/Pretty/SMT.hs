@@ -156,8 +156,8 @@ ppType :: PrettyVar a => Type a -> Doc
 ppType (TyVar x)     = ppVar x
 ppType (TyCon tc ts) = expr (ppVar tc) (map ppType ts)
 ppType (ts :=>: r)   = parExpr "=>" (map ppType (ts ++ [r]))
-ppType (BuiltinType Integer) = "int"
-ppType (BuiltinType Boolean) = "bool"
+ppType (BuiltinType Integer) = "Int"
+ppType (BuiltinType Boolean) = "Bool"
 
 -- Temporary use SMTLIB as the pretty printer:
 

@@ -31,3 +31,4 @@ To translate a TIP file to some other format, run:
 * `tip-parser name-of-file.smt2 why3` to convert it to Why3 format;
 * `tip-parser name-of-file.smt2 cvc4` to convert it to a
   CVC4-compatible version of SMTLIB.
+* `tip-parser name-of-file.smt2 isabelle` to convert it to Isabelle (limited)

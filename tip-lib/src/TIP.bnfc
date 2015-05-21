@@ -32,8 +32,8 @@ LetDecl. LetDecl ::= "(" Binding Expr ")";
 TyVar.   Type ::= Symbol;
 TyApp.   Type ::= "(" Symbol [Type] ")";
 ArrowTy. Type ::= "(" "=>" [Type] ")";
-IntTy.   Type ::= "int";
-BoolTy.  Type ::= "bool";
+IntTy.   Type ::= "Int";
+BoolTy.  Type ::= "Bool";
 
 Var.      Expr ::= Symbol;
 As.       Expr ::= "(" "as" Expr Type ")";
