@@ -2,6 +2,12 @@
 -- | The language properties are expressed in in the Haskell source
 module Tip
     ( Equality
+    , (:=>:)
+    , And
+    , Or
+    , Neg
+    , Forall
+    , Exists
     , (===)
     , bool
     , (==>)
