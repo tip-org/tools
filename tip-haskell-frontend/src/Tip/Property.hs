@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards, PatternGuards, ViewPatterns #-}
 module Tip.Property where
 
-import Tip
+import Tip.Core
 import Tip.Id
 import Tip.Pretty
 import Tip.Pretty.SMT

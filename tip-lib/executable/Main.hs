@@ -10,7 +10,7 @@ import Tip.Pretty.Why3 as Why3
 import Tip.Passes
 import Tip.Lint
 import Tip.Fresh
-import Tip
+import Tip.Core
 
 import Control.Monad
 

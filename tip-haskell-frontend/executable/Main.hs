@@ -9,7 +9,7 @@ import Data.Ord
 
 import Control.Monad
 
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Tip.Simplify
 import Tip.Lint

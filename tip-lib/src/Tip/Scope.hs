@@ -3,7 +3,7 @@
 module Tip.Scope where
 
 #include "errors.h"
-import Tip hiding (globals, locals)
+import Tip.Core hiding (globals, locals)
 import Tip.Pretty
 import Control.Applicative
 import Control.Monad

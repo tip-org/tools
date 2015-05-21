@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Tip
+    Tip.Core
     Tip.Lint
     Tip.Types
     Tip.Scope

@@ -5,7 +5,7 @@
 module Tip.Pass.Lift (lambdaLift, letLift, axiomatizeLambdas) where
 
 #include "errors.h"
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Tip.Utils
 

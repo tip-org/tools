@@ -5,7 +5,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | General functions for constructing and examining Tip syntax.
-module Tip(module Tip.Types, module Tip) where
+module Tip.Core(module Tip.Types, module Tip.Core) where
 
 #include "errors.h"
 import Tip.Types

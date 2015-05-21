@@ -4,7 +4,7 @@ module Tip.ParseDSL where
 
 import Tip.GHCUtils
 import Tip.Id
-import Tip
+import Tip.Core
 import qualified Tip.CoreToTip as CTT
 
 import Name hiding (varName)

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, RecordWildCards, ScopedTypeVariables #-}
 module Tip.Simplify where
 
-import Tip
+import Tip.Core
 import Tip.Scope
 import Tip.Fresh
 import Data.Generics.Geniplate

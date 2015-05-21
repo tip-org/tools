@@ -2,7 +2,7 @@
 -- | The Haskell frontend to Tip
 module Tip.HaskellFrontend(readHaskellFile,Id(..),module Tip.Params) where
 
-import Tip
+import Tip.Core
 import Tip.Calls
 import Tip.Compile
 import Tip.CoreToTip

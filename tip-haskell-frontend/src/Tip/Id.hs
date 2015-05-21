@@ -2,7 +2,7 @@
 module Tip.Id where
 
 import Tip.Pretty
-import Tip
+import Tip.Core
 
 import Text.PrettyPrint (text)
 

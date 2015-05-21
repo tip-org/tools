@@ -2,7 +2,7 @@
 module Tip.Pass.RemoveNewtype where
 
 #include "errors.h"
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Tip.Scope
 import qualified Data.Map as Map

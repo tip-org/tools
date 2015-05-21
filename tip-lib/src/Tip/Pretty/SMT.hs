@@ -5,7 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip (ifView, topsort, neg, exprType, makeGlobal)
+import Tip.Core (ifView, topsort, neg, exprType, makeGlobal)
 import Tip.Renamer
 import Data.Maybe
 import Data.Char (isAlphaNum)

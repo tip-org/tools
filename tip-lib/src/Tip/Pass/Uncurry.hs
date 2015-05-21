@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Tip.Pass.Uncurry(uncurryTheory) where
 
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Tip.WorkerWrapper
 

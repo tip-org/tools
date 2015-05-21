@@ -4,7 +4,7 @@
 {-# LANGUAGE PatternGuards #-}
 module Tip.Pass.EqualFunctions(collapseEqual, removeAliases) where
 
-import Tip
+import Tip.Core
 import Tip.Fresh
 
 import Data.Traversable

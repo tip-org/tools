@@ -7,7 +7,7 @@ import Tip.Pretty
 import Tip.Types
 import Tip.Utils.Renamer (renameWith,disambig)
 import Tip.Renamer
-import Tip (ifView, topsort, makeGlobal, exprType)
+import Tip.Core (ifView, topsort, makeGlobal, exprType)
 
 import Data.Char
 import Data.Maybe

@@ -4,7 +4,7 @@ module Tip.Renamer(renameAvoiding,RenamedId(..)) where
 
 #include "errors.h"
 import Data.Char (isDigit)
-import Tip hiding (globals)
+import Tip.Core hiding (globals)
 import Tip.Scope
 import Tip.Pretty
 import Tip.Utils.Renamer

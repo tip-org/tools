@@ -2,7 +2,7 @@
 {-# LANGUAGE PatternGuards, RecordWildCards #-}
 module Tip.WorkerWrapper where
 
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Tip.Simplify
 import qualified Data.Map as Map

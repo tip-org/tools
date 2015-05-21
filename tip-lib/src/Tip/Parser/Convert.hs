@@ -2,7 +2,7 @@
 module Tip.Parser.Convert where
 
 import Tip.Parser.AbsTIP as A -- from A ...
-import Tip               as T -- ... to T
+import Tip.Core          as T -- ... to T
 import Tip.Pretty
 import Tip.Pretty.SMT
 
