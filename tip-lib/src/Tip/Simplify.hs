@@ -8,6 +8,7 @@ import Data.Generics.Geniplate
 import Data.List
 import Data.Maybe
 import Control.Applicative
+import qualified Data.Map as Map
 
 -- | Options for the simplifier
 data SimplifyOpts a =
@@ -99,6 +100,18 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
                 mkQuant Forall lcls (apply t (map Lcl lcls) === apply u (map Lcl lcls))
             _ -> return e0
 
+        Gbl gbl@Global{..} :@: ts ->
+          case Map.lookup gbl_name inlinings of
+            Just func@Function{..}
+              | and [ inlineable func_body x t | (x, t) <- zip func_args ts ] -> do
+                  func_body <- aux func_body
+                  e1 <-
+                    transformTypeInExpr (applyType func_tvs gbl_args) <$>
+                      substMany (zip func_args ts) func_body
+                  e2 <- aux e1
+                  if e1 == e2 then return (Gbl gbl :@: ts) else return e2
+            _ -> return (Gbl gbl :@: ts)
+
         _ -> return e0
 
     substMatched x k_xs = transformExprInM $ \ e0 ->
@@ -116,4 +129,12 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
       lookupConstructor (gbl_name gbl) scp
     isConstructor _ = False
 
+    isRecursiveGroup [fun] = defines fun `elem` uses fun
+    isRecursiveGroup _     = True
 
+    inlinings =
+      case mthy of
+        Nothing -> Map.empty
+        Just Theory{..} ->
+          Map.fromList . map (\fun -> (func_name fun, fun)) .
+          concat . filter (not . isRecursiveGroup) . topsort $ thy_funcs

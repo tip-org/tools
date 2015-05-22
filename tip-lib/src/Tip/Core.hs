@@ -387,11 +387,11 @@ class Definition f where
 
 instance Definition Function where
   defines = func_name
-  uses    = F.toList
+  uses    = F.toList . func_body
 
 instance Definition Datatype where
   defines = data_name
-  uses    = F.toList
+  uses    = concatMap F.toList . data_cons
 
 -- * Assorted and miscellany
 
