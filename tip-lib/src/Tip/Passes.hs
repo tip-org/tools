@@ -14,6 +14,9 @@ module Tip.Passes
   , addMatch
   , commuteMatch
   , removeMatch
+  , cseMatch
+  , cseMatchNormal
+  , cseMatchWhy3
 
   -- * Duplicated functions
   , collapseEqual
@@ -34,6 +37,7 @@ import Tip.Simplify
 import Tip.Pass.AddMatch
 import Tip.Pass.CommuteMatch
 import Tip.Pass.RemoveMatch
+import Tip.Pass.CSEMatch
 import Tip.Pass.Uncurry
 import Tip.Pass.RemoveNewtype
 import Tip.Pass.NegateConjecture
@@ -59,6 +63,8 @@ data StandardPass
   | LambdaLift
   | LetLift
   | AxiomatizeLambdas
+  | CSEMatch
+  | CSEMatchWhy3
  deriving (Eq,Ord,Show,Enum,Bounded)
 
 instance Pass StandardPass where
@@ -77,4 +83,5 @@ instance Pass StandardPass where
     LambdaLift        -> lambdaLift
     LetLift           -> letLift
     AxiomatizeLambdas -> axiomatizeLambdas
-
+    CSEMatch          -> return . cseMatch cseMatchNormal
+    CSEMatchWhy3      -> return . cseMatch cseMatchWhy3

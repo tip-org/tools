@@ -34,7 +34,7 @@ main =
                      , SimplifyGently, NegateConjecture
                      , SimplifyGently
                      ]
-               | "why3" `elem` es     = fmap Why3.ppTheory . runPasses passes
+               | "why3" `elem` es     = fmap Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
                | "isabelle" `elem` es = fmap Isabelle.ppTheory . runPasses passes
                | otherwise            = fmap SMT.ppTheory .  runPasses passes
          when (not (null passes)) (putStrLn $ "; " ++ show passes)

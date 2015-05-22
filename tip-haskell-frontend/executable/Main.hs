@@ -45,6 +45,7 @@ main = do
               , SimplifyAggressively
               , RemoveAliases, CollapseEqual
               , SimplifyGently
+              , CSEMatch
               ]
     print (SMT.ppTheory (pipeline renamed_thy))
 
