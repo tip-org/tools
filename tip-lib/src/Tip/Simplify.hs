@@ -42,13 +42,8 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
     aux :: forall f. TransformBiM Fresh (Expr a) (f a) => f a -> Fresh (f a)
     aux = transformExprInM $ \e0 ->
       case e0 of
-        Builtin At :@: (Lam vars body:args) -> do
-          let (remove, keep) = partition (uncurry (inlineable body)) (zip vars args)
-          body' <- substMany remove body
-          let e' = case keep of
-                     [] -> body'
-                     _  -> apply (Lam (map fst keep) body') (map snd keep)
-          aux e'
+        Builtin At :@: (Lam vars body:args) ->
+          aux (foldr (uncurry Let) body (zip vars args))
 
         Let var val body | touch_lets && inlineable body var val ->
           (val // var) body >>= aux
