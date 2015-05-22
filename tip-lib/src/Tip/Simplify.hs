@@ -55,14 +55,6 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
         Match (Let var val body) alts | touch_lets ->
           aux (Let var val (Match body alts))
 
-        Match (Lcl x) alts -> Match (Lcl x) <$> sequence
-          [ Case pat <$> case pat of
-              ConPat g bs -> substMatched x (Gbl g :@: map Lcl bs) rhs
-              -- LitPat l    -> substMatched x (literal l) rhs
-              _           -> return rhs
-          | Case pat rhs <- alts
-          ]
-
         Match _ [Case Default body] -> return body
 
         Match (hd :@: args) alts | isConstructor hd ->
@@ -78,6 +70,17 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
             matches (Builtin (Lit lit)) (LitPat lit') = lit == lit'
             matches _ Default = True
             matches _ _ = False
+
+        Match e alts -> Match e <$> sequence
+          [ Case pat <$> case pat of
+              ConPat g bs -> ((Gbl g :@: map Lcl bs) /// e) rhs >>= aux
+              LitPat l    -> (literal l /// e) rhs >>= aux
+              _           -> return rhs
+          | Case pat rhs <- alts
+          ]
+          where
+            new /// old = transformExprM $ \e ->
+              if e == old then freshen new else return e
 
         Builtin Equal :@: [Builtin (Lit (Bool x)) :@: [], t]
           | x -> return t
@@ -107,12 +110,6 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
                   if e1 == e2 then return (Gbl gbl :@: ts) else return e2
             _ -> return (Gbl gbl :@: ts)
 
-        _ -> return e0
-
-    substMatched x k_xs = transformExprInM $ \ e0 ->
-      case e0 of
-        Match (Lcl y) alts | x == y -> aux (Match k_xs alts)
-        _ | e0 == k_xs -> return (Lcl x)
         _ -> return e0
 
     inlineable body var val = should_inline val || occurrences var body <= 1
