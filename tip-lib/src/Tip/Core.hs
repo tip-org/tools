@@ -5,7 +5,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | General functions for constructing and examining Tip syntax.
-module Tip(module Tip.Types, module Tip) where
+module Tip.Core(module Tip.Types, module Tip.Core) where
 
 #include "errors.h"
 import Tip.Types
@@ -387,11 +387,11 @@ class Definition f where
 
 instance Definition Function where
   defines = func_name
-  uses    = F.toList
+  uses    = F.toList . func_body
 
 instance Definition Datatype where
   defines = data_name
-  uses    = F.toList
+  uses    = concatMap F.toList . data_cons
 
 -- * Assorted and miscellany
 

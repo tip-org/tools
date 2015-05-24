@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Tip
+    Tip.Core
     Tip.Lint
     Tip.Types
     Tip.Scope
@@ -37,6 +37,7 @@ library
     Tip.Pass.Lift
     Tip.Pass.CommuteMatch
     Tip.Pass.AddMatch
+    Tip.Pass.CSEMatch
     Tip.Pass.RemoveNewtype
     Tip.Pass.RemoveMatch
     Tip.Pass.NegateConjecture

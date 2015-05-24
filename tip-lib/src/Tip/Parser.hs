@@ -8,7 +8,7 @@ import Tip.Parser.AbsTIP (Start(..))
 import Tip.Parser.ErrM
 
 import Tip.Parser.Convert
-import Tip
+import Tip.Core
 
 -- | Parse, and get either an error or the string's theory
 parse :: String -> Either String (Theory Id)

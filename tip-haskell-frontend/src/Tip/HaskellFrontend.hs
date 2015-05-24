@@ -2,7 +2,7 @@
 -- | The Haskell frontend to Tip
 module Tip.HaskellFrontend(readHaskellFile,Id(..),module Tip.Params) where
 
-import Tip
+import Tip.Core
 import Tip.Calls
 import Tip.Compile
 import Tip.CoreToTip
@@ -30,7 +30,7 @@ import System.Exit
 import qualified Id as GHC
 import qualified CoreSubst as GHC
 import Var (Var)
-import TyCon (isAlgTyCon,isClassTyCon)
+import TyCon (isAlgTyCon,isClassTyCon,tyConName)
 import TysWiredIn (boolTyCon)
 import UniqSupply
 
@@ -44,7 +44,7 @@ readHaskellFile params@Params{..} = do
 
     prop_ids <- compileHaskellFile params
 
-    let vars = filterVarSet (not . varFromPrelude) $
+    let vars = filterVarSet (not . varInTip) $
                unionVarSets (map (transCalls Without) prop_ids)
 
     us0 <- mkSplitUniqSupply 'h'
@@ -56,7 +56,7 @@ readHaskellFile params@Params{..} = do
             , Just e <- [maybeUnfolding v]
             ]
 
-        tcs = filter (\ x -> isAlgTyCon x && not (isPropTyCon x) && not (isClassTyCon x))
+        tcs = filter (\ x -> isAlgTyCon x && not (nameInTip (tyConName x)) && not (isClassTyCon x))
                      (delete boolTyCon (bindsTyCons' binds))
 
     when (PrintCore `elem` flags) $ do

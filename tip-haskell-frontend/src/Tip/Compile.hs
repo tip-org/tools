@@ -108,7 +108,7 @@ compileHaskellFile params@Params{..} = do
                 [ fix_id i
                 | i <- ids_in_scope
                 , varWithPropType i
-                , not (varFromPrelude i)
+                , not (varInTip i)
                 , null only || varToString i `elem` only'
                 ]
 
@@ -145,7 +145,7 @@ extraIds p@Params{..} prop_ids = do
         trans_ids = unionVarSets $
             map (transCalls With) (prop_ids ++ extra_ids)
 
-    let ids = varSetElems $ filterVarSet (\ x -> not (varFromPrelude x || varWithPropType x) && not (hasClass (varType x)))
+    let ids = varSetElems $ filterVarSet (\ x -> not (varInTip x || varWithPropType x) && not (hasClass (varType x)))
             trans_ids
 
     -- Filters out silly things like

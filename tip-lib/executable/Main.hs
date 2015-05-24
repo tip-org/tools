@@ -11,7 +11,7 @@ import Tip.Pretty.Isabelle as Isabelle
 import Tip.Passes
 import Tip.Lint
 import Tip.Fresh
-import Tip
+import Tip.Core
 
 import Control.Monad
 
@@ -34,7 +34,7 @@ main =
                      , SimplifyGently, NegateConjecture
                      , SimplifyGently
                      ]
-               | "why3" `elem` es     = fmap Why3.ppTheory . runPasses passes
+               | "why3" `elem` es     = fmap Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
                | "isabelle" `elem` es = fmap Isabelle.ppTheory . runPasses passes
                | otherwise            = fmap SMT.ppTheory .  runPasses passes
          when (not (null passes)) (putStrLn $ "; " ++ show passes)

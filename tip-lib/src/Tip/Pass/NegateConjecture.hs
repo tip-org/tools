@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternGuards #-}
 module Tip.Pass.NegateConjecture where
 
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Control.Monad
 import Data.Generics.Geniplate

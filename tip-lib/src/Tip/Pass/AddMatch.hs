@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternGuards, RecordWildCards #-}
 module Tip.Pass.AddMatch where
 
-import Tip
+import Tip.Core
 import Tip.Fresh
 import Tip.Scope
 import qualified Data.Map as Map

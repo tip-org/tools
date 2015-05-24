@@ -18,7 +18,7 @@ import Data.Char (chr)
 import FastString (unpackFS)
 #endif
 
-import Tip as Tip
+import Tip.Core as Tip
 
 import CoreUtils as C
 import CoreSyn as C

@@ -4,70 +4,61 @@ module Tip.ParseDSL where
 
 import Tip.GHCUtils
 import Tip.Id
-import Tip
+import Tip.Core
 import qualified Tip.CoreToTip as CTT
+
+import qualified Data.Foldable as F
 
 import Name hiding (varName)
 import Data.List
 
-import Var hiding (Id)
+import Var hiding (Id,isId)
 import TyCon (TyCon)
+
+nameInTip :: Name -> Bool
+nameInTip = F.any (\ n -> showOutputable n == "Tip") . nameModule_maybe
+
+varInTip :: Var -> Bool
+varInTip = nameInTip . varName
+
+idInTip :: Id -> Bool
+idInTip = F.any nameInTip . tryGetGHCName
+
+isId :: String -> Id -> Bool
+isId s i = F.any (nameIs s) (tryGetGHCName i)
+
+oneOf :: String -> String -> Id -> Bool
+oneOf s1 s2 i = any (`isId` i) [s1,s2]
+
+nameIs :: String -> Name -> Bool
+nameIs s n = nameInTip n && s == showOutputable (nameOccName n)
+
+varIs :: String -> Var -> Bool
+varIs s v = nameIs s (varName v)
+
+isPropType :: Type Id -> Bool
+isPropType = goo 0 . res
+  where
+  go = goo 1
+  goo i (BuiltinType Boolean) = i > 0
+  goo i (TyCon tc [t1]) =  isId "Equality" tc || (isId "Neg" tc && go t1)
+  goo i (TyCon tc [t1,t2]) =
+    let ok xs = or [ isId s tc | s <- xs ]
+    in     (ok ["And","Or",":=>:"] && go t1 && go t2)
+        || (ok ["Forall","Exists"] && go t2)
+  goo i _ = False
+
+  res (_ :=>: r) = res r
+  res r          = r
+
+isPropTyCon :: Var -> Bool
+isPropTyCon v =
+    or [ varIs s v
+       | s <- ["Equality","Neg","And","Or",":=>:","Forall","Exists"]
+       ]
 
 varWithPropType :: Var -> Bool
 varWithPropType x = case CTT.trPolyType (varType x) of
-    Right (PolyType _ _ t) -> isPropType (chaseResult t)
+    Right (PolyType _ _ t) -> isPropType t
     _                      -> False
-
-varFromPrelude :: Var -> Bool
-varFromPrelude = isInfixOf "Tip.DSL" . showName . varName
-
-showName :: Name -> String
-showName n
-  | Just m <- nameModule_maybe n = showOutputable m ++ "." ++ showOutputable (nameOccName n)
-  | otherwise = showOutputable n
-
-isPropTyCon :: TyCon -> Bool
-isPropTyCon = isPropId . idFromTyCon
-
-isPropType  :: Type Id -> Bool
-isPropType t =
-    case chaseResult t of
-        TyCon p as -> isPropId p && not (any isPropType as)
-        _          -> False
-
-chaseResult (_ :=>: r) = chaseResult r
-chaseResult r          = r
-
-ghcName :: (String -> Bool) -> Id -> Bool
-ghcName k (tryGetGHCName -> Just n) = k (showName n)
-ghcName _ _                         = False
-
-isPropId :: Id -> Bool
-isPropId = ghcName (isInfixOf "Tip.DSL.Prop")
-fromPrelude :: Id -> Bool
-fromPrelude = ghcName (isInfixOf "Tip.DSL")
-
-isMain      :: Id -> Bool
-isMain      = ghcName (isInfixOf "main")
-
-isEquals    :: Id -> Bool
-isEquals    = ghcName (isInfixOfs [":=:","=:="])
-
-isGiven     :: Id -> Bool
-isGiven     = ghcName (isInfixOfs ["Given","given","==>"])
-
-isTotal     :: Id -> Bool
-isTotal     = ghcName (isInfixOfs ["Total","total"])
-
-isGivenBool :: Id -> Bool
-isGivenBool = ghcName (isInfixOf "givenBool")
-
-isProveBool :: Id -> Bool
-isProveBool = ghcName (isInfixOf "proveBool")
-
-isOops      :: Id -> Bool
-isOops      = ghcName (isInfixOfs ["Oops","oops"])
-
-isInfixOfs :: [String] -> String -> Bool
-isInfixOfs ss s = any (`isInfixOf` s) ss
 

@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleContexts, RecordWildCards, ScopedTypeVariables #-}
 module Tip.Simplify where
 
-import Tip
+import Tip.Core
 import Tip.Scope
 import Tip.Fresh
 import Data.Generics.Geniplate
 import Data.List
 import Data.Maybe
 import Control.Applicative
+import qualified Data.Map as Map
 
 -- | Options for the simplifier
 data SimplifyOpts a =
@@ -41,13 +42,8 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
     aux :: forall f. TransformBiM Fresh (Expr a) (f a) => f a -> Fresh (f a)
     aux = transformExprInM $ \e0 ->
       case e0 of
-        Builtin At :@: (Lam vars body:args) -> do
-          let (remove, keep) = partition (uncurry (inlineable body)) (zip vars args)
-          body' <- substMany remove body
-          let e' = case keep of
-                     [] -> body'
-                     _  -> apply (Lam (map fst keep) body') (map snd keep)
-          aux e'
+        Builtin At :@: (Lam vars body:args) ->
+          aux (foldr (uncurry Let) body (zip vars args))
 
         Let var val body | touch_lets && inlineable body var val ->
           (val // var) body >>= aux
@@ -58,14 +54,6 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
 
         Match (Let var val body) alts | touch_lets ->
           aux (Let var val (Match body alts))
-
-        Match (Lcl x) alts -> Match (Lcl x) <$> sequence
-          [ Case pat <$> case pat of
-              ConPat g bs -> substMatched x (Gbl g :@: map Lcl bs) rhs
-              -- LitPat l    -> substMatched x (literal l) rhs
-              _           -> return rhs
-          | Case pat rhs <- alts
-          ]
 
         Match _ [Case Default body] -> return body
 
@@ -83,6 +71,17 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
             matches _ Default = True
             matches _ _ = False
 
+        Match e alts -> Match e <$> sequence
+          [ Case pat <$> case pat of
+              ConPat g bs -> ((Gbl g :@: map Lcl bs) /// e) rhs >>= aux
+              LitPat l    -> (literal l /// e) rhs >>= aux
+              _           -> return rhs
+          | Case pat rhs <- alts
+          ]
+          where
+            new /// old = transformExprM $ \e ->
+              if e == old then freshen new else return e
+
         Builtin Equal :@: [Builtin (Lit (Bool x)) :@: [], t]
           | x -> return t
           | otherwise -> return $ neg t
@@ -99,12 +98,18 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
                 mkQuant Forall lcls (apply t (map Lcl lcls) === apply u (map Lcl lcls))
             _ -> return e0
 
-        _ -> return e0
+        Gbl gbl@Global{..} :@: ts ->
+          case Map.lookup gbl_name inlinings of
+            Just func@Function{..}
+              | and [ inlineable func_body x t | (x, t) <- zip func_args ts ] -> do
+                  func_body <- aux func_body
+                  e1 <-
+                    transformTypeInExpr (applyType func_tvs gbl_args) <$>
+                      substMany (zip func_args ts) func_body
+                  e2 <- aux e1
+                  if e1 == e2 then return (Gbl gbl :@: ts) else return e2
+            _ -> return (Gbl gbl :@: ts)
 
-    substMatched x k_xs = transformExprInM $ \ e0 ->
-      case e0 of
-        Match (Lcl y) alts | x == y -> aux (Match k_xs alts)
-        _ | e0 == k_xs -> return (Lcl x)
         _ -> return e0
 
     inlineable body var val = should_inline val || occurrences var body <= 1
@@ -116,4 +121,12 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
       lookupConstructor (gbl_name gbl) scp
     isConstructor _ = False
 
+    isRecursiveGroup [fun] = defines fun `elem` uses fun
+    isRecursiveGroup _     = True
 
+    inlinings =
+      case mthy of
+        Nothing -> Map.empty
+        Just Theory{..} ->
+          Map.fromList . map (\fun -> (func_name fun, fun)) .
+          concat . filter (not . isRecursiveGroup) . topsort $ thy_funcs

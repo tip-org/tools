@@ -4,7 +4,7 @@
 module Tip.Pass.CommuteMatch where
 
 #include "errors.h"
-import Tip
+import Tip.Core
 import Tip.Fresh
 
 import Data.Generics.Geniplate

@@ -3,7 +3,7 @@ module List where
 import Prelude(Bool, otherwise)
 import qualified Prelude
 import Prelude (Bool(..),otherwise)
-import Tip.DSL
+import Tip
 
 {-
 (++) :: [a] -> [a] -> [a]
@@ -42,10 +42,10 @@ map h []     = []
 {-# NOINLINE (.) #-}
 f . g = \ x -> f (g x)
 
-map_compose f g = map f . map g =:= map (f . g)
+map_compose f g = map f . map g === map (f . g)
 
 dmap :: (a -> b) -> [a] -> [b]
 dmap f (x:xs) = let fx = f x in fx:fx:dmap f xs
 dmap _ []     = []
 
-dmap_compose f g = dmap f . dmap g =:= dmap (f . g)
+dmap_compose f g = dmap f . dmap g === dmap (f . g)

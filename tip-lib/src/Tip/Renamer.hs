@@ -4,7 +4,7 @@ module Tip.Renamer(renameAvoiding,RenamedId(..)) where
 
 #include "errors.h"
 import Data.Char (isDigit)
-import Tip hiding (globals)
+import Tip.Core hiding (globals)
 import Tip.Scope
 import Tip.Pretty
 import Tip.Utils.Renamer
@@ -59,7 +59,7 @@ renameAvoiding kwds repl thy
  where
   first_pass :: Theory (TwoStage a)
   first_pass = renameSome (`elem` gbls0) kwds (disambig rn) thy
-    where gbls0 = M.keys (globals (scope thy))
+    where gbls0 = M.keys (globals (scope thy)) ++ M.keys (types (scope thy))
 
   assigned_gbl_names   = [ s | Renamed s <- F.toList first_pass ]
 

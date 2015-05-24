@@ -23,4 +23,6 @@ script:
     - tip-parser <(tip-ghc examples/Int.hs)
     - tip-ghc examples/Case.hs
     - tip-parser <(tip-ghc examples/Case.hs)
+    - tip-ghc examples/Props.hs
+    - tip-parser <(tip-ghc examples/Props.hs)
 

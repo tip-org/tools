@@ -17,7 +17,7 @@
 module Tip.Lint (lint, lintM, lintTheory) where
 
 #include "errors.h"
-import Tip
+import Tip.Core
 import Tip.Scope
 import Tip.Pretty
 import Tip.Renamer
