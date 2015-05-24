@@ -18,29 +18,9 @@ import Data.Generics.Geniplate
 import qualified Data.Set as S
 
 
-{-
-data Why3Var a = Why3Var Bool {- is constructor -} a
-  deriving (Eq,Ord,Show)
+($-$), block :: Doc -> Doc -> Doc
+d $-$ b = vcat [d,"",b]
 
-instance PrettyVar a => PrettyVar (Why3Var a) where
-  varStr (Why3Var b x) = (if b then toUpper else toLower) `mapHead` addAlpha (varStr x)
-   where
-    mapHead :: (Char -> Char) -> String -> String
-    f `mapHead` []     = [f 'x']
-    f `mapHead` (x:xs) = f x:xs
-
-    addAlpha :: String -> String
-    addAlpha s@(x:_) | isAlpha x = s
-    addAlpha s                   = "x" ++ s
-
-why3VarTheory :: forall a . Ord a => Theory a -> Theory (Why3Var a)
-why3VarTheory thy = fmap mk thy
- where
-  cons = S.fromList [ c | Constructor c _ _ <- universeBi thy ]
-  mk x = Why3Var (x `S.member` cons) x
--}
-
-block :: Doc -> Doc -> Doc
 block d c = (d $\ c) $$ "end"
 
 pcsv, csv, csv1 :: [Doc] -> Doc
@@ -76,22 +56,19 @@ quoteWhen p t | p t       = quote
 ppAsTuple :: [a] -> (a -> Doc) -> Doc
 ppAsTuple ts toDoc = parIf (length ts > 1) ((sep.punctuate ",") (map toDoc ts))
 
-($-$) :: Doc -> Doc -> Doc
-d $-$ b = vcat [d,"",b]--d <> ("\n" $$ b)
-
 ppTheory :: (Ord a, PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
   = vcat ["theory" <+> "A",  
           --"imports $HIPSTER_HOME/IsaHipster",
           "imports Main",
-          "        \"../../IsaHipster\"",
+          --"        \"../../IsaHipster\"",  -- convenience
           "begin"] $$
     foldl ($-$) empty (
       map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++
       map ppUninterp thy_sigs ++
       map ppFuncs (topsort thy_funcs) ++
-      ["(*hipster" <+> sep (map (ppVar.func_name) thy_funcs) <+> "*)"] ++
+      -- ["(*hipster" <+> sep (map (ppVar.func_name) thy_funcs) <+> "*)"] ++   -- convenience
       zipWith ppFormula thy_asserts [0..])
     $-$
     "end"
@@ -102,7 +79,8 @@ ppSort (Sort sort n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Isabelle"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
-ppDatas [d] = ppData "datatype" d-- vcat (ppData "datatype" d:map (ppData "and") ds)
+ppDatas [d] = ppData "datatype" d
+-- TODO: sim. to ppFuncs for mutually recursive datatypes; vcat (ppData "datatype" d:map (ppData "and") ds)
 
 ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
 ppData header (Datatype tc tvs cons) =
@@ -159,8 +137,8 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
 ppFormula (Formula role _tvs term) i =
-  (ppRole role <+> ("x" <> int i) <+> ":") $\ quote (ppExpr 0 term) $$
-  "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})"
+  (ppRole role <+> ("x" <> int i) <+> ":") $\ quote (ppExpr 0 term) $$ "oops"
+  -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
 
 ppRole :: Role -> Doc
 ppRole Assert = "lemma" --Better with lemma and sorry-proof here. Then need to insert 'sorry' on the line below somehow.
@@ -231,7 +209,7 @@ ppPat pat = case pat of
 ppType :: (PrettyVar a, Ord a) => Int -> Type a -> Doc
 ppType _ (TyVar x)     = ppTyVar x
 ppType i (TyCon tc ts) = parIf (i > 0 && (not . null) ts) $
-                           ppAsTuple ts (ppType 2) {-fsep (map (ppType 2 {-1-}) ts)-} $\ ppVar tc
+                           ppAsTuple ts (ppType 2 {-1-}) $\ ppVar tc
 ppType i (ts :=>: r)   = parIf (i >= 0) $ fsep (punctuate " =>" (map (ppType 0) (ts ++ [r])))
 ppType _ (BuiltinType Integer) = "int"
 ppType _ (BuiltinType Boolean) = "bool"
@@ -282,7 +260,7 @@ isabelleKeywords = (words . unlines)
     , "div"
     , "mod"
     ] ++
-    [ "theorem lemma axiom declare axiomatization"
+    [ "theorem lemma declare axiomatization"
     , "prefer def thm term typ"
     , "fun primrec definition value where infixl infixr abbreviation notation for"
     , "datatype type_synonym option consts typedecl inductive_set inductive_cases"
