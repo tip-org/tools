@@ -17,25 +17,32 @@ import Control.Monad
 
 main :: IO ()
 main =
-  do f:es <- getArgs
-     s <- readFile f
-     case parse s of
-       Left err  -> error $ "Parse failed: " ++ err
-       Right thy -> do
-         let passes :: [StandardPass]
-             (passes,extra) = parsePasses es
-         let pipeline
-               | "cvc4" `elem` es =
-                   fmap SMT.ppTheory .
-                   runPasses
-                     [ LambdaLift, AxiomatizeLambdas
-                     , CollapseEqual, RemoveAliases
-                     , SimplifyGently, RemoveMatch
-                     , SimplifyGently, NegateConjecture
-                     , SimplifyGently
-                     ]
-               | "why3" `elem` es     = fmap Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
-               | "isabelle" `elem` es = fmap Isabelle.ppTheory . runPasses passes
-               | otherwise            = fmap SMT.ppTheory .  runPasses passes
-         when (not (null passes)) (putStrLn $ "; " ++ show passes)
-         print (freshPass pipeline (lint "parse" thy))
+  do args <- getArgs
+     case args of
+        "-":es -> handle es =<< getContents
+        f:es   -> handle es =<< readFile f
+        es     -> handle es =<< getContents
+
+handle :: [String] -> String -> IO ()
+handle es s =
+  case parse s of
+    Left err  -> error $ "Parse failed: " ++ err
+    Right thy -> do
+      let passes :: [StandardPass]
+          (passes,other) = parsePasses es
+      let pp f = fmap (show . f)
+      let show_passes c = fmap (\ s -> c ++ show passes ++ "\n" ++ s)
+      let pipeline
+            | "cvc4" `elem` other =
+                pp SMT.ppTheory .
+                runPasses
+                  [ LambdaLift, AxiomatizeLambdas
+                  , CollapseEqual, RemoveAliases
+                  , SimplifyGently, RemoveMatch
+                  , SimplifyGently, NegateConjecture
+                  , SimplifyGently
+                  ]
+            | "why3" `elem` other     = pp Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
+            | "isabelle" `elem` other = pp Isabelle.ppTheory . runPasses passes
+            | otherwise               = show_passes "; " . pp SMT.ppTheory .  runPasses passes
+      putStrLn (freshPass pipeline (lint "parse" thy))
