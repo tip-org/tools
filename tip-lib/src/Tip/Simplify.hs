@@ -87,13 +87,18 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
             matches _ Default = True
             matches _ _ = False
 
-        Match e alts -> Match e <$> sequence
+        Match e alts ->
+          Match e <$> sequence
           [ Case pat <$> case pat of
-              ConPat g bs -> ((Gbl g :@: map Lcl bs) /// e) rhs >>= aux
-              LitPat l    -> (literal l /// e) rhs >>= aux
+              ConPat g bs -> subst ((Gbl g :@: map Lcl bs) /// e) rhs
+              LitPat l    -> subst (literal l /// e) rhs
               _           -> return rhs
           | Case pat rhs <- alts
           ]
+          where
+            subst f e = do
+              (e', Any successful) <- lift (runWriterT (f e))
+              if successful then aux e' else return e
 
         Builtin Equal :@: [Builtin (Lit (Bool x)) :@: [], t]
           | x -> hooray $ return t
@@ -148,7 +153,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
     containsMatch e = not (null [ e' | e'@Match{} <- universe e ])
 
     new /// old = transformExprM $ \e ->
-      if e == old then lift (freshen new) else return e
+      if e == old then hooray $ lift (freshen new) else return e
 
     hooray x = do
       tell (Any True)
