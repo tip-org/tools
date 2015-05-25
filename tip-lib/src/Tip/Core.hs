@@ -175,6 +175,9 @@ atomic (_ :@: []) = True
 atomic Lcl{}      = True
 atomic _          = False
 
+occurrences :: Eq a => Local a -> Expr a -> Int
+occurrences var body = length (filter (== var) (universeBi body))
+
 -- | The signature of a function
 signature :: Function a -> Signature a
 signature func@Function{..} = Signature func_name (funcType func)

@@ -45,15 +45,21 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
         Builtin At :@: (Lam vars body:args) ->
           aux (foldr (uncurry Let) body (zip vars args))
 
-        Let var val body | touch_lets && inlineable body var val ->
-          (val // var) body >>= aux
+        Let x e body | touch_lets && (atomic e || occurrences x body <= 1) ->
+          (e // x) body >>= aux
+
+        Let x e body | touch_lets && inlineable body x e ->
+          do e1 <- (e // x) body
+             e2 <- aux e1
+             if e1 == e2 then return e0 else return e2
+
 
         Match e [Case _ e1,Case (LitPat (Bool b)) e2]
           | e1 == bool (not b) && e2 == bool b -> return e
           | e1 == bool b && e2 == bool (not b) -> return (neg e)
 
-        Match (Let var val body) alts | touch_lets ->
-          aux (Let var val (Match body alts))
+        Match (Let x e body) alts | touch_lets ->
+          aux (Let x e (Match body alts))
 
         Match _ [Case Default body] -> return body
 
@@ -78,9 +84,6 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
               _           -> return rhs
           | Case pat rhs <- alts
           ]
-          where
-            new /// old = transformExprM $ \e ->
-              if e == old then freshen new else return e
 
         Builtin Equal :@: [Builtin (Lit (Bool x)) :@: [], t]
           | x -> return t
@@ -113,7 +116,6 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
         _ -> return e0
 
     inlineable body var val = should_inline val || occurrences var body <= 1
-    occurrences var body = length (filter (== var) (universeBi body))
     mscp = fmap scope mthy
     isConstructor (Builtin Lit{}) = True
     isConstructor (Gbl gbl) = isJust $ do
@@ -130,3 +132,6 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = aux
         Just Theory{..} ->
           Map.fromList . map (\fun -> (func_name fun, fun)) .
           concat . filter (not . isRecursiveGroup) . topsort $ thy_funcs
+
+    new /// old = transformExprM $ \e ->
+      if e == old then freshen new else return e

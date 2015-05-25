@@ -40,9 +40,9 @@ main = do
               [ SimplifyAggressively
               , RemoveNewtype
               , UncurryTheory
-              , SimplifyAggressively
+              , SimplifyGently
               , CommuteMatch
-              , SimplifyAggressively
+              , SimplifyGently
               , RemoveAliases, CollapseEqual
               , SimplifyGently
               , CSEMatch
