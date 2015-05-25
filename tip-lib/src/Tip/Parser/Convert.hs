@@ -190,8 +190,10 @@ trLocalBinding b =
      newLocal l
      return l
 
-trLetDecl :: LetDecl -> T.Expr Id -> CM (T.Expr Id)
-trLetDecl (LetDecl binding expr) e = newScope $ T.Let <$> trLocalBinding binding <*> trExpr expr <*> return e
+trLetDecls :: [LetDecl] -> A.Expr -> CM (T.Expr Id)
+trLetDecls [] e = trExpr e
+trLetDecls (LetDecl binding expr:bs) e
+  = newScope $ T.Let <$> trLocalBinding binding <*> trExpr expr <*> trLetDecls bs e
 
 trExpr :: A.Expr -> CM (T.Expr Id)
 trExpr e0 = case e0 of
@@ -212,8 +214,7 @@ trExpr e0 = case e0 of
   A.Match expr cases  -> do e <- trExpr expr
                             cases' <- sort <$> mapM (trCase (exprType e)) cases
                             return (T.Match e cases')
-  A.Let letdecls expr -> do e <- trExpr expr
-                            foldrM trLetDecl e letdecls
+  A.Let letdecls expr -> trLetDecls letdecls expr
   A.Binder binder bindings expr -> newScope $ trBinder binder <$> mapM trLocalBinding bindings <*> trExpr expr
   A.LitInt n -> return $ intLit n
   A.LitTrue  -> return $ bool True
