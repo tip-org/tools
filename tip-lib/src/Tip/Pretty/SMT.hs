@@ -14,8 +14,8 @@ expr,parExpr,parExprSep :: Doc -> [Doc] -> Doc
 parExpr s [] = parens s
 parExpr s xs = ("(" <> s) $\ (fsep xs <> ")")
 
-parExprSep s [x]    = sep ["(" <> s,x <> ")"]
-parExprSep s (x:xs) = sep ["(" <> s,x] $\ (fsep xs <> ")")
+parExprSep s [x]    = ("(" <> s) $\ (x <> ")")
+parExprSep s (x:xs) = (("(" <> s) $\ x) $\ (fsep xs <> ")")
 parExprSep s xs     = parExpr s xs
 
 expr s [] = s
