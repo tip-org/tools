@@ -193,9 +193,13 @@ lintGlobal gbl@Global{..} = do
   unless (length gbl_args == length (polytype_tvs gbl_type)) $
     throwError (fsep ["Global" <+> pp gbl, "applied to type arguments", nest 2 (vcat (map pp gbl_args)), "but expects" <+> int (length (polytype_tvs gbl_type))])
   check ("Unbound global" <+> pp gbl) (isGlobal gbl_name)
-  -- scp <- get
-  -- check (fsep ["Global" <> pp gbl, "is used with type", nest 2 (ppPolyType gbl_type), "but was declared with type", nest 2 (ppPolyType (globalType (whichGlobal gbl_name scp)))]) $
-  --   \scp -> globalType (whichGlobal gbl_name scp) == gbl_type
+
+  scp <- get
+  check (fsep ["Global" <+> pp gbl, "occurs with type", nest 2 (ppPolyType gbl_type), "but was declared with type", nest 2 (ppPolyType (globalType (whichGlobal gbl_name scp)))]) $
+    \scp -> globalType (whichGlobal gbl_name scp) `polyEq` gbl_type
+    where
+      t `polyEq` PolyType{..} =
+        applyPolyType t (map TyVar polytype_tvs) == (polytype_args, polytype_res)
 
 lintCall :: (PrettyVar a, Ord a) => Head a -> [Expr a] -> [Type a] -> ScopeM a ()
 lintCall hd exprs args =
