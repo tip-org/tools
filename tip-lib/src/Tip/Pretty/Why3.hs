@@ -134,7 +134,7 @@ ppExpr i e@(hd@(Gbl Global{..}) :@: es)
 ppExpr i (hd :@: es)  = parIf (i > 0 && not (null es)) $ ppHead hd (map (ppExpr 1) es)
 ppExpr _ (Lcl l)      = ppVar (lcl_name l)
 ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "\\" ls (ppExpr 0 e)
-ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppLocalBinder x <+> "=" $\ ppExpr 0 b, "in" <+> ppExpr 0 e]
+ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppVar (lcl_name x) <+> "=" $\ ppExpr 0 b <+> ":" $\ ppType 0 (lcl_type x), "in" <+> ppExpr 0 e]
 ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls (ppExpr 0 e)
 ppExpr i (Match e alts) =
   parIf (i > 0) $ block ("match" $\ ppExpr 0 e $\ "with")

@@ -99,7 +99,7 @@ ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVar (lcl_name l)
 ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]
 ppExpr (Match e as) = "(match" $\ ppExpr e $\ (vcat (map ppCase as) <> ")")
-ppExpr (Let x b e)  = parExprSep "let" [parens (ppLocal x $\ ppExpr b), ppExpr e]
+ppExpr (Let x b e)  = parExprSep "let" [parens (parens (ppLocal x $\ ppExpr b)), ppExpr e]
 ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: PrettyVar a => [Local a] -> Doc
