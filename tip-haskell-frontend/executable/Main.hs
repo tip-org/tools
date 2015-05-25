@@ -40,10 +40,10 @@ main = do
               [ SimplifyAggressively
               , RemoveNewtype
               , UncurryTheory
-              , SimplifyGently
               , CommuteMatch
               , SimplifyGently
               , RemoveAliases, CollapseEqual
+              , CommuteMatch
               , SimplifyGently
               , CSEMatch
               ]

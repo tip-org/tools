@@ -28,9 +28,14 @@ data SimplifyOpts a =
 gently :: SimplifyOpts a
 gently       = SimplifyOpts True atomic True
 
--- | Aggressive options: inline everything
+-- | Aggressive options: inline everything that might plausibly lead to simplification
 aggressively :: SimplifyOpts a
-aggressively = SimplifyOpts True (const True) True
+aggressively = SimplifyOpts True useful True
+  where
+    useful x | atomic x = True
+    useful (Builtin _ :@: _) = True
+    useful (Lam _ _) = True
+    useful _ = False
 
 -- | Simplify an entire theory
 simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
@@ -87,11 +92,11 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
             matches _ Default = True
             matches _ _ = False
 
-        Match e alts ->
-          Match e <$> sequence
+        Match (Lcl x) alts ->
+          Match (Lcl x) <$> sequence
           [ Case pat <$> case pat of
-              ConPat g bs -> subst ((Gbl g :@: map Lcl bs) /// e) rhs
-              LitPat l    -> subst (literal l /// e) rhs
+              ConPat g bs -> subst ((Gbl g :@: map Lcl bs) /// x) rhs
+              LitPat l    -> subst (literal l /// x) rhs
               _           -> return rhs
           | Case pat rhs <- alts
           ]
@@ -153,7 +158,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
     containsMatch e = not (null [ e' | e'@Match{} <- universe e ])
 
     new /// old = transformExprM $ \e ->
-      if e == old then hooray $ lift (freshen new) else return e
+      if e == Lcl old then hooray $ lift (freshen new) else return e
 
     hooray x = do
       tell (Any True)
