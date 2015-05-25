@@ -219,7 +219,7 @@ lintBuiltin Not _ = return [boolType]
 lintBuiltin Implies _ = return [boolType, boolType]
 lintBuiltin Equal [] = throwError "Nullary ="
 lintBuiltin Equal tys@(ty:_) = return (replicate (length tys) ty)
-lintBuiltin Equal [] = throwError "Nullary distinct"
+lintBuiltin Distinct [] = throwError "Nullary distinct"
 lintBuiltin Distinct tys@(ty:_) = return (replicate (length tys) ty)
 lintBuiltin IntAdd tys = return (replicate (length tys) intType)
 lintBuiltin IntSub _ = return [intType, intType]
