@@ -29,6 +29,7 @@ library
     Tip.Parser
 
     Tip.Utils
+    Tip.Writer
 
     Tip.Renamer
     Tip.Utils.Renamer

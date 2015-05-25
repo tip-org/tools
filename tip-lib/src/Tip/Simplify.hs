@@ -9,8 +9,9 @@ import Data.List
 import Data.Maybe
 import Data.Monoid
 import Control.Applicative
-import Control.Monad.Writer
+import Control.Monad
 import qualified Data.Map as Map
+import Tip.Writer
 
 -- | Options for the simplifier
 data SimplifyOpts a =
@@ -46,6 +47,7 @@ simplifyExpr opts = simplifyExprIn Nothing opts
 simplifyExprIn :: forall f a. (TransformBiM (WriterT Any Fresh) (Expr a) (f a), Name a) => Maybe (Theory a) -> SimplifyOpts a -> f a -> Fresh (f a)
 simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
   where
+    {-# SPECIALISE aux :: Expr a -> WriterT Any Fresh (Expr a) #-}
     aux :: forall f. TransformBiM (WriterT Any Fresh) (Expr a) (f a) => f a -> WriterT Any Fresh (f a)
     aux = transformBiM $ \e0 ->
       case e0 of

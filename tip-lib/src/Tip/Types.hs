@@ -197,20 +197,28 @@ instanceTransformBi [t| forall a . (Type a,Theory a) |]
 instanceTransformBi [t| forall a . (Type a,Expr a) |]
 instanceTransformBi [t| forall a . (Type a,Type a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Expr a) (Function a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Function a -> m (Function a) |])
 instance Monad m => TransformBiM m (Pattern a) (Expr a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Pattern a -> m (Pattern a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Local a) (Expr a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Local a -> m (Local a)) -> Expr a -> m (Expr a) |])
 instance Monad m => TransformBiM m (Expr a) (Theory a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Theory a -> m (Theory a) |])
 instance Monad m => TransformBiM m (Expr a) (Formula a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Formula a -> m (Formula a) |])
 instance Monad m => TransformBiM m (Type a) (Type a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Type a -> m (Type a)) -> Type a -> m (Type a) |])
 instance Monad m => TransformBiM m (Function a) (Theory a) where
+  {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Function a -> m (Function a)) -> Theory a -> m (Theory a) |])
 
 transformExpr :: (Expr a -> Expr a) -> Expr a -> Expr a
