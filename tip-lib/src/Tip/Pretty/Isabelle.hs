@@ -21,7 +21,7 @@ import qualified Data.Set as S
 ($-$), block :: Doc -> Doc -> Doc
 d $-$ b = vcat [d,"",b]
 
-block d c = (d $\ c) $$ "end"
+block d c = (d $\ c)-- $$ "end"
 
 pcsv, csv, csv1 :: [Doc] -> Doc
 csv = fsep . punctuate ","
@@ -156,8 +156,8 @@ ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "%" ls "=>" (ppExpr 0 e)
 ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppLocalBinder x <+> "=" $\ ppExpr 0 b, "in" <+> ppExpr 0 e]
 ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls "." (ppExpr 0 e)
 ppExpr i (Match e alts) =
-  parIf (i > 0) $ block ("case" $\ ppExpr 0 e $\ "of")
-                        (separating vcat (repeat "|") (map ppCase alts))
+  parIf (i <= 0) $ block ("case" $\ ppExpr 0 e $\ "of")
+                         (vcat (intersperseWithPre ($\) "|" (map ppCase alts)))
 
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
 ppHead (Gbl gbl)      args                        = ppVar (gbl_name gbl) $\ fsep args
@@ -167,7 +167,7 @@ ppHead (Builtin b)    args                        = ppBuiltin b $\ fsep args
 
 ppBuiltin :: Builtin -> Doc
 ppBuiltin (Lit lit) = ppLit lit
-ppBuiltin IntDiv    = "div"
+ppBuiltin IntDiv    = "(op div)"
 ppBuiltin IntMod    = "mod"
 ppBuiltin Not       = "~"
 ppBuiltin b         = error $ "Isabelle.ppBuiltin: " ++ show b
@@ -275,5 +275,6 @@ isabelleKeywords = (words . unlines)
     , "cons"
     , "Nil"
     , "Cons"
+    , "EX ALL"
     ]
 
