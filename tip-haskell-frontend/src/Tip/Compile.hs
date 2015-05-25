@@ -6,7 +6,7 @@ import Tip.Dicts (inlineDicts)
 import Tip.GHCUtils
 import Tip.Params
 import Tip.ParseDSL
-import Tip.Scope
+import Tip.GHCScope
 import Tip.Unfoldings
 import Data.List.Split (splitOn)
 

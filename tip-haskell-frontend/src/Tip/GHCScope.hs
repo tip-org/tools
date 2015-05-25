@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-module Tip.Scope where
+module Tip.GHCScope where
 
 import GHC hiding (Sig)
 
