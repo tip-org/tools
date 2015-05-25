@@ -34,10 +34,14 @@ import Data.List
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
 lint pass thy0@(renameAvoiding [] return -> thy) =
   -- trace ("Linting:" ++ pass ++ ":\n" ++ ppRender thy) $
-  case (lintTheory thy,lintTheory thy0) of
-    (Just doc,_) -> error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
-    (_,Just doc) -> error ("Non-renamed linting pass failed!? " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
-    (_,_)        -> thy0
+  case lintTheory thy0 of
+    Nothing -> thy0
+    Just doc ->
+      case lintTheory thy of
+        Just doc ->
+          error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
+        Nothing ->
+          error ("Non-renamed linting pass failed!? " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
 
 -- | Same as 'lint', but returns in a monad, for convenience
 lintM :: (PrettyVar a, Ord a, Monad m) => String -> Theory a -> m (Theory a)
