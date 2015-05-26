@@ -25,6 +25,7 @@ library
     Tip.Pretty.SMT
     Tip.Pretty.Why3
     Tip.Pretty.Isabelle
+    Tip.Pretty.Haskell
 
     Tip.Parser
 
@@ -33,6 +34,8 @@ library
 
     Tip.Renamer
     Tip.Utils.Renamer
+    Tip.Utils.Haskell
+    Tip.Utils.ToHaskell
   other-modules:
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.Lift

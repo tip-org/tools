@@ -7,6 +7,7 @@ import Tip.Parser
 import Tip.Pretty.SMT as SMT
 import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
+import Tip.Pretty.Haskell as HS
 
 import Tip.Passes
 import Tip.Lint
@@ -42,6 +43,7 @@ handle es s =
                   , SimplifyGently, NegateConjecture
                   , SimplifyGently
                   ]
+            | "hs" `elem` other       = pp HS.ppTheory . runPasses passes
             | "why3" `elem` other     = pp Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
             | "isabelle" `elem` other = pp Isabelle.ppTheory . runPasses passes
             | otherwise               = show_passes "; " . pp SMT.ppTheory .  runPasses passes

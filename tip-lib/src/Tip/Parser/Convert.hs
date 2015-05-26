@@ -6,6 +6,9 @@ import Tip.Core          as T -- ... to T
 import Tip.Pretty
 import Tip.Pretty.SMT
 
+import Tip.Utils.Haskell   (HsVar(..))
+import Tip.Utils.ToHaskell (HaskellVar(..))
+
 import Text.PrettyPrint
 import Control.Applicative
 import Control.Monad.State
@@ -47,6 +50,14 @@ instance Ord Id where
 
 instance PrettyVar Id where
   varStr (Id s _ _) = s
+
+instance HsVar Id where
+  varUnqual = varStr
+
+instance HaskellVar Id where
+  prelude s = Id s 0 Nothing
+  tip_dsl s = Id s 0 Nothing
+  prop_id i = Id ("prop_" ++ show i) 0 Nothing
 
 instance Name Id where
   freshNamed n
