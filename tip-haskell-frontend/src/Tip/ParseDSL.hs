@@ -1,5 +1,4 @@
 {-# LANGUAGE ViewPatterns #-}
--- | A hacky way of parsing the property language DSL
 module Tip.ParseDSL where
 
 import Tip.GHCUtils
@@ -15,8 +14,10 @@ import Data.List
 import Var hiding (Id,isId)
 import TyCon (TyCon)
 
+import Module
+
 nameInTip :: Name -> Bool
-nameInTip = F.any (\ n -> showOutputable n == "Tip") . nameModule_maybe
+nameInTip = F.any (\ n -> moduleNameString (moduleName n) == "Tip") . nameModule_maybe
 
 varInTip :: Var -> Bool
 varInTip = nameInTip . varName
@@ -31,7 +32,7 @@ oneOf :: String -> String -> Id -> Bool
 oneOf s1 s2 i = any (`isId` i) [s1,s2]
 
 nameIs :: String -> Name -> Bool
-nameIs s n = nameInTip n && s == showOutputable (nameOccName n)
+nameIs s n = nameInTip n && s == occNameString (nameOccName n)
 
 varIs :: String -> Var -> Bool
 varIs s v = nameIs s (varName v)
