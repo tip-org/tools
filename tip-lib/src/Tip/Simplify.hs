@@ -18,7 +18,7 @@ data SimplifyOpts a =
   SimplifyOpts {
     touch_lets    :: Bool,
     -- ^ Allow simplifications on lets
-    should_inline :: Expr a -> Bool,
+    should_inline :: Maybe (Scope a) -> Expr a -> Bool,
     -- ^ Inlining predicate
     inline_match  :: Bool
     -- ^ Allow function inlining to introduce match
@@ -26,16 +26,15 @@ data SimplifyOpts a =
 
 -- | Gentle options: if there is risk for code duplication, only inline atomic expressions
 gently :: SimplifyOpts a
-gently       = SimplifyOpts True atomic True
+gently       = SimplifyOpts True (const atomic) True
 
 -- | Aggressive options: inline everything that might plausibly lead to simplification
-aggressively :: SimplifyOpts a
+aggressively :: Name a => SimplifyOpts a
 aggressively = SimplifyOpts True useful True
   where
-    useful x | atomic x = True
-    useful (Builtin _ :@: _) = True
-    useful (Lam _ _) = True
-    useful _ = False
+    useful _ Lam{} = True
+    useful mscp (f :@: _) = isConstructor mscp f
+    useful _ _ = False
 
 -- | Simplify an entire theory
 simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
@@ -77,7 +76,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
 
         Match _ [Case Default body] -> hooray $ return body
 
-        Match (hd :@: args) alts | isConstructor hd ->
+        Match (hd :@: args) alts | isConstructor mscp hd ->
           -- We use reverse because the default case comes first and we want it last
           case filter (matches hd . case_pat) (reverse alts) of
             [] -> return e0
@@ -137,13 +136,8 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
 
         _ -> return e0
 
-    inlineable body var val = should_inline val || occurrences var body <= 1
+    inlineable body var val = should_inline mscp val || occurrences var body <= 1
     mscp = fmap scope mthy
-    isConstructor (Builtin Lit{}) = True
-    isConstructor (Gbl gbl) = isJust $ do
-      scp <- mscp
-      lookupConstructor (gbl_name gbl) scp
-    isConstructor _ = False
 
     isRecursiveGroup [fun] = defines fun `elem` uses fun
     isRecursiveGroup _     = True
@@ -165,3 +159,10 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
       x
 
     boo x = censor (const (Any False)) x
+
+isConstructor :: Name a => Maybe (Scope a) -> Head a -> Bool
+isConstructor _ (Builtin Lit{}) = True
+isConstructor mscp (Gbl gbl) = isJust $ do
+  scp <- mscp
+  lookupConstructor (gbl_name gbl) scp
+isConstructor _ _ = False
