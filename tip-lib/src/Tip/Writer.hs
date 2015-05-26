@@ -3,7 +3,10 @@
 {-# LANGUAGE Rank2Types #-}
 module Tip.Writer where
 
+import Data.Monoid
+
 import Control.Monad
+import Control.Applicative
 
 newtype WriterT w m a = WriterT { unWriterT :: forall b. (w -> a -> m b) -> m b }
 
