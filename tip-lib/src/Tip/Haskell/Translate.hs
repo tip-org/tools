@@ -284,10 +284,12 @@ makeSig' sig_name thy@Theory{..} =
       , (quickSpec "instances", List
            [ Apply (quickSpec ("inst" ++ concat [ show (length tys) | length tys >= 2 ]))
                [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
-                 H.TyCon (quickSpec ":-") [TyTup (map cl tys),cl (H.TyCon t tys)]]
+                 H.TyCon (quickSpec ":-") [TyTup (map (cl c1) tys),cl c2 (H.TyCon t tys)]]
            | (t,n) <- type_univ
-           , c <- [prelude "Ord",quickCheck "Arbitrary"]
-           , let cl x = H.TyCon c [x]
+           , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
+                          (feat "Enumerable", feat "Enumerable"),
+                          (feat "Enumerable",quickCheck "Arbitrary")]
+           , let cl c x = H.TyCon c [x]
            , let tys = map trType (qsTvs n)
            ])
       ]
