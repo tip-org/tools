@@ -43,7 +43,6 @@ compileHaskellFile params@Params{..} = do
 #if __GLASGOW_HASKELL__ >= 708
                 updateWays $
                 addWay' WayThreaded $
-                addWay' WayDyn $
 #endif
                      dflags0 { ghcMode = CompManager
                              , optLevel = 0
@@ -55,6 +54,7 @@ compileHaskellFile params@Params{..} = do
                         `gopt_unset` Opt_IgnoreInterfacePragmas
                         `gopt_unset` Opt_OmitInterfacePragmas
                         `gopt_set` Opt_ExposeAllUnfoldings
+                        `gopt_set` Opt_BuildDynamicToo
 #else
                         `dopt_unset` Opt_IgnoreInterfacePragmas
                         `dopt_unset` Opt_OmitInterfacePragmas
