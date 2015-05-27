@@ -1,10 +1,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-{-# LANGUAGE OverloadedStrings #-}
 -- | A representation of Haskell programs
 module Tip.Haskell.Repr where
 
-import Text.PrettyPrint
-import Tip.Pretty
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 
@@ -25,6 +22,10 @@ data Decl a
              [Decl a] {- declarations (associated types and fun decls) -}
   | TypeDef (Type a) (Type a)
   | Decl a `Where` [Decl a]
+  | TH (Expr a)
+  | Module String
+  | LANGUAGE String
+  | QualImport String
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 funDecl :: a -> [a] -> Expr a -> Decl a
@@ -56,6 +57,9 @@ data Expr a
   | Noop          -- | @return ()@
   | Case (Expr a) [(Pat a,Expr a)]
   | Int Integer
+  | QuoteTyCon a -- Template Haskell ''
+  | QuoteName a  -- Template Haskell '
+  | THSplice (Expr a) -- Template Haskell $(..)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 nestedTup :: [Expr a] -> Expr a
@@ -81,112 +85,4 @@ data Pat a = VarPat a | ConPat a [Pat a] | TupPat [Pat a] | WildPat | IntPat Int
 
 data Stmt a = Bind a (Expr a) | BindTyped a (Type a) (Expr a) | Stmt (Expr a)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
-
--- * Pretty printing
-
--- | In instance declarations, you cannot write qualified variables,
---   but need to write them unqualified. As an example, the mempty part
---   here is incorrect:
---
--- @
--- instance Data.Monoid.Monoid T where
---   Data.Monoid.mempty = K
--- @
---
--- Thus, instance function declarations will be pretty printed with ppUnqual.
-class PrettyVar a => PrettyHsVar a where
-  varUnqual :: a -> String
-
-ppUnqual :: PrettyHsVar a => a -> Doc
-ppUnqual = text . varUnqual
-
-tuple ds = parens (fsep (punctuate "," ds))
-
-instance PrettyHsVar a => Pretty (Expr a) where
-  pp e =
-    case e of
-      Apply x [] -> ppVar x
-      Apply x es | Lam ps b <- last es -> ((ppVar x $\ fsep (map pp_par (init es))) $\ "(\\" <+> fsep (map pp ps) <+> "->") $\ pp b <> ")"
-      Apply x es -> ppVar x $\ fsep (map pp_par es)
-      Do ss e    -> "do" <+> (vcat (map pp (ss ++ [Stmt e])))
-      Let x e b  -> "let" <+> (ppVar x <+> "=" $\ pp e) $\ "in" <+> pp b
-      Lam ps e   -> "\\" <+> fsep (map pp ps) <+> "->" $\ pp e
-      List es    -> brackets (fsep (punctuate "," (map pp es)))
-      Tup es     -> tuple (map pp es)
-      String s   -> "\"" <> ppVar s <> "\""
-      Case e brs -> ("case" <+> pp e <+> "of") $\ vcat [ (ppPat 0 p <+> "->") $\ pp rhs | (p,rhs) <- brs ]
-      Int i      -> integer i
-      Noop       -> "Prelude.return ()"
-   where
-    pp_par e0 =
-      case e0 of
-        Apply x []  -> pp e0
-        List{}      -> pp e0
-        Tup{}       -> pp e0
-        String{}    -> pp e0
-        _           -> parens (pp e0)
-
-instance PrettyHsVar a => Pretty (Stmt a) where
-  pp (Bind x e)        = ppVar x <+> "<-" $\ pp e
-  pp (BindTyped x t e) = (ppVar x <+> "::" $\ pp t <+> "<-") $\ pp e
-  pp (Stmt e)          = pp e
-
-instance PrettyHsVar a => Pretty (Pat a) where
-  pp = ppPat 0
-
-ppPat :: PrettyHsVar a => Int -> Pat a -> Doc
-ppPat i p =
-  case p of
-    VarPat x    -> ppVar x
-    ConPat k [] -> ppVar k
-    ConPat k ps -> parIf (i >= 1) (ppVar k $\ fsep (map (ppPat 1) ps))
-    TupPat ps   -> tuple (map (ppPat 0) ps)
-    WildPat     -> "_"
-
-instance PrettyHsVar a => Pretty (Decl a) where
-  pp = go 0
-    where
-    pp_ctx [] = empty
-    pp_ctx ctx = pp (TyTup ctx) <+> "=>"
-    go i d =
-      case d of
-        TySig f ctx t -> (ppVar f <+> "::" $\ pp_ctx ctx) $\ pp t
-        FunDecl f xs ->
-          vcat
-            [ ((if i == 0 then ppVar else ppUnqual) f $\ fsep (map (ppPat 1) ps) <+> "=") $\ pp b
-            | (ps,b) <- xs
-            ]
-        DataDecl tc tvs cons derivs ->
-          ((((case cons of
-               [(_,[_])] -> "newtype"
-               _         -> "data") $\ ppVar tc) $\ fsep (map ppVar tvs) <+> "=") $\
-            fsep (punctuate " |" [ ppCon c ts | (c,ts) <- cons ])) $\
-            (if null derivs then empty
-             else "deriving" <+> parens (fsep (punctuate "," (map ppVar derivs))))
-        InstDecl ctx head ds ->
-          (("instance" $\
-            (pp_ctx ctx $\ pp head)) $\
-               "where") $\ vcat (map (go 1) ds)
-        TypeDef lhs rhs -> "type" <+> pp lhs <+> "=" $\ pp rhs
-        decl `Where` ds -> pp decl $\ "where" $\ vcat (map pp ds)
-
-ppCon :: PrettyHsVar a => a -> [Type a] -> Doc
-ppCon c ts = case varStr c of
-  '(':':':xs | [t1,t2] <- ts -> ppType 2 t1 <+> (":" <> text (init xs)) $\ ppType 2 t2
-  _                          -> ppVar c $\ fsep (map (ppType 2) ts)
-
-instance PrettyHsVar a => Pretty (Decls a) where
-  pp (Decls ds) = vcat (map pp ds)
-
-instance PrettyHsVar a => Pretty (Type a) where
-  pp = ppType 0
-
-ppType :: PrettyHsVar a => Int -> Type a -> Doc
-ppType i t0 =
-  case t0 of
-    TyCon t []  -> ppVar t
-    TyCon t ts  -> parIf (i >= 2) (ppVar t $\ fsep (map (ppType 2) ts))
-    TyVar x     -> ppVar x
-    TyTup ts    -> tuple (map (ppType 0) ts)
-    TyArr t1 t2 -> parIf (i >= 1) (ppType 1 t1 <+> "->" $\ ppType 0 t2)
 

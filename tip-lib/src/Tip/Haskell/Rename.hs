@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-module Tip.Haskell.Rename (renameDecls) where
+module Tip.Haskell.Rename (renameDecls, isOperator) where
 
 #include "errors.h"
 import Tip.Haskell.Repr
@@ -32,7 +32,7 @@ uppercase (Decls ds) = S.fromList $
 
 makeUniform :: String -> String
 makeUniform s
-    | isOperator s = filter (`elem` opSyms) s
+    | couldBeOperator s = filter (`elem` opSyms) s
     | otherwise    = initialAlpha (filter isAlphaNum s)
 
 initialAlpha :: String -> String
@@ -55,7 +55,10 @@ lower s@(c:r)
     | otherwise    = if isLower c then s else toLower c:r
 
 isOperator :: String -> Bool
-isOperator s = i2d (numOps s) / i2d (length s) >= 0.5
+isOperator = all (`elem` opSyms)
+
+couldBeOperator :: String -> Bool
+couldBeOperator s = i2d (numOps s) / i2d (length s) >= 0.5
   where
   i2d :: Int -> Double
   i2d = fromInteger . toInteger

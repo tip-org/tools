@@ -76,6 +76,12 @@ instance (Eq a, Show a) => Testable (Equality a) where
 instance Testable b => Testable (Bool :=>: b) where
   property (Given x p) = x QC.==> p
 
+instance Testable b => Testable (Neg Bool :=>: b) where
+  property (Given (Neg x) p) = not x QC.==> p
+
+instance Testable (Neg Bool) where
+  property (Neg x) = property (not x)
+
 instance (Eq a, Show a, Testable b) => Testable (Equality a :=>: b) where
   property (Given (x :=: y) p) = x == y QC.==> p
 
@@ -87,3 +93,6 @@ instance (Testable a, Testable b) => Testable (Or a b) where
 
 instance (Arbitrary a, Show a, Testable b) => Testable (Forall a b) where
   property (Forall p) = property p
+
+instance Show (a -> b) where
+  show _ = "<func>"
