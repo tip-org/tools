@@ -36,6 +36,7 @@ library
     Tip.Utils.Rename
     Tip.Haskell.Repr
     Tip.Haskell.Translate
+    Tip.Haskell.Rename
   other-modules:
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.Lift

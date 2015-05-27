@@ -8,22 +8,6 @@ import Tip.Pretty
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 
--- | In instance declarations, you cannot write qualified variables,
---   but need to write them unqualified. As an example, the mempty part
---   here is incorrect:
---
--- @
--- instance Data.Monoid.Monoid T where
---   Data.Monoid.mempty = K
--- @
---
--- Thus, instance function declarations will be pretty printed with ppUnqual.
-class PrettyVar a => HsVar a where
-  varUnqual :: a -> String
-
-ppUnqual :: HsVar a => a -> Doc
-ppUnqual = text . varUnqual
-
 data Decls a = Decls [Decl a]
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
@@ -98,9 +82,27 @@ data Pat a = VarPat a | ConPat a [Pat a] | TupPat [Pat a] | WildPat | IntPat Int
 data Stmt a = Bind a (Expr a) | BindTyped a (Type a) (Expr a) | Stmt (Expr a)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
+-- * Pretty printing
+
+-- | In instance declarations, you cannot write qualified variables,
+--   but need to write them unqualified. As an example, the mempty part
+--   here is incorrect:
+--
+-- @
+-- instance Data.Monoid.Monoid T where
+--   Data.Monoid.mempty = K
+-- @
+--
+-- Thus, instance function declarations will be pretty printed with ppUnqual.
+class PrettyVar a => PrettyHsVar a where
+  varUnqual :: a -> String
+
+ppUnqual :: PrettyHsVar a => a -> Doc
+ppUnqual = text . varUnqual
+
 tuple ds = parens (fsep (punctuate "," ds))
 
-instance HsVar a => Pretty (Expr a) where
+instance PrettyHsVar a => Pretty (Expr a) where
   pp e =
     case e of
       Apply x [] -> ppVar x
@@ -124,15 +126,15 @@ instance HsVar a => Pretty (Expr a) where
         String{}    -> pp e0
         _           -> parens (pp e0)
 
-instance HsVar a => Pretty (Stmt a) where
+instance PrettyHsVar a => Pretty (Stmt a) where
   pp (Bind x e)        = ppVar x <+> "<-" $\ pp e
   pp (BindTyped x t e) = (ppVar x <+> "::" $\ pp t <+> "<-") $\ pp e
   pp (Stmt e)          = pp e
 
-instance HsVar a => Pretty (Pat a) where
+instance PrettyHsVar a => Pretty (Pat a) where
   pp = ppPat 0
 
-ppPat :: HsVar a => Int -> Pat a -> Doc
+ppPat :: PrettyHsVar a => Int -> Pat a -> Doc
 ppPat i p =
   case p of
     VarPat x    -> ppVar x
@@ -141,7 +143,7 @@ ppPat i p =
     TupPat ps   -> tuple (map (ppPat 0) ps)
     WildPat     -> "_"
 
-instance HsVar a => Pretty (Decl a) where
+instance PrettyHsVar a => Pretty (Decl a) where
   pp = go 0
     where
     pp_ctx [] = empty
@@ -168,18 +170,18 @@ instance HsVar a => Pretty (Decl a) where
         TypeDef lhs rhs -> "type" <+> pp lhs <+> "=" $\ pp rhs
         decl `Where` ds -> pp decl $\ "where" $\ vcat (map pp ds)
 
-ppCon :: HsVar a => a -> [Type a] -> Doc
+ppCon :: PrettyHsVar a => a -> [Type a] -> Doc
 ppCon c ts = case varStr c of
   '(':':':xs | [t1,t2] <- ts -> ppType 2 t1 <+> (":" <> text (init xs)) $\ ppType 2 t2
   _                          -> ppVar c $\ fsep (map (ppType 2) ts)
 
-instance HsVar a => Pretty (Decls a) where
+instance PrettyHsVar a => Pretty (Decls a) where
   pp (Decls ds) = vcat (map pp ds)
 
-instance HsVar a => Pretty (Type a) where
+instance PrettyHsVar a => Pretty (Type a) where
   pp = ppType 0
 
-ppType :: HsVar a => Int -> Type a -> Doc
+ppType :: PrettyHsVar a => Int -> Type a -> Doc
 ppType i t0 =
   case t0 of
     TyCon t []  -> ppVar t

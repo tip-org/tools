@@ -43,7 +43,7 @@ handle es s =
                   , SimplifyGently, NegateConjecture
                   , SimplifyGently
                   ]
-            | "hs" `elem` other       = pp HS.ppTheory . runPasses passes
+            | "hs" `elem` other       = fmap show . HS.ppTheory <=< runPasses passes
             | "why3" `elem` other     = pp Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
             | "isabelle" `elem` other = pp Isabelle.ppTheory . runPasses passes
             | otherwise               = show_passes "; " . pp SMT.ppTheory .  runPasses passes

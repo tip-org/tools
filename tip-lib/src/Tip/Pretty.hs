@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Tip.Pretty where
 
 import Text.PrettyPrint
@@ -18,6 +19,9 @@ ppRender = render . pp
 -- | Print something pretty
 pprint :: Pretty a => a -> IO ()
 pprint = putStrLn . ppRender
+
+instance PrettyVar String where
+  varStr = id
 
 instance PrettyVar Int where
   varStr = show
