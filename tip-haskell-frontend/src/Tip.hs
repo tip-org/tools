@@ -94,5 +94,3 @@ instance (Testable a, Testable b) => Testable (Or a b) where
 instance (Arbitrary a, Show a, Testable b) => Testable (Forall a b) where
   property (Forall p) = property p
 
-instance Show (a -> b) where
-  show _ = "<func>"

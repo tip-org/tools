@@ -14,7 +14,7 @@ import qualified Data.Set as S
 import Data.Char
 
 renameDecls :: forall a . (Ord a,PrettyVar a) => Decls (HsId a) -> Decls (HsId String)
-renameDecls ds = renameWithBlocks (map Other keywords) suggest ds
+renameDecls ds = renameWithBlocks (map Other (keywords ++ map snd hsBuiltins)) suggest ds
   where
   suggest :: HsId a -> [HsId String]
   suggest (Qualified m s) = Qualified m s:__

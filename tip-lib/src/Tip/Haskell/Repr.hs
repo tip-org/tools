@@ -60,6 +60,8 @@ data Expr a
   | QuoteTyCon a -- Template Haskell ''
   | QuoteName a  -- Template Haskell '
   | THSplice (Expr a) -- Template Haskell $(..)
+  | Record (Expr a) [(a,Expr a)] -- record update
+  | Expr a ::: Type a
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 nestedTup :: [Expr a] -> Expr a

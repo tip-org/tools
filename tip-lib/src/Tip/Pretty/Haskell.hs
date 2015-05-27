@@ -65,13 +65,15 @@ instance PrettyHsVar a => Pretty (Expr a) where
       Lam ps e   -> "\\" <+> fsep (map pp ps) <+> "->" $\ pp e
       List es    -> brackets (fsep (punctuate "," (map pp es)))
       Tup es     -> tuple (map pp es)
-      String s   -> "\"" <> ppVar s <> "\""
+      String s   -> "\"" <> ppUnqual s <> "\""
       Case e brs -> ("case" <+> pp e <+> "of") $\ vcat [ (ppPat 0 p <+> "->") $\ pp rhs | (p,rhs) <- brs ]
       Int i      -> integer i
+      Noop       -> "Prelude.return ()"
       QuoteTyCon tc -> "''" <> ppHsVar tc
       QuoteName x   -> "'" <> ppHsVar x
-      THSplice e  -> "$" <> parens (pp e)
-      Noop       -> "Prelude.return ()"
+      THSplice e    -> "$" <> parens (pp e)
+      Record e upd  -> pp_par e $\ braces (sep (punctuate "," [ ppHsVar f <+> "=" $\ pp rhs | (f,rhs) <- upd ]))
+      e ::: t       -> pp e <+> "::" $\ pp t
    where
     pp_par e0 =
       case e0 of
