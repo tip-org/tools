@@ -32,10 +32,10 @@ library
     Tip.Utils
     Tip.Writer
 
-    Tip.Renamer
-    Tip.Utils.Renamer
-    Tip.Utils.Haskell
-    Tip.Utils.ToHaskell
+    Tip.Rename
+    Tip.Utils.Rename
+    Tip.Haskell.Repr
+    Tip.Haskell.Translate
   other-modules:
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.Lift

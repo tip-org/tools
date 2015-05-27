@@ -20,7 +20,7 @@ module Tip.Lint (lint, lintM, lintTheory) where
 import Tip.Core
 import Tip.Scope
 import Tip.Pretty
-import Tip.Renamer
+import Tip.Rename
 import Control.Monad
 import Control.Monad.Error
 import Control.Monad.State

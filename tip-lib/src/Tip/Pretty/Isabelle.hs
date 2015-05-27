@@ -5,8 +5,8 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Utils.Renamer (renameWith,disambig)
-import Tip.Renamer
+import Tip.Utils.Rename (renameWith,disambig)
+import Tip.Rename
 import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
 import Data.Char
@@ -21,7 +21,7 @@ import qualified Data.Set as S
 ($-$), block :: Doc -> Doc -> Doc
 d $-$ b = vcat [d,"",b]
 
-block d c = (d $\ c)-- $$ "end"
+block d c = (d $\ c)
 
 pcsv, csv, csv1 :: [Doc] -> Doc
 csv = fsep . punctuate ","
@@ -58,7 +58,7 @@ ppAsTuple ts toDoc = parIf (length ts > 1) ((sep.punctuate ",") (map toDoc ts))
 
 ppTheory :: (Ord a, PrettyVar a) => Theory a -> Doc
 ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
-  = vcat ["theory" <+> "A",  
+  = vcat ["theory" <+> "A",
           --"imports $HIPSTER_HOME/IsaHipster",
           "imports Main",
           --"        \"../../IsaHipster\"",  -- convenience
@@ -87,7 +87,7 @@ ppData header (Datatype tc tvs cons) =
   header $\ ppAsTuple tvs ppTyVar $\
     ppVar tc $\ separating fsep ("=":repeat "|") (map ppCon cons)
 --ppDatas (d:ds) = ppData "datatype" d
-        -- FIXME: No mutual recusion for now... 
+        -- FIXME: No mutual recusion for now...
         --vcat (ppData "type" d:map (ppData "with") ds)
 
 ppCon :: (PrettyVar a, Ord a) => Constructor a -> Doc

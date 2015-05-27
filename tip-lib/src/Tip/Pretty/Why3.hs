@@ -5,8 +5,8 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Utils.Renamer (renameWith,disambig)
-import Tip.Renamer
+import Tip.Utils.Rename (renameWith,disambig)
+import Tip.Rename
 import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
 import Data.Char

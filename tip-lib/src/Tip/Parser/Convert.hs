@@ -6,8 +6,8 @@ import Tip.Core          as T -- ... to T
 import Tip.Pretty
 import Tip.Pretty.SMT
 
-import Tip.Utils.Haskell   (HsVar(..))
-import Tip.Utils.ToHaskell (HaskellVar(..))
+import Tip.Haskell.Repr      (HsVar(..))
+import Tip.Haskell.Translate (HaskellVar(..))
 
 import Text.PrettyPrint
 import Control.Applicative

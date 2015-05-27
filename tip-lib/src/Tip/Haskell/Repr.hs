@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | A representation of Haskell programs
-module Tip.Utils.Haskell where
+module Tip.Haskell.Repr where
 
 import Text.PrettyPrint
 import Tip.Pretty
@@ -10,7 +10,7 @@ import Data.Traversable (Traversable)
 
 -- | In instance declarations, you cannot write qualified variables,
 --   but need to write them unqualified. As an example, the mempty part
---   here  is incorrect:
+--   here is incorrect:
 --
 -- @
 -- instance Data.Monoid.Monoid T where
@@ -29,16 +29,16 @@ data Decls a = Decls [Decl a]
 
 data Decl a
   = TySig a
-          [Type a] {-^ class contexts -}
+          [Type a] {- class contexts -}
           (Type a)
   | FunDecl a [([Pat a],Expr a)]
-  | DataDecl a               {-^ type constructor name -}
-             [a]             {-^ type variables -}
-             [(a,[Type a])]  {-^ constructors -}
-             [a]             {-^ instance derivings -}
-  | InstDecl [Type a] {-^ context -}
-             (Type a) {-^ head -}
-             [Decl a] {-^ declarations (associated types and fun decls) -}
+  | DataDecl a               {- type constructor name -}
+             [a]             {- type variables -}
+             [(a,[Type a])]  {- constructors -}
+             [a]             {- instance derivings -}
+  | InstDecl [Type a] {- context -}
+             (Type a) {- head -}
+             [Decl a] {- declarations (associated types and fun decls) -}
   | TypeDef (Type a) (Type a)
   | Decl a `Where` [Decl a]
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)

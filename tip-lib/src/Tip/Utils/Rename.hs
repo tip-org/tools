@@ -1,5 +1,5 @@
 {-# LANGUAGE ViewPatterns, FlexibleContexts #-}
-module Tip.Utils.Renamer where
+module Tip.Utils.Rename where
 
 import Control.Monad.State
 import Control.Monad.Reader

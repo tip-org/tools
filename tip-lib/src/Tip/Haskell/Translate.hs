@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
-module Tip.Utils.ToHaskell where
+module Tip.Haskell.Translate where
 
-import Tip.Utils.Haskell as H
+import Tip.Haskell.Repr as H
 import Tip.Core as T hiding (Formula(..))
 import qualified Tip.Core as T
 

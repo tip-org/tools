@@ -1,7 +1,7 @@
 module Tip.Pretty.Haskell where
 
-import Tip.Utils.Haskell
-import Tip.Utils.ToHaskell
+import Tip.Haskell.Repr
+import Tip.Haskell.Translate
 import Tip.Core
 import Tip.Pretty
 import Text.PrettyPrint

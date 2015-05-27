@@ -15,7 +15,7 @@ import Tip.Simplify
 import Tip.Lint
 import Tip.Passes
 
-import Tip.Utils.Renamer
+import Tip.Utils.Rename
 
 import Tip.Pretty
 import Tip.Pretty.SMT as SMT
