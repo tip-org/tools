@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Tip.Pretty.Haskell where
+module Tip.Pretty.Haskell (module Tip.Pretty.Haskell, RenameMap) where
 
 import Tip.Haskell.Repr
 import Tip.Haskell.Translate
@@ -14,7 +14,7 @@ import Data.Map (Map)
 ppTheory :: Name a => T.Theory a -> Doc
 ppTheory = fst . ppTheoryWithRenamings
 
-ppTheoryWithRenamings :: Name a => T.Theory a -> (Doc,Map (HsId a) (HsId String))
+ppTheoryWithRenamings :: Name a => T.Theory a -> (Doc,RenameMap a)
 ppTheoryWithRenamings = fst_pp . renameDecls . addHeader . addImports . trTheory
   where fst_pp (x,y) = (pp x,y)
 

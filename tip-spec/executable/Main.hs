@@ -5,7 +5,7 @@ import System.Environment
 import Tip.QuickSpec
 import Tip.Parser (parse)
 
-import QuickSpec (quickSpec)
+import QuickSpec (choppyQuickSpec)
 
 main :: IO ()
 main =
@@ -20,7 +20,7 @@ handle es s =
   case parse s of
     Left err  -> error $ "Parse failed: " ++ err
     Right thy ->
-      do (sig,_) <- theorySignature thy
-         quickSpec sig
+      do ((chops,sig),_) <- theorySignature thy
+         choppyQuickSpec chops sig
          return ()
 

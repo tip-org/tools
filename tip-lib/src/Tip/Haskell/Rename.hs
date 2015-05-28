@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
-module Tip.Haskell.Rename (renameDecls, isOperator) where
+module Tip.Haskell.Rename (renameDecls, isOperator, RenameMap) where
 
 #include "errors.h"
 import Tip.Haskell.Repr
@@ -18,7 +18,9 @@ import Data.Char
 
 import qualified Data.Foldable as F
 
-renameDecls :: forall a . (Ord a,PrettyVar a) => Decls (HsId a) -> (Decls (HsId String),Map (HsId a) (HsId String))
+type RenameMap a = Map (HsId a) (HsId String)
+
+renameDecls :: forall a . (Ord a,PrettyVar a) => Decls (HsId a) -> (Decls (HsId String),RenameMap a)
 renameDecls ds = runRenameM suggest blocks M.empty (rename ds)
   where
   blocks = map Other (keywords ++ map snd hsBuiltins ++ exacts)

@@ -1,19 +1,20 @@
-module Tip.QuickSpec where
+module Tip.QuickSpec (module Tip.QuickSpec, RenameMap) where
 
 import Tip.Pretty.Haskell
 import Tip.Fresh (Name)
 import Tip.Haskell.Translate
 import Tip.Core (Theory)
 
-import QuickSpec.Signature (Signature)
+import QuickSpec (Signature, Constant)
+
 import Language.Haskell.Interpreter
 import System.FilePath
 import System.Directory
 import System.IO.Temp
 
-import Data.Map (Map)
+type ChoppedSignature = ([(Constant,[Int])],Signature)
 
-theorySignature :: Name a => Theory a -> IO (Signature,Map (HsId a) (HsId String))
+theorySignature :: Name a => Theory a -> IO (ChoppedSignature,RenameMap a)
 theorySignature thy =
   fmap (either (error . show) id) $
   withSystemTempDirectory "tip-spec" $
@@ -24,7 +25,7 @@ theorySignature thy =
          setCurrentDirectory dir
          runInterpreter $
            do loadModules ["A"]
-              setImports ["A","QuickSpec.Signature"]
-              sig <- interpret "sig" (undefined :: QuickSpec.Signature.Signature)
+              setImports ["A","QuickSpec.Signature","QuickSpec.Term","Prelude"]
+              sig <- interpret "sig" (undefined :: ChoppedSignature)
               return (sig,rename_map)
 

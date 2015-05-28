@@ -13,6 +13,8 @@ import Tip.Pretty
 import Tip.Utils
 import Tip.Scope
 
+import Tip.CallGraph
+
 import Control.Monad
 
 import qualified Data.Foldable as F
@@ -272,39 +274,62 @@ typeOfBuiltin b = case b of
 makeSig :: forall a . (PrettyVar a,Ord a) => Theory (HsId a) -> Decl (HsId a)
 makeSig thy@Theory{..} =
   funDecl (Exact "sig") [] $
-    Apply (quickSpec "signature") [] `Record`
-      [ (quickSpec "constants", List
-           [ Apply (quickSpec "constant")
-               [H.String f,Apply f [] ::: qsType t]
-           | (f,t) <- constants ])
-      , (quickSpec "instances", List
-           [ Apply (quickSpec ("inst" ++ concat [ show (length tys) | length tys >= 2 ]))
-               [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
-                 H.TyCon (quickSpec ":-") [TyTup (map (cl c1) tys),cl c2 (H.TyCon t tys)]]
-           | (t,n) <- type_univ
-           , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
-                          (feat "Enumerable", feat "Enumerable"),
-                          (feat "Enumerable",quickCheck "Arbitrary")]
-           , let cl c x = H.TyCon c [x]
-           , let tys = map trType (qsTvs n)
-           ])
+    Tup
+      [ List
+          [ Tup
+              [ constant_decl ft
+              , List
+                  [ H.Int num ::: H.TyCon (prelude "Int") []
+                  | (members,num) <- cg `zip` [0..]
+                  , f `elem` members
+                  ]
+              ]
+          | ft@(f,_) <- func_constants
+          ]
+      , Apply (quickSpec "signature") [] `Record`
+          [ (quickSpec "constants",
+               List
+                 (map constant_decl
+                   (ctor_constants ++ builtin_constants)))
+          , (quickSpec "instances", List
+               [ Apply (quickSpec ("inst" ++ concat [ show (length tys) | length tys >= 2 ]))
+                   [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
+                     H.TyCon (quickSpec ":-") [TyTup (map (cl c1) tys),cl c2 (H.TyCon t tys)]]
+               | (t,n) <- type_univ
+               , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
+                              (feat "Enumerable", feat "Enumerable"),
+                              (feat "Enumerable",quickCheck "Arbitrary")]
+               , let cl c x = H.TyCon c [x]
+               , let tys = map trType (qsTvs n)
+               ])
+          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
+          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
+          ]
       ]
   where
     scp = scope thy
 
+    cg = map (map func_name) (flatCallGraph (CallGraphOpts True False) thy)
+
     poly_type (PolyType _ args res) = args :=>: res
 
-    constants =
+    constant_decl (f,t) =
+      Apply (quickSpec "constant") [H.String f,Apply f [] ::: qsType t]
+
+    ctor_constants =
       [ (f,poly_type (globalType g))
-      | (f,g) <- M.toList (globals scp)
-      , case g of
-          ConstructorInfo{} -> True
-          FunctionInfo{}    -> True
-          _                 -> False
-      ] ++
+      | (f,g@ConstructorInfo{}) <- M.toList (globals scp)
+      ]
+
+    builtin_constants =
       [ (prelude s,typeOfBuiltin b)
       | b <- theoryBuiltins thy
       , Just s <- [lookup b hsBuiltins]
+      ]
+
+    func_constants =
+      [ (f,poly_type (globalType g))
+      | (f,g@FunctionInfo{}) <- M.toList (globals scp)
       ]
 
     type_univ =
