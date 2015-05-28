@@ -31,11 +31,11 @@ handle es s =
     Right thy -> do
       let passes :: [StandardPass]
           (passes,other) = parsePasses es
-      let pp f = fmap (show . f)
+      let fmap_pp f = fmap (show . f)
       let show_passes c = fmap (\ s -> c ++ show passes ++ "\n" ++ s)
       let pipeline
             | "cvc4" `elem` other =
-                pp SMT.ppTheory .
+                fmap_pp SMT.ppTheory .
                 runPasses
                   [ LambdaLift, AxiomatizeLambdas
                   , CollapseEqual, RemoveAliases
@@ -43,8 +43,8 @@ handle es s =
                   , SimplifyGently, NegateConjecture
                   , SimplifyGently
                   ]
-            | "hs" `elem` other       = fmap show . HS.ppTheory <=< runPasses passes
-            | "why3" `elem` other     = pp Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
-            | "isabelle" `elem` other = pp Isabelle.ppTheory . runPasses passes
-            | otherwise               = show_passes "; " . pp SMT.ppTheory .  runPasses passes
+            | "hs" `elem` other       = fmap_pp HS.ppTheory . runPasses passes
+            | "why3" `elem` other     = fmap_pp Why3.ppTheory . runPasses (passes ++ [CSEMatchWhy3])
+            | "isabelle" `elem` other = fmap_pp Isabelle.ppTheory . runPasses passes
+            | otherwise               = show_passes "; " . fmap_pp SMT.ppTheory . runPasses passes
       putStrLn (freshPass pipeline (lint "parse" thy))
