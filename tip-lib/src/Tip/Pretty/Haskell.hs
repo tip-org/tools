@@ -9,8 +9,14 @@ import Tip.Pretty
 import Tip.Fresh
 import Text.PrettyPrint
 
-ppTheory :: (Name a,PrettyVar a) => T.Theory a -> Fresh Doc
-ppTheory = fmap (pp . renameDecls . addHeader . addImports) . trTheory
+import Data.Map (Map)
+
+ppTheory :: (Name a,PrettyVar a) => T.Theory a -> Doc
+ppTheory = fst . ppTheoryWithRenamings
+
+ppTheoryWithRenamings :: (Name a,PrettyVar a) => T.Theory a -> (Doc,Map (HsId a) (HsId String))
+ppTheoryWithRenamings = fst_pp . renameDecls . addHeader . addImports . trTheory
+  where fst_pp (x,y) = (pp x,y)
 
 -- * Pretty printing
 
@@ -49,8 +55,8 @@ isOp :: PrettyHsVar a => a -> Bool
 isOp = isOperator . varUnqual
 
 instance PrettyVar a => PrettyHsVar (HsId a) where
-  varUnqual (Qualified _ s) = s
-  varUnqual v               = varStr v
+  varUnqual (Qualified _ _ s) = s
+  varUnqual v                 = varStr v
 
 tuple ds = parens (fsep (punctuate "," ds))
 
@@ -130,7 +136,10 @@ instance PrettyHsVar a => Pretty (Decl a) where
         TH e -> pp e
         Module s -> "module" <+> text s <+> "where"
         LANGUAGE s -> "{-#" <+> "LANGUAGE" <+> text s <+> "#-}"
-        QualImport s -> "import" <+> "qualified" <+> text s
+        QualImport m ms -> "import" <+> "qualified" <+> text m $\
+                             case ms of
+                                Nothing -> empty
+                                Just s  -> "as" <+> text s
 
 instance PrettyHsVar a => Pretty (Decls a) where
   pp (Decls ds) = vcat (map pp ds)

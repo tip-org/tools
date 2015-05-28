@@ -10,7 +10,6 @@ import Tip.Haskell.Repr as H
 import Tip.Core as T hiding (Formula(..),globals)
 import qualified Tip.Core as T
 import Tip.Pretty
-import Tip.Fresh
 import Tip.Utils
 import Tip.Scope
 
@@ -25,65 +24,66 @@ import qualified Data.Map as M
 import Data.Generics.Geniplate
 
 prelude :: String -> HsId a
-prelude = Qualified "Prelude"
+prelude = Qualified "Prelude" (Just "P")
 
 tipDSL :: String -> HsId a
-tipDSL = Qualified "Tip"
+tipDSL = Qualified "Tip" Nothing
 
 quickCheck :: String -> HsId a
-quickCheck = Qualified "Test.QuickCheck"
+quickCheck = Qualified "Test.QuickCheck" (Just "QC")
 
 quickCheckAll :: String -> HsId a
-quickCheckAll = Qualified "Test.QuickCheck.All"
+quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 
 quickSpec :: String -> HsId a
-quickSpec = Qualified "QuickSpec"
+quickSpec = Qualified "QuickSpec" (Just "QS")
 
 feat :: String -> HsId a
-feat = Qualified "Test.Feat"
+feat = Qualified "Test.Feat" (Just "F")
 
 typeable :: String -> HsId a
-typeable = Qualified "Data.Typeable"
+typeable = Qualified "Data.Typeable" (Just "T")
 
 data HsId a
-    = Qualified String String
+    = Qualified
+         { qual_module       :: String
+         , qual_module_short :: Maybe String
+         , qual_func         :: String
+         }
+    -- ^ A qualified import
+    | Exact String
+    -- ^ The current module defines something with this very important name
     | Other a
+    -- ^ From the theory
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 instance PrettyVar a => PrettyVar (HsId a) where
-  varStr (Qualified m s) = m ++ "." ++ s
-  varStr (Other x)       = varStr x
-
-instance Name a => Name (HsId a) where
-  fresh      = fmap Other fresh
-  freshNamed = fmap Other . freshNamed
-  getUnique Qualified{} = 0
-  getUnique (Other x)   = getUnique x
+  varStr (Qualified _ (Just m) s) = m ++ "." ++ s
+  varStr (Qualified m Nothing  s) = m ++ "." ++ s
+  varStr (Exact s) = s
+  varStr (Other x) = varStr x
 
 addHeader :: Decls a -> Decls a
 addHeader (Decls ds) =
     Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators"] ++ Module "A" : ds)
 
 addImports :: Ord a => Decls (HsId a) -> Decls (HsId a)
-addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" : imps ++ ds)
+addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" Nothing : imps ++ ds)
   where
-  imps = usort [ QualImport m | Qualified m _ <- F.toList d ]
+  imps = usort [ QualImport m short | Qualified m short _ <- F.toList d ]
 
-trTheory :: Name a => Theory a -> Fresh (Decls (HsId a))
+trTheory :: (Ord a,PrettyVar a) => Theory a -> Decls (HsId a)
 trTheory = trTheory' . fmap Other
 
-trTheory' :: (a ~ HsId b,Name b) => Theory a -> Fresh (Decls a)
+trTheory' :: (a ~ HsId b,Ord b,PrettyVar b) => Theory a -> Decls a
 trTheory' thy@Theory{..} =
-  do asserts <- trAsserts thy_asserts
-     sig <- makeSig thy
-     return $
-       Decls $
-         concatMap trDatatype thy_datatypes ++
-         map trSort thy_sorts ++
-         map trSig thy_sigs ++
-         concatMap trFunc thy_funcs ++
-         asserts ++
-         [sig]
+  Decls $
+    concatMap trDatatype thy_datatypes ++
+    map trSort thy_sorts ++
+    map trSig thy_sigs ++
+    concatMap trFunc thy_funcs ++
+    trAsserts thy_asserts ++
+    [makeSig thy]
 
 trDatatype :: (a ~ HsId b) => Datatype a -> [Decl a]
 trDatatype (Datatype tc tvs cons) =
@@ -105,33 +105,33 @@ trSig :: (a ~ HsId b) => Signature a -> Decl a
 trSig (Signature _f _t) = error "trSig"
 
 trFunc :: (a ~ HsId b,Ord b) => Function a -> [Decl a]
-trFunc fn@Function{..}
-    = [ TySig func_name [] (trPolyType (funcType fn))
-      , FunDecl
-          func_name
-          [ (map trDeepPattern dps,trExpr Expr rhs)
-          | (dps,rhs) <- patternMatchingView func_args func_body
-          ]
+trFunc fn@Function{..} =
+  [ TySig func_name [] (trPolyType (funcType fn))
+  , FunDecl
+      func_name
+      [ (map trDeepPattern dps,trExpr Expr rhs)
+      | (dps,rhs) <- patternMatchingView func_args func_body
       ]
+  ]
 
-trAsserts :: (a ~ HsId b,Name b) => [T.Formula a] -> Fresh [Decl a]
+trAsserts :: a ~ HsId b => [T.Formula a] -> [Decl a]
 trAsserts fms =
-  do (names,decls) <- mapAndUnzipM trAssert fms
-     main <- freshNamed "main"
-     return $ decls ++
-       [ TH (Apply (prelude "return") [List []])
-       , funDecl main []
-           (mkDo [ Stmt (THSplice (Apply (quickCheckAll "polyQuickCheck")
-                                         [QuoteName name]))
-                 | name <- names ]
-                 Noop)
-       ]
+  let (names,decls) = unzip (zipWith trAssert [1..] fms)
+  in  decls ++
+        [ TH (Apply (prelude "return") [List []])
+        , funDecl (Exact "main") []
+            (mkDo [ Stmt (THSplice (Apply (quickCheckAll "polyQuickCheck")
+                                          [QuoteName name]))
+                  | name <- names ]
+                  Noop)
+        ]
 
-trAssert :: (a ~ HsId b,Name b) => T.Formula a -> Fresh (a,Decl a)
-trAssert (T.Formula r _ b) =
-  do prop_name <- freshNamed "prop"
-     return (prop_name,funDecl prop_name args (assume (trExpr Formula body)))
+trAssert :: a ~ HsId b => Int -> T.Formula a -> (a,Decl a)
+trAssert i (T.Formula r _ b) =
+  (prop_name,funDecl prop_name args (assume (trExpr Formula body)))
   where
+  prop_name | i == 1    = Exact "prop"
+            | otherwise = Exact ("prop" ++ show i)
   (args,body) =
     case b of
       Quant _ Forall lcls term -> (map lcl_name lcls,term)
@@ -246,10 +246,10 @@ typeOfBuiltin :: Builtin -> T.Type a
 typeOfBuiltin b = case b of
   And      -> bbb
   Or       -> bbb
-  Not      -> bbb
+  Not      -> bb
   Implies  -> bbb
-  Equal    -> bbb -- ?
-  Distinct -> bbb -- ?
+  Equal    -> iib -- TODO: equality could be used on other types than int
+  Distinct -> iib -- ditto
   IntAdd   -> iii
   IntSub   -> iii
   IntMul   -> iii
@@ -261,6 +261,7 @@ typeOfBuiltin b = case b of
   IntLe    -> iib
   _        -> __
   where
+  bb  = [boolType] :=>: boolType
   bbb = [boolType,boolType] :=>: boolType
   iii = [intType,intType] :=>: intType
   iib = [intType,intType] :=>: boolType
@@ -268,14 +269,9 @@ typeOfBuiltin b = case b of
 
 -- * QuickSpec signatures
 
-makeSig :: (Ord a,Name a) => Theory (HsId a) -> Fresh (Decl (HsId a))
-makeSig thy =
-  do sig_name <- freshNamed "sig"
-     return (makeSig' sig_name thy)
-
-makeSig' :: forall a . (PrettyVar a,Ord a) => HsId a -> Theory (HsId a) -> Decl (HsId a)
-makeSig' sig_name thy@Theory{..} =
-  funDecl sig_name [] $
+makeSig :: forall a . (PrettyVar a,Ord a) => Theory (HsId a) -> Decl (HsId a)
+makeSig thy@Theory{..} =
+  funDecl (Exact "sig") [] $
     Apply (quickSpec "signature") [] `Record`
       [ (quickSpec "constants", List
            [ Apply (quickSpec "constant")

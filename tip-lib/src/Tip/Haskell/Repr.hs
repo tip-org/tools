@@ -25,7 +25,7 @@ data Decl a
   | TH (Expr a)
   | Module String
   | LANGUAGE String
-  | QualImport String
+  | QualImport String (Maybe String)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 funDecl :: a -> [a] -> Expr a -> Decl a

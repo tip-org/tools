@@ -11,13 +11,24 @@ import Tip.Pretty
 import Data.Set (Set)
 import qualified Data.Set as S
 
+import Data.Map (Map)
+import qualified Data.Map as M
+
 import Data.Char
 
-renameDecls :: forall a . (Ord a,PrettyVar a) => Decls (HsId a) -> Decls (HsId String)
-renameDecls ds = renameWithBlocks (map Other (keywords ++ map snd hsBuiltins)) suggest ds
+import qualified Data.Foldable as F
+
+renameDecls :: forall a . (Ord a,PrettyVar a) => Decls (HsId a) -> (Decls (HsId String),Map (HsId a) (HsId String))
+renameDecls ds = runRenameM suggest blocks M.empty (rename ds)
   where
+  blocks = map Other (keywords ++ map snd hsBuiltins ++ exacts)
+
+  exacts :: [String]
+  exacts = [ s | Exact s <- F.toList ds ]
+
   suggest :: HsId a -> [HsId String]
-  suggest (Qualified m s) = Qualified m s:__
+  suggest (Qualified m ms s) = Qualified m ms s:__
+  suggest (Exact s) = Exact s:__
   suggest i@(Other s)
     | i `S.member` us = map (Other . upper) (disambigHs (makeUniform (varStr s)))
     | otherwise       = map (Other . lower) (disambigHs (makeUniform (varStr s)))

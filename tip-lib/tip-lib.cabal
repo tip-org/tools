@@ -2,7 +2,7 @@ name:                tip-lib
 version:             0.1
 synopsis:            tons of inductive problems - support library
 -- description:
-homepage:            https://github.com/danr/tip
+homepage:            https://github.com/tip-org/tools
 license:             BSD3
 license-file:        LICENSE
 author:              Dan Rosén
