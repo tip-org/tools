@@ -11,10 +11,10 @@ import Text.PrettyPrint
 
 import Data.Map (Map)
 
-ppTheory :: (Name a,PrettyVar a) => T.Theory a -> Doc
+ppTheory :: Name a => T.Theory a -> Doc
 ppTheory = fst . ppTheoryWithRenamings
 
-ppTheoryWithRenamings :: (Name a,PrettyVar a) => T.Theory a -> (Doc,Map (HsId a) (HsId String))
+ppTheoryWithRenamings :: Name a => T.Theory a -> (Doc,Map (HsId a) (HsId String))
 ppTheoryWithRenamings = fst_pp . renameDecls . addHeader . addImports . trTheory
   where fst_pp (x,y) = (pp x,y)
 
