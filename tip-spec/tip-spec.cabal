@@ -1,0 +1,39 @@
+name:                tip-spec
+version:             0.1
+synopsis:            running QuickSpec on tip .smt2 files
+-- description:
+homepage:            https://github.com/tip-org/tools
+license:             BSD3
+license-file:        LICENSE
+author:              Dan Rosén
+maintainer:          danr@chalmers.se
+category:            Theorem Provers
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+    Tip.QuickSpec
+
+  hs-source-dirs:      src
+  include-dirs:        src
+  ghc-options:         -w
+  default-language:    Haskell2010
+  build-depends:       base >=4 && <5,
+                       containers,
+                       temporary,
+                       filepath,
+                       directory,
+                       tip-lib,
+                       testing-feat,
+                       hint,
+                       quickspec
+
+executable tip-spec
+  main-is:             executable/Main.hs
+  ghc-options:         -dynamic
+  default-language:    Haskell2010
+  build-depends:       base,
+                       tip-lib,
+                       tip-spec,
+                       quickspec
