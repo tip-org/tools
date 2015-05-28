@@ -246,10 +246,10 @@ typeOfBuiltin :: Builtin -> T.Type a
 typeOfBuiltin b = case b of
   And      -> bbb
   Or       -> bbb
-  Not      -> bbb
+  Not      -> bb
   Implies  -> bbb
-  Equal    -> bbb -- ?
-  Distinct -> bbb -- ?
+  Equal    -> iib -- TODO: equality could be used on other types than int
+  Distinct -> iib -- ditto
   IntAdd   -> iii
   IntSub   -> iii
   IntMul   -> iii
@@ -261,6 +261,7 @@ typeOfBuiltin b = case b of
   IntLe    -> iib
   _        -> __
   where
+  bb  = [boolType] :=>: boolType
   bbb = [boolType,boolType] :=>: boolType
   iii = [intType,intType] :=>: intType
   iib = [intType,intType] :=>: boolType
