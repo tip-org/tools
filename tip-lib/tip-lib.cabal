@@ -37,6 +37,7 @@ library
     Tip.Haskell.Repr
     Tip.Haskell.Translate
     Tip.Haskell.Rename
+    Tip.CallGraph
   other-modules:
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.Lift

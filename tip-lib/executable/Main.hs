@@ -8,6 +8,8 @@ import Tip.Pretty.SMT as SMT
 import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
 import Tip.Pretty.Haskell as HS
+import Tip.Pretty
+import Tip.CallGraph
 
 import Tip.Passes
 import Tip.Lint
