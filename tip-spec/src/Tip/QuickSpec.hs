@@ -1,4 +1,6 @@
-module Tip.QuickSpec (module Tip.QuickSpec, RenameMap) where
+module Tip.QuickSpec (module Tip.QuickSpec, RenameMap, module Tip.QuickSpec.Translate) where
+
+import Tip.QuickSpec.Translate -- for reexport
 
 import Tip.Pretty.Haskell
 import Tip.Fresh (Name)

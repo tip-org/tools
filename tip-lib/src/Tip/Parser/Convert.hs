@@ -53,7 +53,7 @@ instance Name Id where
     = do u <- fresh
          return (Id n u Nothing)
 
-  fresh = freshNamed "fresh"
+  fresh = freshNamed "x"
 
   refresh = refreshNamed ""
 

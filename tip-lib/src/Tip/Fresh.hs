@@ -18,7 +18,11 @@ newtype Fresh a = Fresh (State Int a)
 -- | Continues making unique names after the highest
 --   numbered name in a foldable value.
 freshPass :: (Foldable f,Name a) => (f a -> Fresh b) -> f a -> b
-f `freshPass` x = runFreshFrom (succ (maximumOn getUnique x)) (f x)
+f `freshPass` x = f x `freshFrom` x
+
+-- | Run fresh from starting from the greatest unique in a structure
+freshFrom :: (Foldable f,Name b) => Fresh a -> f b -> a
+freshFrom m x = runFreshFrom (succ (maximumOn getUnique x)) m
 
 -- | Run fresh, starting from zero
 runFresh :: Fresh a -> a

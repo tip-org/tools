@@ -14,6 +14,8 @@ cabal-version:       >=1.10
 library
   exposed-modules:
     Tip.QuickSpec
+  other-modules:
+    Tip.QuickSpec.Translate
 
   hs-source-dirs:      src
   include-dirs:        src
@@ -27,7 +29,8 @@ library
                        tip-lib,
                        testing-feat,
                        hint,
-                       quickspec
+                       quickspec,
+                       term-rewriting
 
 executable tip-spec
   main-is:             executable/Main.hs

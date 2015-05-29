@@ -27,6 +27,7 @@ renameDecls ds = runRenameM suggest blocks M.empty (rename ds)
 
   exacts :: [String]
   exacts = [ s | Exact s <- F.toList ds ]
+        ++ [ s | Qualified _ _ s <- F.toList ds ]
 
   suggest :: HsId a -> [HsId String]
   suggest (Qualified m ms s) = Qualified m ms s:__

@@ -213,8 +213,7 @@ trType (ts :=>: t)     = foldr TyArr (trType t) (map trType ts)
 trType (BuiltinType b) = trBuiltinType b
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
-trBuiltinType Integer = H.TyCon (prelude "Int") []
-trBuiltinType Boolean = H.TyCon (prelude "Bool") []
+trBuiltinType t | Just s <- lookup t hsBuiltinTys = H.TyCon (prelude s) []
 
 -- ignores the type variables
 trPolyType :: (a ~ HsId b) => T.PolyType a -> H.Type a
@@ -224,6 +223,12 @@ withBool :: (a ~ HsId b) => (a -> [c] -> d) -> Bool -> d
 withBool k b = k (prelude (if b then "True" else "False")) []
 
 -- * Builtins
+
+hsBuiltinTys :: [(T.BuiltinType,String)]
+hsBuiltinTys =
+  [ (Integer, "Int")
+  , (Boolean, "Bool")
+  ]
 
 hsBuiltins :: [(T.Builtin,String)]
 hsBuiltins =
@@ -291,15 +296,13 @@ makeSig thy@Theory{..} =
                List
                  (map constant_decl
                    (ctor_constants ++ builtin_constants)))
-          , (quickSpec "instances", List
-               [ Apply (quickSpec ("inst" ++ concat [ show (length tys) | length tys >= 2 ]))
-                   [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
-                     H.TyCon (quickSpec ":-") [TyTup (map (cl c1) tys),cl c2 (H.TyCon t tys)]]
+          , (quickSpec "instances", List $
+               [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
+               [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
                               (feat "Enumerable", feat "Enumerable"),
                               (feat "Enumerable",quickCheck "Arbitrary")]
-               , let cl c x = H.TyCon c [x]
                , let tys = map trType (qsTvs n)
                ])
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
@@ -307,6 +310,13 @@ makeSig thy@Theory{..} =
           ]
       ]
   where
+    mk_inst ctx res =
+      Apply (quickSpec ("inst" ++ concat [ show (length ctx) | length ctx >= 2 ]))
+                   [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
+                     H.TyCon (quickSpec ":-") [TyTup ctx,res] ]
+
+    mk_class c x = H.TyCon c [x]
+
     scp = scope thy
 
     cg = map (map func_name) (flatCallGraph (CallGraphOpts True False) thy)
