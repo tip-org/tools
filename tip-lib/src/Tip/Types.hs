@@ -54,7 +54,7 @@ data Builtin
   | Or
   | Not
   | Implies
-  | Equal    -- might have to add a (Type a) argument later
+  | Equal
   | Distinct
   | IntAdd
   | IntSub
@@ -66,6 +66,16 @@ data Builtin
   | IntLt
   | IntLe
   deriving (Eq,Ord,Show)
+
+intBuiltin :: Builtin -> Bool
+intBuiltin b = b `elem` [IntAdd,IntSub,IntMul,IntDiv,IntMod,IntGt,IntGe,IntLt,IntLe]
+
+litBuiltin :: Builtin -> Bool
+litBuiltin Lit{} = True
+litBuiltin _     = False
+
+eqRelatedBuiltin :: Builtin -> Bool
+eqRelatedBuiltin b = b `elem` [Equal,Distinct]
 
 logicalBuiltin :: Builtin -> Bool
 logicalBuiltin b = b `elem` [And,Or,Implies,Equal,Distinct,Not]

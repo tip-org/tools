@@ -60,6 +60,8 @@ instance PrettyVar a => PrettyHsVar (HsId a) where
 
 tuple ds = parens (fsep (punctuate "," ds))
 
+csv = sep . punctuate ","
+
 instance PrettyHsVar a => Pretty (Expr a) where
   pp e =
     case e of
@@ -69,7 +71,7 @@ instance PrettyHsVar a => Pretty (Expr a) where
       Do ss e    -> "do" <+> (vcat (map pp (ss ++ [Stmt e])))
       Let x e b  -> "let" <+> (ppHsVar x <+> "=" $\ pp e) $\ "in" <+> pp b
       Lam ps e   -> "\\" <+> fsep (map pp ps) <+> "->" $\ pp e
-      List es    -> brackets (fsep (punctuate "," (map pp es)))
+      List es    -> brackets (csv (map pp es))
       Tup es     -> tuple (map pp es)
       String s   -> "\"" <> ppUnqual s <> "\""
       Case e brs -> ("case" <+> pp e <+> "of") $\ vcat [ (ppPat 0 p <+> "->") $\ pp rhs | (p,rhs) <- brs ]

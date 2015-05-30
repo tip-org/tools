@@ -13,6 +13,7 @@ import qualified QuickSpec.Signature as QS
 
 import Tip.Core
 import Tip.Fresh
+import Tip.Utils
 
 main :: IO ()
 main =
@@ -30,6 +31,6 @@ handle es s =
       do ((chops,sig),rm) <- theorySignature thy
          sig' <- choppyQuickSpec chops sig
          let bm  = backMap thy rm
-         let fms = mapM (trProperty bm) (QS.background sig') `freshFrom` thy
+         let fms = mapM (trProperty bm) (usort (QS.background sig')) `freshFrom` thy
          print (SMT.ppTheory (thy { thy_asserts = thy_asserts thy ++ fms }))
 

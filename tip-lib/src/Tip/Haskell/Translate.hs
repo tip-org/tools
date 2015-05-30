@@ -25,6 +25,8 @@ import qualified Data.Map as M
 
 import Data.Generics.Geniplate
 
+import Data.List (nub,partition)
+
 prelude :: String -> HsId a
 prelude = Qualified "Prelude" (Just "P")
 
@@ -220,7 +222,7 @@ trPolyType :: (a ~ HsId b) => T.PolyType a -> H.Type a
 trPolyType (PolyType _ ts t) = trType (ts :=>: t)
 
 withBool :: (a ~ HsId b) => (a -> [c] -> d) -> Bool -> d
-withBool k b = k (prelude (if b then "True" else "False")) []
+withBool k b = k (prelude (show b)) []
 
 -- * Builtins
 
@@ -283,19 +285,25 @@ makeSig thy@Theory{..} =
       [ List
           [ Tup
               [ constant_decl ft
-              , List
-                  [ H.Int num ::: H.TyCon (prelude "Int") []
-                  | (members,num) <- cg `zip` [0..]
-                  , f `elem` members
-                  ]
+              , List $
+                  if use_cg
+                    then
+                      [ int_lit num
+                      | (members,num) <- cg `zip` [0..]
+                      , f `elem` members
+                      ]
+                    else
+                      [int_lit 0]
+
               ]
           | ft@(f,_) <- func_constants
           ]
       , Apply (quickSpec "signature") [] `Record`
           [ (quickSpec "constants",
-               List
-                 (map constant_decl
-                   (ctor_constants ++ builtin_constants)))
+               List $
+                 builtin_decls ++
+                 map constant_decl
+                   (ctor_constants ++ builtin_constants))
           , (quickSpec "instances", List $
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
@@ -310,6 +318,10 @@ makeSig thy@Theory{..} =
           ]
       ]
   where
+    use_cg = True
+
+    int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
+
     mk_inst ctx res =
       Apply (quickSpec ("inst" ++ concat [ show (length ctx) | length ctx >= 2 ]))
                    [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
@@ -326,15 +338,15 @@ makeSig thy@Theory{..} =
     constant_decl (f,t) =
       Apply (quickSpec "constant") [H.String f,Apply f [] ::: qsType t]
 
+    int_lit_decl x =
+      Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x]
+
+    bool_lit_decl b =
+      Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b]
+
     ctor_constants =
       [ (f,poly_type (globalType g))
       | (f,g@ConstructorInfo{}) <- M.toList (globals scp)
-      ]
-
-    builtin_constants =
-      [ (prelude s,typeOfBuiltin b)
-      | b <- theoryBuiltins thy
-      , Just s <- [lookup b hsBuiltins]
       ]
 
     func_constants =
@@ -346,6 +358,48 @@ makeSig thy@Theory{..} =
       [ (data_name, length data_tvs)
       | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
       ]
+
+    -- builtins
+
+    (builtin_lits,builtin_funs) =
+      partition litBuiltin $
+        usort
+          [ b
+          | Builtin b :@: args <- universeBi thy
+
+          -- only count equality if argument is int:
+          , let is_int = case args of
+                           a1:_ -> exprType a1 == (intType :: T.Type (HsId a))
+                           _    -> __
+          , case b of
+              Equal    -> is_int
+              Distinct -> is_int
+              _         -> True
+          ]
+
+    used_builtin_types :: [BuiltinType]
+    used_builtin_types =
+      usort [ t | BuiltinType t :: T.Type (HsId a) <- universeBi thy ]
+
+    bool_used = Boolean `elem` used_builtin_types
+    int_used  = -- Integer `elem` used_builtin_types
+                or [ op `elem` builtin_funs | op <- [IntAdd,IntSub,IntMul,IntDiv,IntMod] ]
+
+    builtin_decls
+      =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
+      ++ [ int_lit_decl x  | int_used,  x <- [0,1] ++
+                                             [ x
+                                             | Lit (T.Int x) <- builtin_lits ]]
+
+    builtin_constants
+      =  [ (prelude s,typeOfBuiltin b)
+         | b <- nub $
+                [ b      | bool_used, b <- [And,Or,Not] ]
+             -- [ IntAdd | int_used ]
+             -- [ Equal  | bool_used && int_used ]
+             ++ [ b | b <- builtin_funs, intBuiltin b || eqRelatedBuiltin b ]
+         , Just s <- [lookup b hsBuiltins]
+         ]
 
 qsType :: Ord a => T.Type (HsId a) -> H.Type (HsId a)
 qsType t = trType (applyType tvs (qsTvs (length tvs)) t)

@@ -64,10 +64,14 @@ backMap thy rm =
   back_entry :: HsId a -> Maybe (BackEntry (V a))
   back_entry i =
     case i of
+      Exact s
+        | [(x,"")] <- reads s -> Just (Head __ __ (\ _ -> Tip.Builtin (Tip.Lit (Tip.Int x))))
+
       Qualified "Prelude" _ "id" -> Just (Head __ __ (\ _ -> Tip.Builtin Tip.At))
       Qualified "Prelude" _ s
         | Just ty <- rlookup s hsBuiltinTys -> Just (Type (\ [] -> Tip.BuiltinType ty))
         | Just bu <- rlookup s hsBuiltins   -> Just (Head [] (typeOfBuiltin bu) (\ [] -> Tip.Builtin bu))
+        | [(b,"")] <- reads s               -> Just (Head __ __ (\ _ -> Tip.Builtin (Tip.Lit (Tip.Bool b))))
 
       Other f
         | Just g <- lookupGlobal f scp
