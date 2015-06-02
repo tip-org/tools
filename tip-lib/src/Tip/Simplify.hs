@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RecordWildCards, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, RecordWildCards, ScopedTypeVariables, ViewPatterns, PatternGuards #-}
 module Tip.Simplify where
 
 import Tip.Core
@@ -54,6 +54,9 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
     {-# SPECIALISE aux :: Expr a -> WriterT Any Fresh (Expr a) #-}
     aux :: forall f. TransformBiM (WriterT Any Fresh) (Expr a) (f a) => f a -> WriterT Any Fresh (f a)
     aux = transformBiM $ \e0 ->
+      let
+        share e1 | e1 /= e0  = return e1
+                 | otherwise = return e0 in
       case e0 of
         Builtin At :@: (Lam vars body:args) ->
           hooray $
@@ -111,6 +114,15 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Builtin Equal :@: [t, Builtin (Lit (Bool x)) :@: []]
           | x -> hooray $ return t
           | otherwise -> hooray $ return $ neg t
+
+        Builtin Equal :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s == t))
+
+        Builtin Distinct :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s /= t))
+
+        Builtin Not     :@: [e]      -> share (neg e)
+        Builtin And     :@: [e1, e2] -> share (e1 /\ e2)
+        Builtin Or      :@: [e1, e2] -> share (e1 \/ e2)
+        Builtin Implies :@: [e1, e2] -> share (e1 ==> e2)
 
         Builtin Equal :@: [t, u] ->
           case exprType t of

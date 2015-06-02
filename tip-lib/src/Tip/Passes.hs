@@ -10,6 +10,10 @@ module Tip.Passes
   , uncurryTheory
   , negateConjecture
 
+  -- * Boolean builtins
+  , ifToBoolOp
+  , boolOpToIf
+
   -- * Match expressions
   , addMatch
   , commuteMatch
@@ -43,6 +47,7 @@ import Tip.Pass.RemoveNewtype
 import Tip.Pass.NegateConjecture
 import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
+import Tip.Pass.Booleans
 
 import Tip.Fresh
 
@@ -55,6 +60,7 @@ data StandardPass
   | RemoveNewtype
   | UncurryTheory
   | NegateConjecture
+  | IfToBoolOp
   | AddMatch
   | CommuteMatch
   | RemoveMatch
@@ -75,6 +81,7 @@ instance Pass StandardPass where
     RemoveNewtype     -> return . removeNewtype
     UncurryTheory     -> uncurryTheory
     NegateConjecture  -> negateConjecture
+    IfToBoolOp        -> return . ifToBoolOp
     AddMatch          -> addMatch
     CommuteMatch      -> commuteMatch
     RemoveMatch       -> removeMatch

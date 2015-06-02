@@ -41,6 +41,7 @@ library
   other-modules:
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.Lift
+    Tip.Pass.Booleans
     Tip.Pass.CommuteMatch
     Tip.Pass.AddMatch
     Tip.Pass.CSEMatch

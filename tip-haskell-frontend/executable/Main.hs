@@ -42,6 +42,7 @@ main = do
               , UncurryTheory
               , CommuteMatch
               , SimplifyGently
+              , IfToBoolOp
               , RemoveAliases, CollapseEqual
               , CommuteMatch
               , SimplifyGently
