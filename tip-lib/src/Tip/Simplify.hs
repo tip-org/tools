@@ -124,12 +124,16 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Builtin Or      :@: [e1, e2] -> share (e1 \/ e2)
         Builtin Implies :@: [e1, e2] -> share (e1 ==> e2)
 
-        Builtin Equal :@: [t, u] ->
-          case exprType t of
-            args :=>: _ -> hooray $ do
-              lcls <- lift (mapM freshLocal args)
-              aux $
-                mkQuant Forall lcls (apply t (map Lcl lcls) === apply u (map Lcl lcls))
+        Builtin Equal :@: [e1, e2] ->
+          case exprType e1 of
+            t@(_ :=>: _) -> hooray $ go t e1 e2 []
+              where
+              go (args :=>: rest) u v lcls =
+                do more <- lift (mapM freshLocal args)
+                   go rest (apply u (map Lcl more))
+                           (apply v (map Lcl more))
+                           (lcls ++ more)
+              go _ u v lcls = return (mkQuant Forall lcls (u === v))
             _ -> return e0
 
         Gbl gbl@Global{..} :@: ts ->
