@@ -13,6 +13,7 @@ module Tip.Passes
   -- * Boolean builtins
   , ifToBoolOp
   , boolOpToIf
+  , theoryBoolOpToIf
 
   -- * Match expressions
   , addMatch
@@ -61,6 +62,7 @@ data StandardPass
   | UncurryTheory
   | NegateConjecture
   | IfToBoolOp
+  | BoolOpToIf
   | AddMatch
   | CommuteMatch
   | RemoveMatch
@@ -82,6 +84,7 @@ instance Pass StandardPass where
     UncurryTheory     -> uncurryTheory
     NegateConjecture  -> negateConjecture
     IfToBoolOp        -> return . ifToBoolOp
+    BoolOpToIf        -> return . theoryBoolOpToIf
     AddMatch          -> addMatch
     CommuteMatch      -> commuteMatch
     RemoveMatch       -> removeMatch

@@ -34,9 +34,12 @@ infixr 0 ===>
 e1 === e2 = Builtin Equal :@: [e1,e2]
 
 (=/=) :: Expr a -> Expr a -> Expr a
-e1 =/= e2 = neg (e1 === e2)
+e1 =/= e2 = Builtin Distinct :@: [e1,e2]
 
 neg :: Expr a -> Expr a
+neg (Builtin op :@: [e1,e2])
+  | Equal    <- op = e1 =/= e2
+  | Distinct <- op = e1 === e2
 neg e
   | Just b <- boolView e = if b then falseExpr else trueExpr
   | otherwise = Builtin Not :@: [e]
@@ -81,6 +84,11 @@ trueExpr  = bool True
 falseExpr :: Expr a
 falseExpr = bool False
 
+makeIf :: Expr a -> Expr a -> Expr a -> Expr a
+makeIf c t f
+  | Just b <- boolView c = if b then t else f
+  | otherwise = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
+
 intLit :: Integer -> Expr a
 intLit = literal . Int
 
@@ -121,9 +129,6 @@ applyPolyType :: Ord a => PolyType a -> [Type a] -> ([Type a], Type a)
 applyPolyType PolyType{..} tys =
   (map (applyType polytype_tvs tys) polytype_args,
    applyType polytype_tvs tys polytype_res)
-
-makeIf :: Expr a -> Expr a -> Expr a -> Expr a
-makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
 
 -- * Predicates and examinations on expressions
 
