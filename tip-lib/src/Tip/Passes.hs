@@ -65,7 +65,7 @@ data StandardPass
   | AxiomatizeLambdas
   | CSEMatch
   | CSEMatchWhy3
- deriving (Eq,Ord,Show,Enum,Bounded)
+ deriving (Eq,Ord,Show,Read,Enum,Bounded)
 
 instance Pass StandardPass where
   passName = show
