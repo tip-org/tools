@@ -66,7 +66,7 @@ instance PrettyHsVar a => Pretty (Expr a) where
   pp e =
     case e of
       Apply x [] -> ppHsVar x
-      Apply x es | Lam ps b <- last es -> ((ppHsVar x $\ fsep (map pp_par (init es))) $\ "(\\" <+> fsep (map pp ps) <+> "->") $\ pp b <> ")"
+      Apply x es | Lam ps b <- last es -> ((ppHsVar x $\ fsep (map pp_par (init es))) $\ "(\\" <+> fsep (map (ppPat 1) ps) <+> "->") $\ pp b <> ")"
       Apply x es -> ppOper x (map pp_par es)
       Do ss e    -> "do" <+> (vcat (map pp (ss ++ [Stmt e])))
       Let x e b  -> "let" <+> (ppHsVar x <+> "=" $\ pp e) $\ "in" <+> pp b
@@ -126,15 +126,15 @@ instance PrettyHsVar a => Pretty (Decl a) where
                [(_,[_])] -> "newtype"
                _         -> "data"
           in ((dat $\ ppOper tc (map ppHsVar tvs) <+> "=") $\
-              fsep (punctuate " |" [ ppOper c (map (ppType 2) ts) | (c,ts) <- cons ])) $\
+              fsep (punctuate " |" [ ppOper c (map (ppType True 2) ts) | (c,ts) <- cons ])) $\
               (if null derivs then empty
                else "deriving" $\ tuple (map ppHsVar derivs))
         InstDecl ctx head ds ->
           (("instance" $\
             (pp_ctx ctx $\ pp head)) $\
                "where") $\ vcat (map (go 1) ds)
-        TypeDef lhs rhs -> "type" <+> pp lhs <+> "=" $\ pp rhs
-        decl `Where` ds -> pp decl $\ "where" $\ vcat (map pp ds)
+        TypeDef lhs rhs -> "type" <+> ppType False 0 lhs <+> "=" $\ pp rhs
+        decl `Where` ds -> go i decl $\ "where" $\ vcat (map (go 1) ds)
         TH e -> pp e
         Module s -> "module" <+> text s <+> "where"
         LANGUAGE s -> "{-#" <+> "LANGUAGE" <+> text s <+> "#-}"
@@ -147,14 +147,14 @@ instance PrettyHsVar a => Pretty (Decls a) where
   pp (Decls ds) = vcat (map pp ds)
 
 instance PrettyHsVar a => Pretty (Type a) where
-  pp = ppType 0
+  pp = ppType True 0
 
-ppType :: PrettyHsVar a => Int -> Type a -> Doc
-ppType i t0 =
+ppType :: PrettyHsVar a => Bool -> Int -> Type a -> Doc
+ppType qual i t0 =
   case t0 of
     TyCon t []  -> ppHsVar t
-    TyCon t ts  -> parIf (i >= 2) (ppOper t (map (ppType 2) ts))
+    TyCon t ts  -> parIf (i >= 2) (ppOperQ qual t (map (ppType True 2) ts))
     TyVar x     -> ppHsVar x
-    TyTup ts    -> tuple (map (ppType 0) ts)
-    TyArr t1 t2 -> parIf (i >= 1) (ppType 1 t1 <+> "->" $\ ppType 0 t2)
+    TyTup ts    -> tuple (map (ppType True 0) ts)
+    TyArr t1 t2 -> parIf (i >= 1) (ppType True 1 t1 <+> "->" $\ ppType True 0 t2)
 

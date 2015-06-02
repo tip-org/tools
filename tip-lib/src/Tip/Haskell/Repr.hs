@@ -64,6 +64,10 @@ data Expr a
   | Expr a ::: Type a
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
+nestedTyTup :: [Type a] -> Type a
+nestedTyTup []     = TyTup []
+nestedTyTup (t:ts) = TyTup [t,nestedTyTup ts]
+
 nestedTup :: [Expr a] -> Expr a
 nestedTup [] = Tup []
 nestedTup (d:ds) = Tup [d,nestedTup ds]
