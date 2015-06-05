@@ -4,6 +4,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 -- | General functions for constructing and examining Tip syntax.
 module Tip.Core(module Tip.Types, module Tip.Core) where
 
@@ -416,6 +417,19 @@ topsort = sortThings defines uses
 class Definition f where
   defines :: f a -> a
   uses    :: f a -> [a]
+
+data (f :+: g) a = InL (f a) | InR (g a)
+  deriving (Eq,Ord,Show,Functor)
+
+instance (Definition f,Definition g) => Definition (f :+: g) where
+  defines (InL x) = defines x
+  defines (InR y) = defines y
+  uses (InL x) = uses x
+  uses (InR y) = uses y
+
+instance Definition Signature where
+  defines = sig_name
+  uses _  = []
 
 instance Definition Function where
   defines = func_name

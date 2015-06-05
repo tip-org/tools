@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE CPP #-}
 module Tip.QuickSpec.Translate (trProperty, backMap) where
 
@@ -104,10 +105,12 @@ trTerm :: (Ord a,PrettyVar a) => BackMap a -> QS.Term -> Tip.Expr (V a)
 trTerm bm tm =
   case tm of
     R.Var v -> Tip.Lcl (Tip.Local (Var v) (trType bm (QS.typ v)))
-    R.Fun c as ->
+    R.Fun c (drop (QS.implicitArguments c) -> as) ->
       let name = QS.conName c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
-      in  mk (matchTypes name tvs ty (trType bm (QS.typ c))) Tip.:@: map (trTerm bm) as
+      in  mk (matchTypes name tvs ty
+                (trType bm (QS.typeDrop (QS.implicitArguments c) (QS.typ c))))
+            Tip.:@: map (trTerm bm) as
 
 matchTypes :: (Ord a,PrettyVar a) => String -> [a] -> Tip.Type a -> Tip.Type a -> [Tip.Type a]
 matchTypes name tvs tmpl ty =

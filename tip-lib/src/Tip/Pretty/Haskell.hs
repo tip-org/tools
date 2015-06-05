@@ -68,8 +68,10 @@ instance PrettyHsVar a => Pretty (Expr a) where
       Apply x [] -> ppHsVar x
       Apply x es | Lam ps b <- last es -> ((ppHsVar x $\ fsep (map pp_par (init es))) $\ "(\\" <+> fsep (map (ppPat 1) ps) <+> "->") $\ pp b <> ")"
       Apply x es -> ppOper x (map pp_par es)
+      ImpVar x   -> "?" <> ppHsVar x
       Do ss e    -> "do" <+> (vcat (map pp (ss ++ [Stmt e])))
       Let x e b  -> "let" <+> (ppHsVar x <+> "=" $\ pp e) $\ "in" <+> pp b
+      ImpLet x e b  -> "let" <+> ("?" <> ppHsVar x <+> "=" $\ pp e) $\ "in" <+> pp b
       Lam ps e   -> "\\" <+> fsep (map pp ps) <+> "->" $\ pp e
       List es    -> brackets (csv (map pp es))
       Tup es     -> tuple (map pp es)
@@ -81,7 +83,7 @@ instance PrettyHsVar a => Pretty (Expr a) where
       QuoteName x   -> "'" <> ppHsVar x
       THSplice e    -> "$" <> parens (pp e)
       Record e upd  -> pp_par e $\ braces (sep (punctuate "," [ ppHsVar f <+> "=" $\ pp rhs | (f,rhs) <- upd ]))
-      e ::: t       -> pp e <+> "::" $\ pp t
+      e ::: t       -> pp_par e <+> "::" $\ pp t
    where
     pp_par e0 =
       case e0 of
@@ -157,4 +159,7 @@ ppType qual i t0 =
     TyVar x     -> ppHsVar x
     TyTup ts    -> tuple (map (ppType True 0) ts)
     TyArr t1 t2 -> parIf (i >= 1) (ppType True 1 t1 <+> "->" $\ ppType True 0 t2)
+    TyCtx ctx t -> parIf (i >= 1) (pp (TyTup ctx) <+> "=>" $\ ppType qual 0 t)
+    TyForall tvs t  -> parIf (i >= 1) ("forall" <+> fsep (map ppVar tvs) <+> "." $\ ppType qual 0 t)
+    TyImp x t       -> parIf (i >= 1) ("?" <> ppVar x <+> "::" $\ ppType qual 0 t)
 

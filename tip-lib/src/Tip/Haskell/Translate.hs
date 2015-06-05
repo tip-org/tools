@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
@@ -7,7 +8,8 @@ module Tip.Haskell.Translate where
 
 #include "errors.h"
 import Tip.Haskell.Repr as H
-import Tip.Core as T hiding (Formula(..),globals)
+import Tip.Core as T hiding (Formula(..),globals,Type(..))
+import Tip.Core (Type((:=>:),BuiltinType))
 import qualified Tip.Core as T
 import Tip.Pretty
 import Tip.Utils
@@ -36,6 +38,9 @@ tipDSL = Qualified "Tip" Nothing
 quickCheck :: String -> HsId a
 quickCheck = Qualified "Test.QuickCheck" (Just "QC")
 
+quickCheckUnsafe :: String -> HsId a
+quickCheckUnsafe = Qualified "Test.QuickCheck.Gen.Unsafe" (Just "QU")
+
 quickCheckAll :: String -> HsId a
 quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 
@@ -59,6 +64,8 @@ data HsId a
     -- ^ The current module defines something with this very important name
     | Other a
     -- ^ From the theory
+    | Derived (HsId a) String
+    -- ^ For various purposes...
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 instance PrettyVar a => PrettyVar (HsId a) where
@@ -66,10 +73,11 @@ instance PrettyVar a => PrettyVar (HsId a) where
   varStr (Qualified m Nothing  s) = m ++ "." ++ s
   varStr (Exact s) = s
   varStr (Other x) = varStr x
+  varStr (Derived o s) = s ++ varStr o
 
 addHeader :: Decls a -> Decls a
 addHeader (Decls ds) =
-    Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators"] ++ Module "A" : ds)
+    Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators","ImplicitParams","RankNTypes"] ++ Module "A" : ds)
 
 addImports :: Ord a => Decls (HsId a) -> Decls (HsId a)
 addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" Nothing : imps ++ ds)
@@ -79,134 +87,212 @@ addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" Nothing : imps
 trTheory :: (Ord a,PrettyVar a) => Theory a -> Decls (HsId a)
 trTheory = trTheory' . fmap Other
 
-trTheory' :: (a ~ HsId b,Ord b,PrettyVar b) => Theory a -> Decls a
-trTheory' thy@Theory{..} =
-  Decls $
-    concatMap trDatatype thy_datatypes ++
-    map trSort thy_sorts ++
-    map trSig thy_sigs ++
-    concatMap trFunc thy_funcs ++
-    trAsserts thy_asserts ++
-    [makeSig thy]
-
-trDatatype :: (a ~ HsId b) => Datatype a -> [Decl a]
-trDatatype (Datatype tc tvs cons) =
-  [ DataDecl tc tvs
-      [ (c,map (trType . snd) args) | Constructor c _ args <- cons ]
-      (map prelude ["Eq","Ord","Show"] ++ [typeable "Typeable"])
-  , TH (Apply (feat "deriveEnumerable") [QuoteTyCon tc])
-  , InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
-             (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
-             [funDecl
-                (quickCheck "arbitrary") []
-                (Apply (quickCheck "sized") [Apply (feat "uniform") []])]
-  ]
-
-trSort :: (a ~ HsId b) => Sort a -> Decl a
-trSort (Sort _s _i) = error "trSort"
-
-trSig :: (a ~ HsId b) => Signature a -> Decl a
-trSig (Signature _f _t) = error "trSig"
-
-trFunc :: (a ~ HsId b,Ord b) => Function a -> [Decl a]
-trFunc fn@Function{..} =
-  [ TySig func_name [] (trPolyType (funcType fn))
-  , FunDecl
-      func_name
-      [ (map trDeepPattern dps,trExpr Expr rhs)
-      | (dps,rhs) <- patternMatchingView func_args func_body
-      ]
-  ]
-
-trAsserts :: a ~ HsId b => [T.Formula a] -> [Decl a]
-trAsserts fms =
-  let (names,decls) = unzip (zipWith trAssert [1..] fms)
-  in  decls ++
-        [ TH (Apply (prelude "return") [List []])
-        , funDecl (Exact "main") []
-            (mkDo [ Stmt (THSplice (Apply (quickCheckAll "polyQuickCheck")
-                                          [QuoteName name]))
-                  | name <- names ]
-                  Noop)
-        ]
-
-trAssert :: a ~ HsId b => Int -> T.Formula a -> (a,Decl a)
-trAssert i (T.Formula r _ b) =
-  (prop_name,funDecl prop_name args (assume (trExpr Formula body)))
-  where
-  prop_name | i == 1    = Exact "prop"
-            | otherwise = Exact ("prop" ++ show i)
-  (args,body) =
-    case b of
-      Quant _ Forall lcls term -> (map lcl_name lcls,term)
-      _                        -> ([],b)
-
-  assume e =
-    case r of
-      Prove  -> e
-      Assert -> Apply (tipDSL "assume") [e]
-
-trDeepPattern :: (a ~ HsId b) => DeepPattern a -> H.Pat a
-trDeepPattern (DeepConPat Global{..} dps) = H.ConPat gbl_name (map trDeepPattern dps)
-trDeepPattern (DeepVarPat Local{..})      = VarPat lcl_name
-trDeepPattern (DeepLitPat (T.Int i))      = IntPat i
-trDeepPattern (DeepLitPat (Bool b))       = withBool H.ConPat b
-
-trPattern :: (a ~ HsId b) => T.Pattern a -> H.Pat a
-trPattern Default = WildPat
-trPattern (T.ConPat Global{..} xs) = H.ConPat gbl_name (map (VarPat . lcl_name) xs)
-trPattern (T.LitPat (T.Int i))     = H.IntPat i
-trPattern (T.LitPat (Bool b))      = withBool H.ConPat b
-
-trExpr :: (a ~ HsId b) => Kind -> T.Expr a -> H.Expr a
-trExpr k e0 =
-  case e0 of
-    Builtin (Lit (T.Int i)) :@: [] -> H.Int i
-    Builtin (Lit (Bool b)) :@: []  -> withBool Apply b
-    hd :@: es -> let (f,k') = trHead k hd
-                 in Apply f (map (trExpr k') es)
-    Lcl x -> var (lcl_name x)
-    T.Lam xs b  -> H.Lam (map (VarPat . lcl_name) xs) (trExpr Expr b)
-    Match e alts -> H.Case (trExpr Expr e) [ (trPattern p,trExpr Expr rhs) | T.Case p rhs <- default_last alts ]
-    T.Let x e b -> H.Let (lcl_name x) (trExpr Expr e) (trExpr k b)
-    T.Quant _ q xs b ->
-      foldr
-        (\ x e ->
-            Apply (tipDSL (case q of Forall -> "forAll"; Exists -> "exists"))
-              [H.Lam [VarPat (lcl_name x)] e])
-        (trExpr Formula b)
-        xs
-
-  where
-  default_last (def@(T.Case Default _):alts) = alts ++ [def]
-  default_last alts = alts
-
-trHead :: (a ~ HsId b) => Kind -> T.Head a -> (a,Kind)
-trHead k (Gbl Global{..}) = (gbl_name,Expr)
-trHead k (Builtin b)      = trBuiltin k b
-
 data Kind = Expr | Formula deriving Eq
 
-trBuiltin :: (a ~ HsId b) => Kind -> T.Builtin -> (a,Kind)
-trBuiltin k b =
-  case b of
-    At        -> (prelude "id",Expr)
-    Lit{}     -> error "trBuiltin"
-    And       -> case_kind ".&&."
-    Or        -> case_kind ".||."
-    Not       -> case_kind "neg"
-    Implies   -> case_kind "==>"
-    Equal     -> case_kind "==="
-    Distinct  -> case_kind "=/="
-    _         -> prelude_fn
-  where
-  Just prelude_str = lookup b hsBuiltins
-  prelude_fn = (prelude prelude_str,Expr)
+theorySigs :: Theory (HsId a) -> [HsId a]
+theorySigs Theory{..} = map sig_name thy_sigs
 
-  case_kind sf =
-    case k of
-      Expr    -> prelude_fn
-      Formula -> (tipDSL sf,Formula)
+ufInfo :: Theory (HsId a) -> (Bool,[H.Type (HsId a)])
+ufInfo Theory{thy_sigs} = (not (null imps),imps)
+  where
+  imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ <- thy_sigs]
+
+trTheory' :: forall a b . (a ~ HsId b,Ord b,PrettyVar b) => Theory a -> Decls a
+trTheory' thy@Theory{..} =
+  Decls $
+    concatMap tr_datatype thy_datatypes ++
+    map tr_sort thy_sorts ++
+    concatMap tr_sig thy_sigs ++
+    concatMap tr_func thy_funcs ++
+    tr_asserts thy_asserts ++
+    [makeSig thy]
+  where
+  (translate_UFs,imps) = ufInfo thy
+
+  tr_datatype :: Datatype a -> [Decl a]
+  tr_datatype (Datatype tc tvs cons) =
+    [ DataDecl tc tvs
+        [ (c,map (trType . snd) args) | Constructor c _ args <- cons ]
+        (map prelude ["Eq","Ord","Show"] ++ [typeable "Typeable"])
+    , TH (Apply (feat "deriveEnumerable") [QuoteTyCon tc])
+    , InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
+               (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
+               [funDecl
+                  (quickCheck "arbitrary") []
+                  (Apply (quickCheck "sized") [Apply (feat "uniform") []])]
+    ]
+
+  tr_sort :: Sort a -> Decl a
+  tr_sort (Sort _ i) | i /= 0 = error "Higher-kinded abstract sort"
+  tr_sort (Sort s i) = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
+
+  tr_sig :: Signature a -> [Decl a]
+  tr_sig (Signature f pt) =
+    -- newtype f_NT = f_Mk (forall tvs . (Arbitrary a, CoArbitrary a) => T)
+    [ DataDecl (Derived f "") [] [ (Derived f "Mk",[tr_polyTypeArbitrary pt]) ] []
+    , FunDecl (Derived f "get")
+       [( [H.ConPat (Derived f "Mk") [VarPat (Derived f "x")]]
+        , var (Derived f "x")
+        )]
+
+    -- f :: (?f_imp :: f_NT) => T
+    -- f = f_get ?f_imp
+    , TySig f [] (tr_polyType pt)
+    , funDecl f [] (Apply (Derived f "get") [ImpVar (Derived f "imp")])
+
+    -- instance Arbitrary f_NT where
+    --   arbitrary = do
+    --      Capture x <- capture
+    --      return (f_Mk (x arbitrary))
+    , InstDecl [] (TyCon (quickCheck "Arbitrary") [TyCon (Derived f "") []])
+        [ funDecl (quickCheck "arbitrary") []
+          (mkDo [Bind (Derived f "x") (Apply (quickCheckUnsafe "capture") [])]
+                (H.Case (var (Derived f "x"))
+                   [(H.ConPat (quickCheckUnsafe "Capture") [VarPat (Derived f "y")]
+                    ,Apply (prelude "return")
+                    [Apply (Derived f "Mk")
+                    [Apply (Derived f "y")
+                    [Apply (quickCheck "arbitrary") []]]]
+                    )]
+                )
+          )
+        ]
+
+    -- gen :: Gen (Dict (?f_imp :: f_NT))
+    -- gen = do
+    --   x <- arbitrary
+    --   let ?f_imp = x
+    --   return Dict
+    , TySig (Derived f "gen") []
+        (TyCon (quickCheck "Gen")
+          [TyCon (quickSpec "Dict")
+            [TyImp (Derived f "imp") (TyCon (Derived f "") [])]])
+    , funDecl (Derived f "gen") []
+        (mkDo [Bind (Derived f "x") (Apply (quickCheck "arbitrary") [])]
+              (ImpLet (Derived f "imp") (var (Derived f "x"))
+                (Apply (prelude "return") [Apply (quickSpec "Dict") []])))
+    ]
+
+  tr_func :: Function a -> [Decl a]
+  tr_func fn@Function{..} =
+    [ TySig func_name [] (tr_polyType (funcType fn))
+    , FunDecl
+        func_name
+        [ (map tr_deepPattern dps,tr_expr Expr rhs)
+        | (dps,rhs) <- patternMatchingView func_args func_body
+        ]
+    ]
+
+  tr_asserts :: [T.Formula a] -> [Decl a]
+  tr_asserts fms =
+    let (names,decls) = unzip (zipWith tr_assert [1..] fms)
+    in  decls {- ++
+          [ TH (Apply (prelude "return") [List []])
+          , funDecl (Exact "main") []
+              (mkDo [ Stmt (THSplice (Apply (quickCheckAll "polyQuickCheck")
+                                            [QuoteName name]))
+                    | name <- names ]
+                    Noop)
+          ] -}
+
+  tr_assert :: Int -> T.Formula a -> (a,Decl a)
+  tr_assert i (T.Formula r _ b) =
+    (prop_name,funDecl prop_name args (assume (tr_expr Formula body)))
+    where
+    prop_name | i == 1    = Exact "prop"
+              | otherwise = Exact ("prop" ++ show i)
+    (args,body) =
+      case b of
+        Quant _ Forall lcls term -> (map lcl_name lcls,term)
+        _                        -> ([],b)
+
+    assume e =
+      case r of
+        Prove  -> e
+        Assert -> Apply (tipDSL "assume") [e]
+
+  tr_deepPattern :: DeepPattern a -> H.Pat a
+  tr_deepPattern (DeepConPat Global{..} dps) = H.ConPat gbl_name (map tr_deepPattern dps)
+  tr_deepPattern (DeepVarPat Local{..})      = VarPat lcl_name
+  tr_deepPattern (DeepLitPat (T.Int i))      = IntPat i
+  tr_deepPattern (DeepLitPat (Bool b))       = withBool H.ConPat b
+
+  tr_pattern :: T.Pattern a -> H.Pat a
+  tr_pattern Default = WildPat
+  tr_pattern (T.ConPat Global{..} xs) = H.ConPat gbl_name (map (VarPat . lcl_name) xs)
+  tr_pattern (T.LitPat (T.Int i))     = H.IntPat i
+  tr_pattern (T.LitPat (Bool b))      = withBool H.ConPat b
+
+  tr_expr :: Kind -> T.Expr a -> H.Expr a
+  tr_expr k e0 =
+    case e0 of
+      Builtin (Lit (T.Int i)) :@: [] -> H.Int i
+      Builtin (Lit (Bool b)) :@: []  -> withBool Apply b
+      hd :@: es -> let (f,k') = tr_head k hd
+                   in Apply f (map (tr_expr k') es)
+      Lcl x -> var (lcl_name x)
+      T.Lam xs b  -> H.Lam (map (VarPat . lcl_name) xs) (tr_expr Expr b)
+      Match e alts -> H.Case (tr_expr Expr e) [ (tr_pattern p,tr_expr Expr rhs) | T.Case p rhs <- default_last alts ]
+      T.Let x e b -> H.Let (lcl_name x) (tr_expr Expr e) (tr_expr k b)
+      T.Quant _ q xs b ->
+        foldr
+          (\ x e ->
+              Apply (tipDSL (case q of Forall -> "forAll"; Exists -> "exists"))
+                [H.Lam [VarPat (lcl_name x)] e])
+          (tr_expr Formula b)
+          xs
+
+    where
+    default_last (def@(T.Case Default _):alts) = alts ++ [def]
+    default_last alts = alts
+
+  tr_head :: Kind -> T.Head a -> (a,Kind)
+  tr_head k (Gbl Global{..}) = (gbl_name,Expr)
+  tr_head k (Builtin b)      = tr_builtin k b
+
+  tr_builtin :: Kind -> T.Builtin -> (a,Kind)
+  tr_builtin k b =
+    case b of
+      At        -> (prelude "id",Expr)
+      Lit{}     -> error "tr_builtin"
+      And       -> case_kind ".&&."
+      Or        -> case_kind ".||."
+      Not       -> case_kind "neg"
+      Implies   -> case_kind "==>"
+      Equal     -> case_kind "==="
+      Distinct  -> case_kind "=/="
+      _         -> prelude_fn
+    where
+    Just prelude_str_ = lookup b hsBuiltins
+    prelude_fn = (prelude prelude_str_,Expr)
+
+    case_kind sf =
+      case k of
+        Expr    -> prelude_fn
+        Formula -> (tipDSL sf,Formula)
+
+  -- ignores the type variables
+  tr_polyType_inner :: T.PolyType a -> H.Type a
+  tr_polyType_inner (PolyType _ ts t) = trType (ts :=>: t)
+
+  tr_polyType :: T.PolyType a -> H.Type a
+  tr_polyType pt@(PolyType tvs _ _)
+    | translate_UFs = TyForall tvs (TyCtx (arb tvs ++ imps) (tr_polyType_inner pt))
+    | otherwise     = tr_polyType_inner pt
+
+  -- translate type and add Arbitrary a, CoArbitrary a in the context for
+  -- all type variables a
+  tr_polyTypeArbitrary :: T.PolyType a -> H.Type a
+  tr_polyTypeArbitrary pt@(PolyType tvs _ _) = TyForall tvs (TyCtx (arb tvs) (tr_polyType_inner pt))
+
+  arb = arbitrary . map H.TyVar
+
+arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
+arbitrary ts =
+  [ TyCon (quickCheck tc) [t]
+  | t <- ts
+  , tc <- ["Arbitrary","CoArbitrary"]
+  ]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
 trType (T.TyVar x)     = H.TyVar x
@@ -216,10 +302,6 @@ trType (BuiltinType b) = trBuiltinType b
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
 trBuiltinType t | Just s <- lookup t hsBuiltinTys = H.TyCon (prelude s) []
-
--- ignores the type variables
-trPolyType :: (a ~ HsId b) => T.PolyType a -> H.Type a
-trPolyType (PolyType _ ts t) = trType (ts :=>: t)
 
 withBool :: (a ~ HsId b) => (a -> [c] -> d) -> Bool -> d
 withBool k b = k (prelude (show b)) []
@@ -312,101 +394,115 @@ makeSig thy@Theory{..} =
                               (feat "Enumerable", feat "Enumerable"),
                               (feat "Enumerable",quickCheck "Arbitrary")]
                , let tys = map trType (qsTvs n)
+               ] ++
+               [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
+               | Signature f _ <- thy_sigs
                ])
-          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
+          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int (if translate_UFs then 11 else 7)])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
           ]
       ]
   where
-    use_cg = True
+  (translate_UFs,imps) = ufInfo thy
 
-    int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
+  use_cg = True
 
-    mk_inst ctx res =
-      Apply (quickSpec ("inst" ++ concat [ show (length ctx) | length ctx >= 2 ]))
-                   [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
-                     H.TyCon (quickSpec ":-") [TyTup ctx,res] ]
+  int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
 
-    mk_class c x = H.TyCon c [x]
+  mk_inst ctx res =
+    Apply (quickSpec ("inst" ++ concat [ show (length ctx) | length ctx >= 2 ]))
+                 [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
+                   H.TyCon (quickSpec ":-") [TyTup ctx,res] ]
 
-    scp = scope thy
+  mk_class c x = H.TyCon c [x]
 
-    cg = map (map func_name) (flatCallGraph (CallGraphOpts True False) thy)
+  scp = scope thy
 
-    poly_type (PolyType _ args res) = args :=>: res
+  cg = map (map defines) (flatCallGraph (CallGraphOpts True False) thy)
 
-    constant_decl (f,t) =
-      Apply (quickSpec "constant") [H.String f,Apply f [] ::: qsType t]
+  poly_type (PolyType _ args res) = args :=>: res
 
-    int_lit_decl x =
-      Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x]
+  constant_decl (f,t) =
+    Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]
+    where
+    (pre,qs_type) = qsType t
+    lam | null pre  = id
+        | otherwise = H.Lam (replicate (length pre) (H.ConPat (quickSpec "Dict") []))
 
-    bool_lit_decl b =
-      Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b]
+  int_lit_decl x =
+    Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x]
 
-    ctor_constants =
-      [ (f,poly_type (globalType g))
-      | (f,g@ConstructorInfo{}) <- M.toList (globals scp)
-      ]
+  bool_lit_decl b =
+    Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b]
 
-    func_constants =
-      [ (f,poly_type (globalType g))
-      | (f,g@FunctionInfo{}) <- M.toList (globals scp)
-      ]
+  ctor_constants =
+    [ (f,poly_type (globalType g))
+    | (f,g@ConstructorInfo{}) <- M.toList (globals scp)
+    ]
 
-    type_univ =
-      [ (data_name, length data_tvs)
-      | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
-      ]
+  func_constants =
+    [ (f,poly_type (globalType g))
+    | (f,g@FunctionInfo{}) <- M.toList (globals scp)
+    ]
 
-    -- builtins
+  type_univ =
+    [ (data_name, length data_tvs)
+    | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
+    ]
 
-    (builtin_lits,builtin_funs) =
-      partition litBuiltin $
-        usort
-          [ b
-          | Builtin b :@: args <- universeBi thy
+  -- builtins
 
-          -- only count equality if argument is int:
-          , let is_int = case args of
-                           a1:_ -> exprType a1 == (intType :: T.Type (HsId a))
-                           _    -> __
-          , case b of
-              Equal    -> is_int
-              Distinct -> is_int
-              _         -> True
-          ]
+  (builtin_lits,builtin_funs) =
+    partition litBuiltin $
+      usort
+        [ b
+        | Builtin b :@: args <- universeBi thy
 
-    used_builtin_types :: [BuiltinType]
-    used_builtin_types =
-      usort [ t | BuiltinType t :: T.Type (HsId a) <- universeBi thy ]
+        -- only count equality if argument is int:
+        , let is_int = case args of
+                         a1:_ -> exprType a1 == (intType :: T.Type (HsId a))
+                         _    -> __
+        , case b of
+            Equal    -> is_int
+            Distinct -> is_int
+            _         -> True
+        ]
 
-    bool_used = Boolean `elem` used_builtin_types
-    int_used  = -- Integer `elem` used_builtin_types
-                or [ op `elem` builtin_funs | op <- [IntAdd,IntSub,IntMul,IntDiv,IntMod] ]
+  used_builtin_types :: [BuiltinType]
+  used_builtin_types =
+    usort [ t | BuiltinType t :: T.Type (HsId a) <- universeBi thy ]
 
-    builtin_decls
-      =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
-      ++ [ int_lit_decl x  | int_used,  x <- [0,1] ++
-                                             [ x
-                                             | Lit (T.Int x) <- builtin_lits ]]
+  bool_used = Boolean `elem` used_builtin_types
+  int_used  = -- Integer `elem` used_builtin_types
+              or [ op `elem` builtin_funs | op <- [IntAdd,IntSub,IntMul,IntDiv,IntMod] ]
 
-    builtin_constants
-      =  [ (prelude s,typeOfBuiltin b)
-         | b <- nub $
-                [ b      | bool_used, b <- [And,Or,Not] ]
-             -- [ IntAdd | int_used ]
-             -- [ Equal  | bool_used && int_used ]
-             ++ [ b | b <- builtin_funs, intBuiltin b || eqRelatedBuiltin b ]
-         , Just s <- [lookup b hsBuiltins]
-         ]
+  builtin_decls
+    =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
+    ++ [ int_lit_decl x  | int_used,  x <- [0,1] ++
+                                           [ x
+                                           | Lit (T.Int x) <- builtin_lits ]]
 
-qsType :: Ord a => T.Type (HsId a) -> H.Type (HsId a)
-qsType t = trType (applyType tvs (qsTvs (length tvs)) t)
-  where tvs = tyVars t
+  builtin_constants
+    =  [ (prelude s,typeOfBuiltin b)
+       | b <- nub $
+              [ b      | bool_used, b <- [And,Or,Not] ]
+           -- [ IntAdd | int_used ]
+           -- [ Equal  | bool_used && int_used ]
+           ++ [ b | b <- builtin_funs, intBuiltin b || eqRelatedBuiltin b ]
+       , Just s <- [lookup b hsBuiltins]
+       ]
 
-qsTvs :: Int -> [T.Type (HsId a)]
-qsTvs n = take n (cycle [ T.TyCon (quickSpec qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
+  qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
+  qsType t = (pre,foldr TyArr inner [ TyCon (quickSpec "Dict") [p] | p <- pre ])
+    where
+    pre | translate_UFs = arbitrary (map trType qtvs) ++ imps
+        | otherwise     = []
+    inner = trType (applyType tvs qtvs t)
+    qtvs = qsTvs (length tvs)
+    tvs = tyVars t
+
+  qsTvs :: Int -> [T.Type (HsId a)]
+  qsTvs n = take n (cycle [ T.TyCon (quickSpec qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
 
 theoryBuiltins :: Ord a => Theory a -> [T.Builtin]
 theoryBuiltins = usort . universeBi

@@ -36,6 +36,9 @@ data Type a
   | TyVar a
   | TyTup [Type a]
   | TyArr (Type a) (Type a)
+  | TyForall [a] (Type a)
+  | TyCtx [Type a] (Type a)
+  | TyImp a (Type a)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
 modTyCon :: (a -> a) -> Type a -> Type a
@@ -48,9 +51,11 @@ modTyCon f t0 =
 
 data Expr a
   = Apply a [Expr a]
+  | ImpVar a
   | Do [Stmt a] (Expr a)
   | Lam [Pat a] (Expr a)
   | Let a (Expr a) (Expr a)
+  | ImpLet a (Expr a) (Expr a)
   | List [Expr a] -- a literal list
   | Tup [Expr a]  -- a literal tuple
   | String a      -- string from a name...

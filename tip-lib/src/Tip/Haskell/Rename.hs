@@ -32,9 +32,9 @@ renameDecls ds = runRenameM suggest blocks M.empty (rename ds)
   suggest :: HsId a -> [HsId String]
   suggest (Qualified m ms s) = Qualified m ms s:__
   suggest (Exact s) = Exact s:__
-  suggest i@(Other s)
-    | i `S.member` us = map (Other . upper) (disambigHs (makeUniform (varStr s)))
-    | otherwise       = map (Other . lower) (disambigHs (makeUniform (varStr s)))
+  suggest i
+    | i `S.member` us = map (Other . upper) (disambigHs (makeUniform (varStr i)))
+    | otherwise       = map (Other . lower) (disambigHs (makeUniform (varStr i)))
 
   us = uppercase ds
 
