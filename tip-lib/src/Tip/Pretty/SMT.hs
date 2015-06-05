@@ -200,6 +200,9 @@ instance PrettyVar a => Pretty (Global a) where
 instance PrettyVar a => Pretty (Head a) where
   pp = ppHead
 
+instance PrettyVar a => Pretty (Pattern a) where
+  pp = ppPat
+
 smtKeywords :: [String]
 smtKeywords =
     [ "ac"
