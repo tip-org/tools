@@ -47,6 +47,7 @@ main = do
               , CommuteMatch
               , SimplifyGently
               , CSEMatch
+              , EliminateDeadCode
               ]
     print (SMT.ppTheory (pipeline renamed_thy))
 
