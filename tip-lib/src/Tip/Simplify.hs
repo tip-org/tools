@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RecordWildCards, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, RecordWildCards, ScopedTypeVariables, ViewPatterns, PatternGuards #-}
 module Tip.Simplify where
 
 import Tip.Core
@@ -54,6 +54,9 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
     {-# SPECIALISE aux :: Expr a -> WriterT Any Fresh (Expr a) #-}
     aux :: forall f. TransformBiM (WriterT Any Fresh) (Expr a) (f a) => f a -> WriterT Any Fresh (f a)
     aux = transformBiM $ \e0 ->
+      let
+        share e1 | e1 /= e0  = return e1
+                 | otherwise = return e0 in
       case e0 of
         Builtin At :@: (Lam vars body:args) ->
           hooray $
@@ -112,12 +115,25 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
           | x -> hooray $ return t
           | otherwise -> hooray $ return $ neg t
 
-        Builtin Equal :@: [t, u] ->
-          case exprType t of
-            args :=>: _ -> hooray $ do
-              lcls <- lift (mapM freshLocal args)
-              aux $
-                mkQuant Forall lcls (apply t (map Lcl lcls) === apply u (map Lcl lcls))
+        Builtin Equal :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s == t))
+
+        Builtin Distinct :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s /= t))
+
+        Builtin Not     :@: [e]      -> share (neg e)
+        Builtin And     :@: [e1, e2] -> share (e1 /\ e2)
+        Builtin Or      :@: [e1, e2] -> share (e1 \/ e2)
+        Builtin Implies :@: [e1, e2] -> share (e1 ==> e2)
+
+        Builtin Equal :@: [e1, e2] ->
+          case exprType e1 of
+            t@(_ :=>: _) -> hooray $ go t e1 e2 []
+              where
+              go (args :=>: rest) u v lcls =
+                do more <- lift (mapM freshLocal args)
+                   go rest (apply u (map Lcl more))
+                           (apply v (map Lcl more))
+                           (lcls ++ more)
+              go _ u v lcls = return (mkQuant Forall lcls (u === v))
             _ -> return e0
 
         Gbl gbl@Global{..} :@: ts ->

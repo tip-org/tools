@@ -54,6 +54,8 @@ parseProperty = goo 0
 
       | isId "===" x || isId ":=:" x = return (e1 === e2)
 
+      | isId "=/=" x                 = return (e1 =/= e2)
+
       | isId "==>" x || isId "Given" x = (==>) <$> go e1 <*> go e2
 
       | isId ".&&." x || isId "And" x  = (/\) <$> go e1 <*> go e2

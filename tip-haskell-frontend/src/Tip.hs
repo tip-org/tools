@@ -9,6 +9,7 @@ module Tip
     , Forall
     , Exists
     , (===)
+    , (=/=)
     , bool
     , (==>)
     , (.&&.)
@@ -23,6 +24,7 @@ import Test.QuickCheck hiding ((===), (==>), (.&&.), (.||.), forAll)
 import qualified Test.QuickCheck as QC
 
 infix 3 ===
+infix 3 =/=
 infixr 2 .&&.
 infixr 1 .||.
 infixr 0 ==>
@@ -42,7 +44,11 @@ data Exists a b = Exists (a -> b)
 (===) :: a -> a -> Equality a
 (===) = (:=:)
 
--- | A synonym for '=:=', but for booleans
+-- | Inequality
+(=/=) :: a -> a -> Neg (Equality a)
+u =/= v = Neg (u === v)
+
+-- | A synonym for '===', but for booleans
 bool :: Bool -> Equality Bool
 bool lhs = lhs === True
 

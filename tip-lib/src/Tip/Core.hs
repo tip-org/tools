@@ -33,21 +33,40 @@ infixr 0 ===>
 (===) :: Expr a -> Expr a -> Expr a
 e1 === e2 = Builtin Equal :@: [e1,e2]
 
+(=/=) :: Expr a -> Expr a -> Expr a
+e1 =/= e2 = Builtin Distinct :@: [e1,e2]
+
 neg :: Expr a -> Expr a
-neg e = Builtin Not :@: [e]
+neg (Builtin op :@: [e1,e2])
+  | Equal    <- op = e1 =/= e2
+  | Distinct <- op = e1 === e2
+neg e
+  | Just b <- boolView e = if b then falseExpr else trueExpr
+  | otherwise = Builtin Not :@: [e]
 
 (/\) :: Expr a -> Expr a -> Expr a
-e1 /\ e2 = Builtin And :@: [e1,e2]
+e1 /\ e2
+  | Just b <- boolView e1 = if b then e2 else falseExpr
+  | Just b <- boolView e2 = if b then e1 else falseExpr
+  | otherwise = Builtin And :@: [e1,e2]
 
 (\/) :: Expr a -> Expr a -> Expr a
-e1 \/ e2 = Builtin Or :@: [e1,e2]
+e1 \/ e2
+  | Just b <- boolView e1 = if b then trueExpr else e2
+  | Just b <- boolView e2 = if b then trueExpr else e1
+  | otherwise = Builtin Or :@: [e1,e2]
 
 ands :: [Expr a] -> Expr a
-ands [] = bool True
-ands xs = foldl1 (/\) xs
+ands xs = foldl (/\) trueExpr xs
+
+ors :: [Expr a] -> Expr a
+ors xs = foldl (\/) falseExpr xs
 
 (==>) :: Expr a -> Expr a -> Expr a
-a ==> b = Builtin Implies :@: [a,b]
+e1 ==> e2
+  | Just a <- boolView e1 = if a then e2 else trueExpr
+  | Just b <- boolView e2 = if b then trueExpr else neg e1
+  | otherwise = Builtin Implies :@: [e1,e2]
 
 (===>) :: [Expr a] -> Expr a -> Expr a
 xs ===> y = foldr (==>) y xs
@@ -64,6 +83,11 @@ trueExpr  = bool True
 
 falseExpr :: Expr a
 falseExpr = bool False
+
+makeIf :: Expr a -> Expr a -> Expr a -> Expr a
+makeIf c t f
+  | Just b <- boolView c = if b then t else f
+  | otherwise = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
 
 intLit :: Integer -> Expr a
 intLit = literal . Int
@@ -106,10 +130,15 @@ applyPolyType PolyType{..} tys =
   (map (applyType polytype_tvs tys) polytype_args,
    applyType polytype_tvs tys polytype_res)
 
-makeIf :: Expr a -> Expr a -> Expr a -> Expr a
-makeIf c t f = Match c [Case (LitPat (Bool True)) t,Case (LitPat (Bool False)) f]
-
 -- * Predicates and examinations on expressions
+
+litView :: Expr a -> Maybe Lit
+litView (Builtin (Lit l) :@: []) = Just l
+litView _ = Nothing
+
+boolView :: Expr a -> Maybe Bool
+boolView e = case litView e of Just (Bool b) -> Just b
+                               _             -> Nothing
 
 -- | A representation of Nested patterns, used in 'patternMatchingView'
 data DeepPattern a
@@ -395,16 +424,4 @@ instance Definition Function where
 instance Definition Datatype where
   defines = data_name
   uses    = concatMap F.toList . data_cons
-
--- * Assorted and miscellany
-
--- | Transforms @and@, @or@, @=>@ and @not@ into if (i.e. case)
-boolOpsToIf :: TransformBi (Expr a) (f a) => f a -> f a
-boolOpsToIf = transformExprIn $
-  \ e0 -> case e0 of
-    Builtin And :@: [a,b]     -> makeIf a b falseExpr
-    Builtin Or  :@: [a,b]     -> makeIf a trueExpr b
-    Builtin Not :@: [a]       -> makeIf a falseExpr trueExpr
-    Builtin Implies :@: [a,b] -> boolOpsToIf (neg a \/ b)
-    _ -> e0
 
