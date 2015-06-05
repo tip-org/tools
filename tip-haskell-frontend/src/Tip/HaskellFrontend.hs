@@ -26,6 +26,7 @@ import qualified Data.Map as M
 import Data.Maybe (isNothing)
 import System.Directory
 import System.Exit
+import Data.Generics.Geniplate
 
 import qualified Id as GHC
 import qualified CoreSubst as GHC
@@ -82,7 +83,7 @@ readHaskellFile params@Params{..} = do
 
         tip_props = either error id (mapM trProperty prop_fns)
 
-        thy = Theory tip_data [] [] tip_fns tip_props
+        thy = Theory tip_data [] [Signature Error errorType | Error `elem` concatMap uses tip_fns] tip_fns tip_props
 
     when (PrintInitialTip `elem` flags) $ do
         putStrLn "Tip.HaskellFrontend, PrintInitialTip:"

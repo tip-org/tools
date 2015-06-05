@@ -216,6 +216,9 @@ trConstructor dc ty tys = Global (idFromName $ dataConName dc) (uncurryTy ty) ty
 ll :: Either String a -> TMW a
 ll = lift . lift
 
+errorType :: PolyType Id
+errorType = PolyType [Eta 0] [] (TyVar (Eta 0))
+
 -- | Translating expressions
 --
 -- GHC Core allows application of types to arbitrary expressions,
@@ -225,6 +228,10 @@ ll = lift . lift
 -- not immediately available in GHC Core, so this has to be reconstructed.
 trExpr :: CoreExpr -> TMW (Tip.Expr Id)
 trExpr e0 = case collectTypeArgs e0 of
+    (C.App (C.App (C.Var patError) (C.Type ty)) (C.Lit _), _)
+      | varUnique patError == PrelNames.patErrorIdKey -> do
+          t <- ll (trType ty)
+          return (Gbl (Global Error errorType [t]) :@: [])
     (C.Var x, tys) -> mapM (ll . trType) tys >>= trVar x
     (_, _:_) -> throw (msgTypeApplicationToExpr e0)
     (C.Lit l, _) -> literal <$> trLit l

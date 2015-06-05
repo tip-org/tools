@@ -51,14 +51,16 @@ data Id
     | Eta Int
     | Discrim Id
     | Project Id Int
+    | Error
   deriving (Eq,Ord)
 
 instance Show Id where
-    show (GHCOrigin n) = show (showOutputable n)
-    show (Eta n)       = "eta" ++ show n
-    show (Discrim c)   = "is-" ++ show c
-    show (Project c i) = show c ++ "_" ++ show i
+    show (GHCOrigin n)      = show (showOutputable n)
+    show (Eta n)            = "eta" ++ show n
+    show (Discrim c)        = "is-" ++ show c
+    show (Project c i)      = show c ++ "_" ++ show i
     show (i `LiftedFrom` j) = show i ++ " `LiftedFrom` " ++ show j
+    show Error              = "error"
 
 instance PrettyVar Id where
     varStr = ppId
@@ -80,6 +82,7 @@ ppId (Project c i)  = case (i,ppId c) of
                         (0,"S")    -> "p"
                         (0,"Succ") -> "pred"
                         _          -> ppId c ++ "_" ++ show i
+ppId Error = "error"
 
 ppName :: Name -> String
 ppName nm
