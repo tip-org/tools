@@ -398,7 +398,7 @@ makeSig thy@Theory{..} =
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ <- thy_sigs
                ])
-          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int (if translate_UFs then 11 else 7)])
+          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int (if translate_UFs then 15 else 7)])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
           ]
       ]
