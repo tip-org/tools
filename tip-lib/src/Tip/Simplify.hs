@@ -145,7 +145,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
                     transformTypeInExpr (applyType func_tvs gbl_args) <$>
                       lift (substMany (zip func_args ts) func_body)
                   (e2, Any simplified) <- lift (runWriterT (aux e1))
-                  if simplified && (inline_match || not (containsMatch e2))
+                  if (simplified && (inline_match || not (containsMatch e2))) || atomic func_body
                   then hooray $ return e2
                   else return (Gbl gbl :@: ts)
             _ -> return (Gbl gbl :@: ts)
