@@ -49,6 +49,7 @@ import Tip.Pass.NegateConjecture
 import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
 import Tip.Pass.Booleans
+import Tip.Pass.EliminateDeadCode
 
 import Tip.Fresh
 
@@ -73,6 +74,7 @@ data StandardPass
   | AxiomatizeLambdas
   | CSEMatch
   | CSEMatchWhy3
+  | EliminateDeadCode
  deriving (Eq,Ord,Show,Read,Enum,Bounded)
 
 instance Pass StandardPass where
@@ -95,3 +97,4 @@ instance Pass StandardPass where
     AxiomatizeLambdas -> axiomatizeLambdas
     CSEMatch          -> return . cseMatch cseMatchNormal
     CSEMatchWhy3      -> return . cseMatch cseMatchWhy3
+    EliminateDeadCode -> return . eliminateDeadCode

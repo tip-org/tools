@@ -52,6 +52,7 @@ library
     Tip.Pass.EqualFunctions
     Tip.Pass.Uncurry
     Tip.Pass.Pipeline
+    Tip.Pass.EliminateDeadCode
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
