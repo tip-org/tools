@@ -17,6 +17,7 @@ import Tip.Unfoldings
 import Tip.Uniquify
 import Tip.GHCUtils
 import Tip.Pretty
+import Tip.Pass.FillInCases
 
 import Control.Monad
 import Data.Char
@@ -83,7 +84,13 @@ readHaskellFile params@Params{..} = do
 
         tip_props = either error id (mapM trProperty prop_fns)
 
-        thy = Theory tip_data [] [Signature Error errorType | Error `elem` concatMap uses tip_fns] tip_fns tip_props
+        addError thy@Theory{..} =
+          case [ gbl | gbl@Global{gbl_name = Error} <- universeBi thy ] of
+            [] -> thy
+            _ -> thy { thy_sigs = Signature Error errorType:thy_sigs }
+
+        thy0 = Theory tip_data [] [] tip_fns tip_props
+        thy = addError (fillInCases errorCall thy0)
 
     when (PrintInitialTip `elem` flags) $ do
         putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
