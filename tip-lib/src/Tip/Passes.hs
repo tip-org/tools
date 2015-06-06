@@ -55,6 +55,8 @@ import Tip.Fresh
 
 import Tip.Pass.Pipeline
 
+import Options.Applicative
+
 -- | The passes in the standard Tip distribution
 data StandardPass
   = SimplifyGently
@@ -82,19 +84,57 @@ instance Pass StandardPass where
   runPass p = case p of
     SimplifyGently       -> simplifyTheory gently
     SimplifyAggressively -> simplifyTheory aggressively
-    RemoveNewtype     -> return . removeNewtype
-    UncurryTheory     -> uncurryTheory
-    NegateConjecture  -> negateConjecture
-    IfToBoolOp        -> return . ifToBoolOp
-    BoolOpToIf        -> return . theoryBoolOpToIf
-    AddMatch          -> addMatch
-    CommuteMatch      -> commuteMatch
-    RemoveMatch       -> removeMatch
-    CollapseEqual     -> return . collapseEqual
-    RemoveAliases     -> return . removeAliases
-    LambdaLift        -> lambdaLift
-    LetLift           -> letLift
-    AxiomatizeLambdas -> axiomatizeLambdas
-    CSEMatch          -> return . cseMatch cseMatchNormal
-    CSEMatchWhy3      -> return . cseMatch cseMatchWhy3
-    EliminateDeadCode -> return . eliminateDeadCode
+    RemoveNewtype        -> return . removeNewtype
+    UncurryTheory        -> uncurryTheory
+    NegateConjecture     -> negateConjecture
+    IfToBoolOp           -> return . ifToBoolOp
+    BoolOpToIf           -> return . theoryBoolOpToIf
+    AddMatch             -> addMatch
+    CommuteMatch         -> commuteMatch
+    RemoveMatch          -> removeMatch
+    CollapseEqual        -> return . collapseEqual
+    RemoveAliases        -> return . removeAliases
+    LambdaLift           -> lambdaLift
+    LetLift              -> letLift
+    AxiomatizeLambdas    -> axiomatizeLambdas
+    CSEMatch             -> return . cseMatch cseMatchNormal
+    CSEMatchWhy3         -> return . cseMatch cseMatchWhy3
+    EliminateDeadCode    -> return . eliminateDeadCode
+  parsePass =
+    foldr (<|>) empty [
+      unitPass SimplifyGently $
+        help "Simplify the problem, trying not to increase its size",
+      unitPass SimplifyAggressively $
+        help "Simplify the problem even at the cost of making it bigger",
+      unitPass RemoveNewtype $
+        help "Eliminate single-constructor, single-argument datatypes",
+      unitPass UncurryTheory $
+        help "Eliminate unnecessary use of higher-order functions",
+      unitPass NegateConjecture $
+        help "Transform the goal into a negated conjecture",
+      unitPass IfToBoolOp $
+        help "Replace if-then-else by and/or where appropriate",
+      unitPass BoolOpToIf $
+        help "Replace and/or by if-then-else",
+      unitPass AddMatch $
+        help "Transform SMTLIB-style datatype access into pattern matching",
+      unitPass CommuteMatch $
+        help "Eliminate matches where the scrutinee is also a match",
+      unitPass RemoveMatch $
+        help "Replace pattern matching with SMTLIB-style datatype access",
+      unitPass CollapseEqual $
+        help "Merge functions with equal definitions",
+      unitPass RemoveAliases $
+        help "Eliminate any function defined simply as f(x) = g(x)",
+      unitPass LambdaLift $
+        help "Lift lambdas to the top level",
+      unitPass LetLift $
+        help "Lift let-expressions to the top level.",
+      unitPass AxiomatizeLambdas $
+        help "Eliminate lambdas by axiomatisation (requires --lambda-lift)",
+      unitPass CSEMatch $
+        help "Perform CSE on match scrutinees",
+      unitPass CSEMatchWhy3 $
+        help "Aggressively perform CSE on match scrutinees (helps Why3's termination checker)",
+      unitPass EliminateDeadCode $
+        help "Dead code elimination (doesn't work on dead recursive functions)"]

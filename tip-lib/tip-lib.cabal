@@ -70,7 +70,8 @@ library
                        containers,
                        mtl,
                        pretty,
-                       array
+                       array,
+                       optparse-applicative
 
 executable tip-parser
   main-is:             executable/Main.hs
@@ -78,4 +79,5 @@ executable tip-parser
   build-depends:       base,
                        tip-lib,
                        pretty-show,
-                       pretty
+                       pretty,
+                       optparse-applicative
