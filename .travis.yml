@@ -20,9 +20,9 @@ script:
     - ./make_parser.sh
     - cabal install tip-lib/ tip-haskell-frontend/
     - tip-ghc examples/Int.hs
-    - tip-parser <(tip-ghc examples/Int.hs)
+    - tip <(tip-ghc examples/Int.hs)
     - tip-ghc examples/Case.hs
-    - tip-parser <(tip-ghc examples/Case.hs)
+    - tip <(tip-ghc examples/Case.hs)
     - tip-ghc examples/Props.hs
-    - tip-parser <(tip-ghc examples/Props.hs)
+    - tip <(tip-ghc examples/Props.hs)
 
