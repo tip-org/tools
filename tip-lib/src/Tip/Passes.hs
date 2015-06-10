@@ -22,6 +22,7 @@ module Tip.Passes
   , cseMatch
   , cseMatchNormal
   , cseMatchWhy3
+  , fillInCases
 
   -- * Duplicated functions
   , collapseEqual
@@ -50,6 +51,7 @@ import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
 import Tip.Pass.Booleans
 import Tip.Pass.EliminateDeadCode
+import Tip.Pass.FillInCases
 
 import Tip.Fresh
 

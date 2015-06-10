@@ -31,7 +31,6 @@ library
     Tip.Pretty.Why3
     Tip.Pretty.Isabelle
     Tip.Pretty.Haskell
-    Tip.Pass.FillInCases
 
     Tip.Parser
 
@@ -58,6 +57,7 @@ library
     Tip.Pass.Uncurry
     Tip.Pass.Pipeline
     Tip.Pass.EliminateDeadCode
+    Tip.Pass.FillInCases
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
