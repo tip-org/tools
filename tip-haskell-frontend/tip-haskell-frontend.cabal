@@ -8,7 +8,12 @@ build-type:          Simple
 cabal-version:       >=1.10
 description:         Convert from Haskell to Tip
 synopsis:            Convert from Haskell to Tip
-homepage:            https://github.com/tip-org/tools
+homepage:            http://tip-org.github.io
+bug-reports:         http://github.com/tip-org/tools/issues
+
+source-repository head
+  type:     git
+  location: http://github.com/tip-org/tools
 
 library
   exposed-modules:
