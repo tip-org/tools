@@ -9,7 +9,7 @@ rough around the edges but include:
 
 ## Installing from Hackage
 
-To install the latest released version of TIP, run
+To install the latest released version of TIP, make sure you have Haskell installed and then run:
 
     cabal update
     cabal install tip-lib tip-haskell-frontend
@@ -18,7 +18,7 @@ The tools will be put in your `~/.cabal/bin` directory.
 
 ## Building the development version of the tools
 
-Check out this repository, make sure you have Haskell installed and then:
+With Haskell installed and this repository cloned:
 
     cabal update
     cabal install bnfc
