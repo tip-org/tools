@@ -11,8 +11,8 @@ rough around the edges but include:
 
 To install the latest released version of TIP, run
 
-   cabal update
-   cabal install tip-lib tip-haskell-frontend
+    cabal update
+    cabal install tip-lib tip-haskell-frontend
 
 The tools will be put in your `~/.cabal/bin` directory.
 
