@@ -80,13 +80,8 @@ ppSort (Sort sort n) =
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas []  = empty
-ppDatas [d] = "datatype" <+>
-    vcat (intersperseWithPre ($\) "and" [ppData d])--(map ppData dts))
-  --where (fTys, fDefs) = foldr (\(ppData -> (pf,pds)) (ftys,fdefs) ->
-    --                              (pf:ftys, pds++fdefs))
-      --                  ([],[]) (fn:fns)
-
--- TODO: sim. to ppFuncs for mutually recursive datatypes; vcat (ppData "datatype" d:map (ppData "and") ds)
+ppDatas dts = "datatype" <+>
+    vcat (intersperseWithPre ($\) "and" (map ppData dts))
 
 ppData :: (PrettyVar a, Ord a) => Datatype a -> Doc
 ppData (Datatype tc tvs cons) =
@@ -112,6 +107,7 @@ ppLocalBinder (Local x t) = ppBinder x t
 ppUninterp :: (PrettyVar a, Ord a) => Signature a -> Doc
 ppUninterp (Signature f (PolyType _ arg_types result_type)) =
   --"function" $\ ppVar f $\ fsep (map (ppType 1) arg_types) $\ (":" <+> ppType 1 result_type)
+  -- XXX: consts maybe?
   error $ "Can't translate uninterpreted function " ++ varStr f
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
