@@ -39,8 +39,8 @@ To translate a TIP file to some other format, run:
 * `tip name-of-file.smt2 --why` to convert it to WhyML format;
 * `tip name-of-file.smt2 --smtlib` to convert it to a
   CVC4-compatible version of SMTLIB;
-* `tip-parser name-of-file.smt2 --isabelle` to convert it to Isabelle;
-* `tip-parser name-of-file.smt2 --haskell` to convert it to
+* `tip name-of-file.smt2 --isabelle` to convert it to Isabelle;
+* `tip name-of-file.smt2 --haskell` to convert it to
   Haskell (plus scaffolding for running QuickSpec).
 
 You can also use `tip` to run various transformations on the input problem.
