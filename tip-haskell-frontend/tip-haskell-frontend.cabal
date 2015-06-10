@@ -10,6 +10,7 @@ description:         Convert from Haskell to Tip
 synopsis:            Convert from Haskell to Tip
 homepage:            http://tip-org.github.io
 bug-reports:         http://github.com/tip-org/tools/issues
+category:            Theorem Provers
 
 source-repository head
   type:     git
