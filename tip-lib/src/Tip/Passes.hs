@@ -119,7 +119,7 @@ instance Pass StandardPass where
       unitPass AddMatch $
         help "Transform SMTLIB-style datatype access into pattern matching",
       unitPass CommuteMatch $
-        help "Eliminate matches where the scrutinee is also a match",
+        help "Eliminate matches that occur in weird positions (e.g. as arguments to function calls)",
       unitPass RemoveMatch $
         help "Replace pattern matching with SMTLIB-style datatype access",
       unitPass CollapseEqual $
