@@ -11,7 +11,7 @@ import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlob
 
 import Data.Char
 import Data.Maybe
-import Data.List (intersperse)
+import Data.List (intersperse, partition)
 
 import Data.Generics.Geniplate
 
@@ -79,12 +79,13 @@ ppSort (Sort sort n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Isabelle"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
-ppDatas [d] = ppData "datatype" d
--- TODO: sim. to ppFuncs for mutually recursive datatypes; vcat (ppData "datatype" d:map (ppData "and") ds)
+ppDatas []  = empty
+ppDatas dts = "datatype" <+>
+    vcat (intersperseWithPre ($\) "and" (map ppData dts))
 
-ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
-ppData header (Datatype tc tvs cons) =
-  header $\ ppAsTuple tvs ppTyVar $\
+ppData :: (PrettyVar a, Ord a) => Datatype a -> Doc
+ppData (Datatype tc tvs cons) =
+  ppAsTuple tvs ppTyVar $\
     ppVar tc $\ separating fsep ("=":repeat "|") (map ppCon cons)
 --ppDatas (d:ds) = ppData "datatype" d
         -- FIXME: No mutual recusion for now...
@@ -106,6 +107,7 @@ ppLocalBinder (Local x t) = ppBinder x t
 ppUninterp :: (PrettyVar a, Ord a) => Signature a -> Doc
 ppUninterp (Signature f (PolyType _ arg_types result_type)) =
   --"function" $\ ppVar f $\ fsep (map (ppType 1) arg_types) $\ (":" <+> ppType 1 result_type)
+  -- XXX: consts maybe?
   error $ "Can't translate uninterpreted function " ++ varStr f
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
@@ -150,14 +152,18 @@ ppExpr i e@(hd@(Gbl Global{..}) :@: es)
   | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
     parIf (i > 0) $
     ppHead hd (map (ppExpr 1) es)-- $\ "::" $\ ppType 0 (exprType e)
-ppExpr i (hd :@: es)  = parIf (i > 0 && not (null es)) $ ppHead hd (map (ppExpr 1) es)
+ppExpr i (hd :@: es)  = parIf ((i > 0 && not (null es)) || isLogB hd) $
+                          ppHead hd (map (ppExpr 1) es)
+  where isLogB (Builtin b) = logicalBuiltin b
+        isLogB _           = False
 ppExpr _ (Lcl l)      = ppVar (lcl_name l)
 ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "%" ls "=>" (ppExpr 0 e)
 ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppLocalBinder x <+> "=" $\ ppExpr 0 b, "in" <+> ppExpr 0 e]
 ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls "." (ppExpr 0 e)
 ppExpr i (Match e alts) =
   parIf (i <= 0) $ block ("case" $\ ppExpr 0 e $\ "of")
-                         (vcat (intersperseWithPre ($\) "|" (map ppCase alts)))
+                         (vcat (intersperseWithPre ($\) "|" (map ppCase
+                                  (uncurry (++) (partition ((/= Default).case_pat) alts)))))
 
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
 ppHead (Gbl gbl)      args                        = ppVar (gbl_name gbl) $\ fsep args
