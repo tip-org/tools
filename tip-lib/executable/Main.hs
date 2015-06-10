@@ -42,7 +42,7 @@ main = do
       info (helper <*> optionParser)
         (fullDesc <>
          progDesc "Transform a TIP problem" <>
-         header "tip-parser - a tool for processing TIP problems")
+         header "tip - a tool for processing TIP problems")
   case files of
     Nothing ->
       handle passes mode =<< getContents
