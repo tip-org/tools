@@ -1,0 +1,5 @@
+tip-haskell-frontend 0.1.1 (released 2015-06-11):
+* Relax dependency on tip-lib to >= 0.1.1 && <= 0.2.
+
+tip-haskell-frontend 0.1 (released 2015-06-10):
+* Initial release.

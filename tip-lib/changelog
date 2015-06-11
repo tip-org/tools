@@ -1,0 +1,6 @@
+tip-lib 0.1.1 (released 2015-06-11):
+* List alex and happy as build-tools (thanks to Peter Simons.)
+* Add errors.h as extra source file.
+
+tip-lib 0.1 (released 2015-06-11):
+* Initial release.

@@ -1,5 +1,5 @@
 name:                tip-lib
-version:             0.1
+version:             0.1.1
 synopsis:            tons of inductive problems - support library and tools
 description:         This package provides a tool for processing inductive theorem proving problems in TIP format (see the homepage for details).
 homepage:            http://tip-org.github.io
@@ -12,9 +12,12 @@ category:            Theorem Provers
 build-type:          Simple
 cabal-version:       >=1.10
 
+extra-source-files:  changelog src/errors.h
+
 source-repository head
   type:     git
   location: http://github.com/tip-org/tools
+  subdir:   tip-lib
 
 library
   exposed-modules:
@@ -77,6 +80,7 @@ library
                        pretty,
                        array,
                        optparse-applicative
+  build-tools:         alex, happy
 
 executable tip
   main-is:             executable/Main.hs
