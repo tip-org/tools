@@ -18,6 +18,13 @@ data SimplifyOpts a =
   SimplifyOpts {
     touch_lets    :: Bool,
     -- ^ Allow simplifications on lets
+    remove_variable_scrutinee_in_branches :: Bool,
+    -- ^ transform
+    -- @(match x (case (K y) (e x y)))@
+    -- to
+    -- @(match x (case (K y) (e (K y) y))@
+    -- This is useful for triggering other known-case simplifications,
+    -- and is therefore on by default.
     should_inline :: Maybe (Scope a) -> Expr a -> Bool,
     -- ^ Inlining predicate
     inline_match  :: Bool
@@ -26,11 +33,11 @@ data SimplifyOpts a =
 
 -- | Gentle options: if there is risk for code duplication, only inline atomic expressions
 gently :: SimplifyOpts a
-gently       = SimplifyOpts True (const atomic) True
+gently       = SimplifyOpts True True (const atomic) True
 
 -- | Aggressive options: inline everything that might plausibly lead to simplification
 aggressively :: Name a => SimplifyOpts a
-aggressively = SimplifyOpts True useful True
+aggressively = SimplifyOpts True True useful True
   where
     useful _ Lam{} = True
     useful mscp (f :@: _) = isConstructor mscp f
@@ -94,7 +101,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
             matches _ Default = True
             matches _ _ = False
 
-        Match (Lcl x) alts ->
+        Match (Lcl x) alts | remove_variable_scrutinee_in_branches ->
           Match (Lcl x) <$> sequence
           [ Case pat <$> case pat of
               ConPat g bs -> subst ((Gbl g :@: map Lcl bs) /// x) rhs
