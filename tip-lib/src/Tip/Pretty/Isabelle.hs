@@ -151,7 +151,7 @@ ppExpr i e | Just (c,t,f) <- ifView e = parens $ "if" $\ ppExpr 0 c $\ "then" $\
 ppExpr i e@(hd@(Gbl Global{..}) :@: es)
   | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
     parIf (i > 0) $
-    ppHead hd (map (ppExpr 1) es)-- $\ "::" $\ ppType 0 (exprType e)
+    ppHead hd (map (ppExpr 1) es)-- -- $\ "::" $\ ppType 0 (exprType e)
 ppExpr i (hd :@: es)  = parIf ((i > 0 && not (null es)) || isLogB hd) $
                           ppHead hd (map (ppExpr 1) es)
   where isLogB (Builtin b) = logicalBuiltin b

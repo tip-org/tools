@@ -18,7 +18,7 @@ before_script:
 
 script:
     - ./make_parser.sh
-    - cabal install tip-lib/ tip-haskell-frontend/
+    - cabal install tip-lib/ tip-haskell-frontend/ --enable-documentation
     - tip-ghc examples/Int.hs
     - tip <(tip-ghc examples/Int.hs)
     - tip-ghc examples/Case.hs
