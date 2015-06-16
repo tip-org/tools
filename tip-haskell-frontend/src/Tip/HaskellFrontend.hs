@@ -1,93 +1,173 @@
 {-# LANGUAGE RecordWildCards, DisambiguateRecordFields, NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 -- | The Haskell frontend to Tip
-module Tip.HaskellFrontend(readHaskellFile,Id(..),module Tip.Params) where
+module Tip.HaskellFrontend(readHaskellFile,readHaskellOrTipFile,Id(..),module Tip.Params) where
 
-import Tip.Core
-import Tip.Calls
-import Tip.Compile
-import Tip.CoreToTip
-import Tip.Dicts (inlineDicts)
-import Tip.FreeTyCons
+import Language.Haskell.GHC.Simple hiding (Id) -- Thanks, Anton!
+import qualified Language.Haskell.GHC.Simple as Simple
+
+import Tip.Utils
 import Tip.Id
 import Tip.Params
+import Tip.Core
+import Tip.CoreToTip
+
 import Tip.ParseDSL
 import Tip.Property
-import Tip.RemoveDefault
-import Tip.Unfoldings
-import Tip.Uniquify
+
 import Tip.GHCUtils
-import Tip.Pretty
 
-import Control.Monad
-import Data.Char
-import Data.List (partition,union,delete)
-import Data.Map (Map)
-import qualified Data.Map as M
-import Data.Maybe (isNothing)
-import System.Directory
-import System.Exit
-import Data.Generics.Geniplate
-
-import qualified Id as GHC
-import qualified CoreSubst as GHC
-import Var (Var)
-import TyCon (isAlgTyCon,isClassTyCon,tyConName)
-import TysWiredIn (boolTyCon)
+import CoreFVs
+import VarSet
 import UniqSupply
 
--- | Transforms a Haskell file to a Tip Theory, crashing if unsuccessful
-readHaskellFile :: Params -> IO (Theory Id)
-readHaskellFile params@Params{..} = do
+import Data.List
+import Data.Either
 
-    -- whenFlag params PrintParams $ putStrLn (ppShow params)
+import Tip.Dicts
+import Tip.Uniquify
+import Tip.RemoveDefault
+import Tip.FreeTyCons
 
-    -- maybe (return ()) setCurrentDirectory directory
+import TysWiredIn (boolTyCon,listTyCon)
 
-    prop_ids <- compileHaskellFile params
+import Control.Monad
 
-    let vars = filterVarSet (not . varInTip) $
-               unionVarSets (map (transCalls Without) prop_ids)
+import Tip.GenericInstances
+import Data.Generics.Geniplate
 
-    us0 <- mkSplitUniqSupply 'h'
+import qualified Tip.Parser as TipP
 
-    let (binds,_us1) = initUs us0 $ sequence
-            [ fmap ((,) v) (runUQ . uqExpr <=< rmdExpr $ inlineDicts e)
-            | v <- varSetElems vars
-            , isNothing (GHC.isClassOpId_maybe v)
-            , Just e <- [maybeUnfolding v]
+-- | If the file cannot be read as a TIP file, it is instead read as a Haskell file.
+readHaskellOrTipFile :: FilePath -> Params -> IO (Either String (Theory (Either TipP.Id Id)))
+readHaskellOrTipFile file params =
+  do mthy1 <- TipP.parseFile file
+     case mthy1 of
+       Right thy -> return (Right (fmap Left thy))
+       Left err1 ->
+         do mthy2 <- readHaskellFile file params
+            case mthy2 of
+              Right thy -> return (Right (fmap Right thy))
+              Left err2 -> return (Left (err1 ++ "\n" ++ err2))
+
+-- | Transforms a Haskell file to a Tip Theory or an error
+readHaskellFile :: FilePath -> Params -> IO (Either String (Theory Id))
+readHaskellFile file params@Params{..} = do
+
+  let cfg :: CompConfig ModGuts
+      cfg = defaultConfig {
+          cfgGhcFlags =
+            ["-dynamic-too"
+            ,"-fno-ignore-interface-pragmas"
+            ,"-fno-omit-interface-pragmas"
+            ,"-fexpose-all-unfoldings"]
+            ++ include
+        }
+
+  mres <- compileWith cfg [file]
+
+  case mres of
+    Failure errs warns ->
+      return . Left . unlines $
+        [ showOutputable p ++ ":" ++ m ++ "\n" ++ l
+        | Simple.Error p m l <- errs
+        ]
+    Success cms warns _ ->
+      do {- putStrLn $ unlines
+            [ showOutputable p ++ ":" ++ m
+            | Simple.Warning p m <- warns
             ]
+         -}
+         readModules params cms
 
-        tcs = filter (\ x -> isAlgTyCon x && not (nameInTip (tyConName x)) && not (isClassTyCon x))
-                     (delete boolTyCon (bindsTyCons' binds))
+addUnfoldings :: [(Var,CoreExpr)] -> [(Var,CoreExpr)]
+addUnfoldings binds | null unfs = binds
+                    | otherwise = addUnfoldings (binds ++ unfs)
+  where
+    unfs = usortOn fst
+      [ (x,inlineDicts e')
+      | (_,e) <- binds
+      , Var x :: CoreExpr <- universeBi e
+      , x `notElem` map fst binds
+      , Just e' <- [maybeUnfolding x]
+      ]
 
-    when (PrintCore `elem` flags) $ do
-        putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
-        putStrLn (showOutputable binds)
+readModules :: Params -> [CompiledModule ModGuts] -> IO (Either String (Theory Id))
+readModules params@Params{..} cms = do
+  let mgs    = map modCompiledModule cms
+  let binds0 = addUnfoldings (map (fmap inlineDicts) (flattenBinds (concatMap mg_binds mgs)))
 
-    let tip_data =
+  us0 <- mkSplitUniqSupply 'h'
+
+  let (binds,_us1) = initUs us0 $ sequence
+         [ fmap ((,) v) (runUQ . uqExpr <=< rmdExpr $ e)
+         | (v,e) <- binds0
+         , not (varInTip v)
+         ]
+
+  let the_props  :: [(Var,CoreExpr)]
+      the_props =
+        [ ve
+        | ve@(v,_) <- binds
+        , not (varInTip v)
+        , varToString v `elem` extra_names
+          || (varWithPropType v && maybe True (varToString v `elem`) prop_names)
+        ]
+
+  let prop_ids = map fst the_props
+
+  -- Find all bindings transitively from props
+
+  let reachable = transFrom prop_ids binds
+
+  when (PrintCore `elem` debug_flags) $ putStrLn $ showOutputable reachable
+
+  let tycons =
+         filter (\ x -> isAlgTyCon x && not (nameInTip (tyConName x)) && not (isClassTyCon x))
+                (delete boolTyCon (bindsTyCons reachable))
+
+  let (data_errs,tip_data) =
+        partitionEithers
           [ case trTyCon tc of
-              Right tc' -> tc'
-              Left err -> error $ showOutputable tc ++ ": " ++ err
-          | tc <- tcs
+              Right tc' -> Right tc'
+              Left err  -> Left $ showOutputable tc ++ ": " ++ err
+          | tc <- tycons
           ]
 
-    let tip_fns0 = concat
+  let (fn_errs,concat -> tip_fns0) =
+        partitionEithers
           [ case runTM (trDefn v e) of
-              Right fn -> fn
-              Left err -> error $ showOutputable v ++ ": " ++ err
-          | (v,e) <- binds
+              Right fn -> Right fn
+              Left err -> Left $ showOutputable v ++ ": " ++ err
+          | (v,e) <- reachable
           ]
 
-        -- Now, split these into properties and non-properties
-    let (prop_fns,tip_fns) = partition (isPropType . func_res) tip_fns0
+  let (prop_fns,tip_fns) = partition (isPropType . func_res) tip_fns0
 
-        tip_props = either error id (mapM trProperty prop_fns)
+      (prop_errs,tip_props) = partitionEithers (map trProperty prop_fns)
 
-        thy = Theory tip_data [] [Signature Error errorType] tip_fns tip_props
+      thy = Theory tip_data [] [Signature Tip.Id.Error errorType] tip_fns tip_props
 
-    when (PrintInitialTip `elem` flags) $ do
-        putStrLn "Tip.HaskellFrontend, PrintInitialTip:"
-        putStrLn (ppRender thy)
+      errs = data_errs ++ fn_errs ++ prop_errs
 
-    return thy
+  return (if null errs then Right thy else Left (unlines errs))
+
+transFrom :: [Var] -> [(Var,CoreExpr)] -> [(Var,CoreExpr)]
+transFrom (mkVarSet -> s0) binds = filter (\ (v,_) -> v `elemVarSet` fin) binds
+  where
+  fin = go s0
+
+  go :: VarSet ->  VarSet
+  go visited | isEmptyVarSet new = visited
+             | otherwise         = go (new `unionVarSet` visited)
+    where
+    new :: VarSet
+    new =
+      unionVarSets
+        [ exprSomeFreeVars (\ _ -> True) rhs_start
+        | v_start <- varSetElems visited
+        , Just rhs_start <- [lookup v_start binds]
+        ]
+      `minusVarSet` visited
 

@@ -20,36 +20,42 @@ import Tip.Utils.Rename
 import Tip.Pretty
 import Tip.Pretty.SMT as SMT
 
-import Text.PrettyPrint
+import Text.PrettyPrint hiding ((<>))
+
+import Options.Applicative
 
 main :: IO ()
 main = do
-    f:es <- getArgs
-    thy <- readHaskellFile Params
-      { file = f
-      , include = []
-      , flags = [] -- [PrintCore,PrintProps,PrintExtraIds,PrintInitialTip]
-      , only = es -- []
-      , extra = [] -- es
-      }
-    -- putStrLn (ppRender thy)
-    let renamed_thy = renameWith disambigId thy
-    let pipeline =
-          freshPass $
-            runPasses
-              [ SimplifyAggressively
-              , RemoveNewtype
-              , UncurryTheory
-              , CommuteMatch
-              , SimplifyGently
-              , IfToBoolOp
-              , RemoveAliases, CollapseEqual
-              , CommuteMatch
-              , SimplifyGently
-              , CSEMatch
-              , EliminateDeadCode
-              ]
-    print (SMT.ppTheory (pipeline renamed_thy))
+    (file,params) <-
+      execParser $
+        info (helper <*>
+                ((,) <$> strArgument (metavar "FILENAME" <> help "Haskell file to process")
+                     <*> parseParams))
+          (fullDesc <>
+           progDesc "Translate Haskell to TIP" <>
+           header "tip-ghc - translate Haskell to TIP")
+    mthy <- readHaskellFile file params
+    case mthy of
+      Left s -> error s
+      Right thy -> do
+        when (PrintInitialTheory `elem` debug_flags params) $ putStrLn (ppRender thy)
+        let renamed_thy = renameWith disambigId thy
+        let pipeline =
+              freshPass $
+                runPasses
+                  [ SimplifyAggressively
+                  , RemoveNewtype
+                  , UncurryTheory
+                  , CommuteMatch
+                  , SimplifyGently
+                  , IfToBoolOp
+                  , RemoveAliases, CollapseEqual
+                  , CommuteMatch
+                  , SimplifyGently
+                  , CSEMatch
+                  , EliminateDeadCode
+                  ]
+        print (SMT.ppTheory (pipeline renamed_thy))
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)

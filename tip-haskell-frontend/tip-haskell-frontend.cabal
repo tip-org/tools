@@ -27,8 +27,6 @@ library
     Tip.Params
     Tip.Id
     Tip.GHCUtils
-    Tip.Calls
-    Tip.Compile
     Tip.CoreToTip
     Tip.DataConPattern
     Tip.Dicts
@@ -36,10 +34,9 @@ library
     Tip.ParseDSL
     Tip.Property
     Tip.RemoveDefault
-    Tip.GHCScope
     Tip.TyAppBeta
-    Tip.Unfoldings
     Tip.Uniquify
+    Tip.GenericInstances
   hs-source-dirs:      src
   include-dirs:        src
   default-language:    Haskell2010
@@ -55,6 +52,8 @@ library
                        split >=0.2,
                        geniplate-mirror >=0.7.1,
                        tip-lib >= 0.1.1 && < 0.2,
+                       ghc-simple >= 0.1.2.0 && < 0.2,
+                       optparse-applicative,
                        QuickCheck >= 2.8
 
 executable tip-ghc
@@ -64,4 +63,5 @@ executable tip-ghc
                        tip-haskell-frontend,
                        tip-lib,
                        pretty-show,
+                       optparse-applicative,
                        pretty

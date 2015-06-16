@@ -1,31 +1,53 @@
 module Tip.Params where
 
+import Options.Applicative
+
+import Tip.Utils
+
+import Data.List.Split
+
 -- | Parameters
 data Params = Params
-  { file        :: FilePath
-  -- ^ File to process
-  , include     :: [FilePath]
+  { include     :: [FilePath]
   -- ^ Directories to include
-  , flags       :: [DebugFlags]
+  , debug_flags :: [DebugFlag]
   -- ^ Debugging flags
-  , only        :: [String]
+  , prop_names :: Maybe [String]
   -- ^ Only consider these properties
-  , extra       :: [String]
-  -- ^ Also translate these functions and its transitive dependencies
+  , extra_names :: [String]
+  -- ^ Extra names to consider
   }
   deriving Show
 
--- | Default parameters, given the name of the file to process
-defaultParams :: FilePath -> Params
-defaultParams fp = Params
-  { file = fp
-  , include = []
-  , flags = []
-  , only = []
-  , extra = []
+commaSep :: [String] -> [String]
+commaSep = concatMap (splitOn ",")
+
+parseParams :: Parser Params
+parseParams = Params
+  <$> many (strOption (long "include" <> short 'i' <> metavar "PATH" <> help "Extra include directory"))
+  <*> many (foldr (<|>) empty [ flag' debug_flag (long (flagifyShow debug_flag) <> help (debugHelp debug_flag))
+                              | debug_flag <- [minBound..maxBound]
+                              ])
+  <*> (pure Nothing <|> fmap (Just . commaSep) (many (strOption prop_opt)))
+  <*> fmap commaSep (many (strOption (long "extra" <> short 'e' <> metavar "NAME" <> help "Function declaration to add to theory")))
+
+  where
+
+  prop_opt = long "only" <> long "prop" <> short 'p' <> metavar "NAME" <> help "Property declaration to consider (default all)"
+
+-- | Default (empty) parameters
+defaultParams :: Params
+defaultParams = Params
+  { include = []
+  , debug_flags = []
+  , prop_names = Nothing
+  , extra_names = []
   }
 
 -- | Debugging flags
-data DebugFlags = PrintCore | PrintProps | PrintExtraIds | PrintInitialTip
-  deriving (Eq,Show)
+data DebugFlag = PrintCore | PrintInitialTheory
+  deriving (Eq,Show,Enum,Bounded)
 
+debugHelp :: DebugFlag -> String
+debugHelp PrintCore          = "Print core bindings from GHC"
+debugHelp PrintInitialTheory = "Print initial theory"

@@ -26,18 +26,6 @@ import Coercion
 import Name (getOccString,nameModule_maybe)
 import PrelNames (gHC_REAL)
 
-instanceTransformBiT
-    [ [t|Var|], [t|Coercion|] , [t|Tickish Id|], [t|Literal|], [t|Type|], [t|AltCon|] ]
-    [t| forall a . (Expr a,Expr a) |]
-
-instanceTransformBiT
-    [ [t|Var|], [t|Coercion|] , [t|Tickish Id|], [t|Literal|], [t|Type|], [t|AltCon|] ]
-    [t| forall a . (Expr a,[Bind a]) |]
-
-instanceTransformBiT
-    [ [t|Var|], [t|Coercion|] , [t|Tickish Id|], [t|Literal|], [t|Type|], [t|AltCon|] ]
-    [t| forall a . (Expr a,[(a,Expr a)]) |]
-
 -- | Maybe the unfolding of an Id
 maybeUnfolding :: Id -> Maybe CoreExpr
 maybeUnfolding v = case ri of
