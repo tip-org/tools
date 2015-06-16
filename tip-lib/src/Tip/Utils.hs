@@ -9,10 +9,15 @@ import Data.Char
 import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Ord
+import Data.Function
 
 -- | Sort and remove duplicates
 usort :: Ord a => [a] -> [a]
-usort = map head . group . sort
+usort = usortOn id
+
+-- | Sort and remove duplicates wrt some custom ordering
+usortOn :: Ord b => (a -> b) -> [a] -> [a]
+usortOn f = map head . groupBy ((==) `on` f) . sortBy (comparing f)
 
 -- | Sort things in topologically in strongly connected components
 sortThings :: Ord name => (thing -> name) -> (thing -> [name]) -> [thing] -> [[thing]]
