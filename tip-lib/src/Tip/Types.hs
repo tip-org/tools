@@ -26,7 +26,6 @@ data Global a = Global
 infix 5 :@:
 
 data Expr a
-  -- maybe move Lit from Builtin under Head to straight here
   = Head a :@: [Expr a]
   | Lcl (Local a)
   | Lam [Local a] (Expr a)
