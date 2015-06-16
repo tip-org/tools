@@ -31,6 +31,10 @@ class PrettyVar a where
   -- | The string in a variable
   varStr :: a -> String
 
+instance (PrettyVar a,PrettyVar b) => PrettyVar (Either a b) where
+  varStr (Left x)  = varStr x
+  varStr (Right y) = varStr y
+
 -- | Variable to 'Doc'
 ppVar :: PrettyVar a => a -> Doc
 ppVar = text . varStr

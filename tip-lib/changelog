@@ -3,6 +3,7 @@ current development version:
   (The simplifier could instead be parameterised
    on things to simplify, i.e. Let,Match,Lambda+At,Builtins, and so on.)
 * Export Tip.Utils.usortOn
+* PrettyVar instance for Either
 
 tip-lib 0.1.2 (released 2015-06-11):
 * Make haddock documentation build (reported by Peter Simons.)
