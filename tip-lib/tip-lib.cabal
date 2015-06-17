@@ -77,7 +77,7 @@ library
                        split,
                        containers,
                        mtl,
-                       pretty,
+                       pretty-compact,
                        array,
                        optparse-applicative
   build-tools:         alex, happy
@@ -88,5 +88,5 @@ executable tip
   build-depends:       base,
                        tip-lib,
                        pretty-show,
-                       pretty,
+                       pretty-compact,
                        optparse-applicative
