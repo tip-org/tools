@@ -33,6 +33,9 @@ module Tip.Passes
   , letLift
   , axiomatizeLambdas
 
+  -- * Function definitions
+  , axiomatizeFuncdefs
+
   -- * Building pass pipelines
   , StandardPass(..)
   , module Tip.Pass.Pipeline
@@ -52,6 +55,7 @@ import Tip.Pass.Lift
 import Tip.Pass.Booleans
 import Tip.Pass.EliminateDeadCode
 import Tip.Pass.FillInCases
+import Tip.Pass.AxiomatizeFuncdefs
 
 import Tip.Fresh
 
@@ -76,6 +80,7 @@ data StandardPass
   | LambdaLift
   | LetLift
   | AxiomatizeLambdas
+  | AxiomatizeFuncdefs
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
@@ -99,6 +104,7 @@ instance Pass StandardPass where
     LambdaLift           -> lambdaLift
     LetLift              -> letLift
     AxiomatizeLambdas    -> axiomatizeLambdas
+    AxiomatizeFuncdefs   -> return . axiomatizeFuncdefs
     CSEMatch             -> return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> return . eliminateDeadCode
@@ -131,9 +137,11 @@ instance Pass StandardPass where
       unitPass LambdaLift $
         help "Lift lambdas to the top level",
       unitPass LetLift $
-        help "Lift let-expressions to the top level.",
+        help "Lift let-expressions to the top level",
       unitPass AxiomatizeLambdas $
         help "Eliminate lambdas by axiomatisation (requires --lambda-lift)",
+      unitPass AxiomatizeFuncdefs $
+        help "Transform function definitions to axioms in the most straightforward way",
       unitPass CSEMatch $
         help "Perform CSE on match scrutinees",
       unitPass CSEMatchWhy3 $

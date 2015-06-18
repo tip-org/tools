@@ -10,14 +10,8 @@ import Tip.Fresh
 import Data.Generics.Geniplate
 import Control.Applicative
 
---conProjs :: Project a => Global a -> [Global a]
-conProjs = undefined
-{- (Global k (PolyType tvs arg_tys res_ty) ts _)
-  = [ Global (project k i) (PolyType tvs [res_ty] arg_ty) ts ProjectNS
-    | (i,arg_ty) <- zip [0..] arg_tys
-    ]
-    -}
-
+-- | Transforms define-fun to declare-fun in the most straightforward way.
+--   All parts of the right hand side is preserved, including match and if-then-else.
 axiomatizeFuncdefs :: Theory a -> Theory a
 axiomatizeFuncdefs thy@Theory{..} =
   thy{
@@ -28,26 +22,35 @@ axiomatizeFuncdefs thy@Theory{..} =
  where
   (abs,fms) = unzip (map axiomatize thy_funcs)
 
--- Passes needed afterwards:
---
--- 1)  x = e ==> F[x] ~~> F[e]
---
--- 2)
---     all x (D => (all y . E) /\ (all z . F))
--- ~~>
---     all x ((D => all y . E) /\ (D => all z . F))
--- ~~>
---     (all x y (D => E)) /\ (all x z (D => F))
---
--- (TODO)
-
 axiomatize :: forall a . Function a -> (Signature a, Formula a)
 axiomatize fn@Function{..} =
   ( Signature func_name (funcType fn)
-  , Formula Assert func_tvs (ax func_body)
+  , Formula Assert func_tvs
+     (mkQuant Forall func_args (lhs === func_body))
   )
  where
   lhs = applyFunction fn (map TyVar func_tvs) (map Lcl func_args)
+
+  {-
+  -- Stab at an other method to do it:
+  --
+  -- Passes needed afterwards:
+  --
+  -- 1)  x = e ==> F[x] ~~> F[e]
+  --
+  --     (just use unsafeSubst)
+  --
+  -- 2)
+  --     all x (D => (all y . E) /\ (all z . F))
+  -- ~~>
+  --     all x ((D => all y . E) /\ (D => all z . F))
+  -- ~~>
+  --     (all x y (D => E)) /\ (all x z (D => F))
+  --
+  -- (TODO)
+
+  --conProjs :: Project a => Global a -> [Global a]
+  conProjs = undefined
 
   ax :: Expr a -> Expr a
   ax e0 = case e0 of
@@ -76,4 +79,4 @@ axiomatize fn@Function{..} =
       ax_pat s (LitPat lit)  rhs = s === literal lit ==> ax rhs
       ax_pat s (ConPat k bs) rhs = mkQuant Forall bs
                                      (s === Gbl k :@: map Lcl bs ==> ax rhs)
-
+  -}
