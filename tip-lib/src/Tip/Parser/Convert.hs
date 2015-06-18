@@ -108,55 +108,85 @@ trDecl x =
         do i <- addSym GlobalId s
            return emptyTheory{ thy_sorts = [Sort i (fromIntegral n)] }
 
-      DeclareFun fundecl ->
-        do d <- trFunDecl fundecl
+      DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
+
+      DeclareConstPar par (ConstDecl s t) -> trDecl (DeclareFunPar par (FunDecl s [] t))
+
+      DeclareFun        decl -> trDecl (DeclareFunPar emptyPar decl)
+      DeclareFunPar par decl ->
+        do d <- trFunDecl par decl
            return emptyTheory{ thy_sigs = [d] }
 
-      DefineFunsRec fundefs bodies ->
+      DefineFun        def -> trDecl (DefineFunPar emptyPar def)
+      DefineFunPar par def@(FunDef f _ _ _) ->
+        do thy <- trDecl (DefineFunRecPar par def)
+           let [fn] = thy_funcs thy
+           when (func_name fn `elem` uses fn)
+                (throwError $ ppSym f <+> "is recursive, but define-fun-rec was not used!")
+           return thy
+
+      DefineFunRec        def -> trDecl (DefineFunRecPar emptyPar def)
+      DefineFunRecPar par def ->
+        do sig <- trFunDecl par (defToDecl def)
+           withTheory emptyTheory{ thy_sigs = [sig] } $ do
+             fn <- trFunDef par def
+             return emptyTheory{ thy_funcs = [fn] }
+
+      DefineFunsRec decs bodies ->
         do -- add their correct types, abstractly
-           fds <- mapM (trFunDecl . defToDecl) fundefs
+           fds <- mapM (uncurry trFunDecl . decToDecl) decs
            withTheory emptyTheory{ thy_sigs = fds } $ do
-             fns <- zipWithM trFunDef fundefs bodies
+             fns <- sequence
+                [ uncurry trFunDef (decToDef dec body)
+                | (dec,body) <- decs `zip` bodies
+                ]
              return emptyTheory{ thy_funcs = fns }
 
-      MonoAssert role expr    -> trDecl (ParAssert role [] expr)
-      ParAssert role tvs expr ->
+      A.Assert  role           expr -> trDecl (AssertPar role emptyPar expr)
+      AssertPar role (Par tvs) expr ->
         do tvi <- mapM (addSym LocalId) tvs
            mapM newTyVar tvi
-           let toRole AssertIt  = Assert
+           let toRole AssertIt  = T.Assert
                toRole AssertNot = Prove
            fm <- Formula (toRole role) tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
 
+emptyPar :: Par
+emptyPar = Par []
 
+decToDecl :: FunDec -> (Par,FunDecl)
+decToDecl dec = case dec of
+  MonoFunDec inner -> decToDecl (ParFunDec emptyPar inner)
+  ParFunDec par (InnerFunDec fsym bindings res_type) ->
+    (par,FunDecl fsym (map bindingType bindings) res_type)
 
 defToDecl :: FunDef -> FunDecl
-defToDecl x = case x of
-  MonoFunDef inner -> defToDecl (ParFunDef [] inner)
-  ParFunDef tvs (InnerFunDef fsym bindings res_type) ->
-    ParFunDecl tvs (InnerFunDecl fsym (map bindingType bindings) res_type)
+defToDecl (FunDef fsym bindings res_type _) =
+  FunDecl fsym (map bindingType bindings) res_type
 
-trFunDef :: FunDef -> A.Expr -> CM (T.Function Id)
-trFunDef x body = case x of
-  MonoFunDef inner -> trFunDef (ParFunDef [] inner) body
-  ParFunDef tvs (InnerFunDef fsym bindings res_type) ->
-    newScope $
-      do f <- lkSym fsym
-         tvi <- mapM (addSym LocalId) tvs
-         mapM newTyVar tvi
-         args <- mapM trLocalBinding bindings
-         Function f tvi args <$> trType res_type <*> trExpr body
-
-trFunDecl :: FunDecl -> CM (T.Signature Id)
-trFunDecl x = case x of
-  MonoFunDecl inner -> trFunDecl (ParFunDecl [] inner)
-  ParFunDecl tvs (InnerFunDecl fsym args res) ->
+trFunDecl :: Par -> FunDecl -> CM (T.Signature Id)
+trFunDecl (Par tvs) (FunDecl fsym args res) =
     newScope $
       do f <- addSym GlobalId fsym
          tvi <- mapM (addSym LocalId) tvs
          mapM newTyVar tvi
          pt <- PolyType tvi <$> mapM trType args <*> trType res
          return (Signature f pt)
+
+decToDef :: FunDec -> A.Expr -> (Par,FunDef)
+decToDef dec body = case dec of
+  MonoFunDec inner -> decToDef (ParFunDec emptyPar inner) body
+  ParFunDec par (InnerFunDec fsym bindings res_type) ->
+    (par,FunDef fsym bindings res_type body)
+
+trFunDef :: Par -> FunDef -> CM (T.Function Id)
+trFunDef (Par tvs) (FunDef fsym bindings res_type body) =
+  newScope $
+    do f <- lkSym fsym
+       tvi <- mapM (addSym LocalId) tvs
+       mapM newTyVar tvi
+       args <- mapM trLocalBinding bindings
+       Function f tvi args <$> trType res_type <*> trExpr body
 
 dataSym :: A.Datatype -> Symbol
 dataSym (A.Datatype sym _) = sym
@@ -192,8 +222,14 @@ trLocalBinding b =
 
 trLetDecls :: [LetDecl] -> A.Expr -> CM (T.Expr Id)
 trLetDecls [] e = trExpr e
-trLetDecls (LetDecl binding expr:bs) e
-  = newScope $ T.Let <$> trLocalBinding binding <*> trExpr expr <*> trLetDecls bs e
+trLetDecls (LetDecl s expr:bs) e
+  = do body <- trExpr expr
+       x <- addSym LocalId s
+       let l = Local x (exprType body)
+       newScope $
+         do newLocal l
+            rest <- trLetDecls bs e
+            return (T.Let l body rest)
 
 trExpr :: A.Expr -> CM (T.Expr Id)
 trExpr e0 = case e0 of

@@ -5,6 +5,9 @@ current development version:
 * Export Tip.Utils.usortOn
 * Export Tip.Parser.parseFile
 * PrettyVar instance for Either
+* Parser changes:
+    * Support declare-const, define-fun, define-fun-rec.
+    * Correctly handle let-expressions
 
 tip-lib 0.1.2 (released 2015-06-11):
 * Make haddock documentation build (reported by Peter Simons.)

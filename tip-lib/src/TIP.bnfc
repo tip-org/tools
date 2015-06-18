@@ -6,28 +6,39 @@ Start. Start ::= [Decl];
 
 DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
 DeclareSort.      Decl ::= "declare-sort" Symbol Integer;
+DeclareConst.     Decl ::= "declare-const" ConstDecl;
+DeclareConstPar.  Decl ::= "declare-const" "(" Par "(" ConstDecl ")" ")";
 DeclareFun.       Decl ::= "declare-fun" FunDecl;
-DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDef] ")" "(" [Expr] ")";
-MonoAssert.       Decl ::= Assertion Expr;
-ParAssert.        Decl ::= Assertion "(" "par" "(" [Symbol] ")" Expr ")";
+DeclareFunPar.    Decl ::= "declare-fun" "(" Par "(" FunDecl ")" ")";
+DefineFun.        Decl ::= "define-fun" FunDef;
+DefineFunPar.     Decl ::= "define-fun" "(" Par "(" FunDef ")" ")";
+DefineFunRec.     Decl ::= "define-fun-rec" FunDef;
+DefineFunRecPar.  Decl ::= "define-fun-rec" "(" Par "(" FunDef ")" ")";
+DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
+Assert.           Decl ::= Assertion Expr;
+AssertPar.        Decl ::= Assertion "(" Par Expr ")";
 
 AssertIt.  Assertion ::= "assert";
 AssertNot. Assertion ::= "assert-not";
 
-ParFunDef.   FunDef ::= "(" "par" "(" [Symbol] ")" InnerFunDef ")";
-MonoFunDef.  FunDef ::= InnerFunDef;
-InnerFunDef. InnerFunDef ::= "(" Symbol "(" [Binding] ")" Type ")";
+Par.         Par    ::= "par" "(" [Symbol] ")";
 
-ParFunDecl.   FunDecl ::= "(" "par" "(" [Symbol] ")" "(" InnerFunDecl ")" ")";
-MonoFunDecl.  FunDecl ::= InnerFunDecl;
-InnerFunDecl. InnerFunDecl ::= Symbol "(" [Type] ")" Type;
+ConstDecl.   ConstDecl ::= Symbol Type;
+
+FunDecl.     FunDecl ::= Symbol "(" [Type] ")" Type;
+
+FunDef.      FunDef ::= Symbol "(" [Binding] ")" Type Expr;
+
+ParFunDec.   FunDec ::= "(" Par InnerFunDec ")";
+MonoFunDec.  FunDec ::= InnerFunDec;
+InnerFunDec. InnerFunDec ::= "(" Symbol "(" [Binding] ")" Type ")";
 
 Datatype.     Datatype ::= "(" Symbol [Constructor] ")";
 Constructor.  Constructor ::= "(" Symbol [Binding] ")";
 
 Binding. Binding ::= "(" Symbol Type ")";
 
-LetDecl. LetDecl ::= "(" Binding Expr ")";
+LetDecl. LetDecl ::= "(" Symbol Expr ")";
 
 TyVar.   Type ::= Symbol;
 TyApp.   Type ::= "(" Symbol [Type] ")";
@@ -84,6 +95,7 @@ terminator Symbol "";
 terminator Type "";
 terminator FunDecl "";
 terminator FunDef "";
+terminator FunDec "";
 
 position token Symbol (letter|["~!@$%^&*_-+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
 

@@ -5,7 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Core (ifView, topsort, neg, exprType, makeGlobal)
+import Tip.Core (ifView, topsort, neg, exprType, makeGlobal, uses)
 import Tip.Rename
 import Data.Maybe
 import Data.Char (isAlphaNum)
@@ -67,24 +67,32 @@ par' :: (PrettyVar a) => [a] -> Doc -> Doc
 par' [] d = d
 par' xs d = parExprSep "par" [parens (fsep (map ppVar xs)), d]
 
+par'' :: (PrettyVar a) => [a] -> Doc -> Doc
+par'' xs d = par' xs (parens d)
+
 ppUninterp :: PrettyVar a => Signature a -> Doc
 ppUninterp (Signature f (PolyType tyvars arg_types result_type)) =
-  apply "declare-fun"
-    (par' tyvars
-      (apply (ppVar f)
-        (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
+  apply (if null arg_types then "declare-const" else "declare-fun")
+    (par tyvars
+      (ppVar f $\
+        (sep [ if null arg_types then empty else parens (fsep (map ppType arg_types))
+             , ppType result_type
+             ])))
 
 ppFuncs :: (Ord a, PrettyVar a) => [Function a] -> Doc
+ppFuncs [f] =
+      expr (if func_name f `elem` uses f
+              then "define-fun-rec"
+              else "define-fun")
+           [ppFuncSig par f (ppExpr (func_body f))]
 ppFuncs fs = expr "define-funs-rec"
-  [ parens (vcat (map ppFuncSig fs))
+  [ parens (vcat [ppFuncSig par'' f empty | f <- fs])
   , parens (vcat (map (ppExpr . func_body) fs))
   ]
 
-ppFuncSig :: PrettyVar a => Function a -> Doc
-ppFuncSig (Function f tyvars args res_ty body) =
-  (par' tyvars
-    (parens
-      (ppVar f $\ fsep [ppLocals args, ppType res_ty])))
+ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
+ppFuncSig parv (Function f tyvars args res_ty body) content =
+  parv tyvars (ppVar f $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
 ppFormula (Formula Prove tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
@@ -99,7 +107,7 @@ ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVar (lcl_name l)
 ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]
 ppExpr (Match e as) = "(match" $\ ppExpr e $\ (vcat (map ppCase as) <> ")")
-ppExpr (Let x b e)  = parExprSep "let" [parens (parens (ppLocal x $\ ppExpr b)), ppExpr e]
+ppExpr (Let x b e)  = parExprSep "let" [parens (parens (ppVar (lcl_name x) $\ ppExpr b)), ppExpr e]
 ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: PrettyVar a => [Local a] -> Doc
@@ -242,11 +250,14 @@ smtKeywords =
     , "abs", "min", "max", "const"
     , "mod", "div"
     , "=", "=>", "+", "-", "*", ">", ">=", "<", "<=", "@", "!"
+    , "as"
     -- Z3:
     , "Bool", "Int", "Array", "List", "insert"
     , "isZero"
     , "map"
+    , "select"
+    , "subset", "union", "intersect"
     -- CVC4:
-    , "as", "concat"
+    , "concat"
     ]
 
