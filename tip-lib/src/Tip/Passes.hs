@@ -40,6 +40,10 @@ module Tip.Passes
   -- * Monomorphisation
   , monomorphise
 
+  -- * Miscellaneous
+  , selectConjecture
+  , provedConjecture
+
   -- * Building pass pipelines
   , StandardPass(..)
   , module Tip.Pass.Pipeline
@@ -61,6 +65,7 @@ import Tip.Pass.Booleans
 import Tip.Pass.EliminateDeadCode
 import Tip.Pass.FillInCases
 import Tip.Pass.AxiomatizeFuncdefs
+import Tip.Pass.SelectConjecture
 
 import Tip.Fresh
 
@@ -91,7 +96,9 @@ data StandardPass
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
- deriving (Eq,Ord,Show,Read,Enum,Bounded)
+  | SelectConjecture Int
+  | ProvedConjecture Int
+ deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
   passName = show
@@ -117,6 +124,8 @@ instance Pass StandardPass where
     CSEMatch             -> return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> return . eliminateDeadCode
+    SelectConjecture n   -> return . selectConjecture n
+    ProvedConjecture n   -> return . provedConjecture n
   parsePass =
     foldr (<|>) empty [
       unitPass SimplifyGently $
@@ -160,4 +169,14 @@ instance Pass StandardPass where
       unitPass CSEMatchWhy3 $
         help "Aggressively perform CSE on match scrutinees (helps Why3's termination checker)",
       unitPass EliminateDeadCode $
-        help "Dead code elimination (doesn't work on dead recursive functions)"]
+        help "Dead code elimination (doesn't work on dead recursive functions)",
+      fmap SelectConjecture $
+        option auto $
+          long "select-conjecture" <>
+          metavar "CONJECTURE-NUMBER" <>
+          help "Choose a particular conjecture from the problem",
+      fmap ProvedConjecture $
+        option auto $
+          long "proved-conjecture" <>
+          metavar "CONJECTURE-NUMBER" <>
+          help "Mark a particular conjecture as proved"]
