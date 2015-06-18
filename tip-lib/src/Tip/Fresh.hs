@@ -6,7 +6,7 @@ module Tip.Fresh where
 import Tip.Utils
 import Tip.Pretty
 import Control.Applicative hiding (empty)
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Control.Arrow ((&&&))
 
 import Data.Foldable (Foldable)
@@ -56,4 +56,10 @@ class (PrettyVar a, Ord a) => Name a where
 instance Name Int where
   fresh     = Fresh (state (id &&& succ))
   getUnique = id
+
+instance Name a => Name (PPVar a) where
+  fresh = fmap PPVar fresh
+  refresh = fmap PPVar . refresh . unPPVar
+  freshNamed = fmap PPVar . freshNamed
+  refreshNamed s n = fmap PPVar (refreshNamed s (unPPVar n))
 

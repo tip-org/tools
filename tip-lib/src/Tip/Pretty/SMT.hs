@@ -44,7 +44,7 @@ ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
       ["(check-sat)"])
 
 ppSort :: PrettyVar a => Sort a -> Doc
-ppSort (Sort sort n) = parExpr "declare-sort" [ppVar sort, int n]
+ppSort (Sort sort tvs) = parExpr "declare-sort" [ppVar sort, int (length tvs)]
 
 ppDatas :: PrettyVar a => [Datatype a] -> Doc
 ppDatas datatypes@(Datatype _ tyvars _:_) =
@@ -164,10 +164,20 @@ ppType :: PrettyVar a => Type a -> Doc
 ppType (TyVar x)     = ppVar x
 ppType (TyCon tc ts) = expr (ppVar tc) (map ppType ts)
 ppType (ts :=>: r)   = parExpr "=>" (map ppType (ts ++ [r]))
-ppType (BuiltinType Integer) = "Int"
-ppType (BuiltinType Boolean) = "Bool"
+ppType (BuiltinType bu) = ppBuiltinType bu
+
+ppBuiltinType :: BuiltinType -> Doc
+ppBuiltinType Integer = "Int"
+ppBuiltinType Boolean = "Bool"
 
 -- Temporary use SMTLIB as the pretty printer:
+
+instance (Ord a,PrettyVar a) => Pretty (Decl a) where
+  pp (DataDecl d)   = ppData d
+  pp (SortDecl d)   = ppSort d
+  pp (SigDecl d)    = ppUninterp d
+  pp (FuncDecl d)   = ppFuncs [d]
+  pp (AssertDecl d) = ppFormula d
 
 instance (Ord a,PrettyVar a) => Pretty (Theory a) where
   pp = ppTheory
@@ -195,6 +205,9 @@ instance (Ord a, PrettyVar a) => Pretty (Formula a) where
 
 instance PrettyVar a => Pretty (Datatype a) where
   pp = ppDatas . return
+
+instance PrettyVar a => Pretty (Sort a) where
+  pp = ppSort
 
 instance PrettyVar a => Pretty (Signature a) where
   pp = ppUninterp

@@ -46,7 +46,7 @@ instance Ord Id where
   compare = compare `on` idUnique
 
 instance PrettyVar Id where
-  varStr (Id s _ _) = s
+  varStr (Id s u _) = s -- ++ "_" ++ show u
 
 instance Name Id where
   freshNamed n
@@ -81,7 +81,7 @@ addSym ik sym@(Symbol (p,s)) =
      lift $ modify (M.insert s (i,ik))
      return i
 
-trDecls :: [Decl] -> CM (Theory Id)
+trDecls :: [A.Decl] -> CM (Theory Id)
 trDecls [] = return emptyTheory
 trDecls (d:ds) =
   do thy <- trDecl d
@@ -89,7 +89,7 @@ trDecls (d:ds) =
        do thy_rest <- trDecls ds
           return (thy `joinTheories` thy_rest)
 
-trDecl :: Decl -> CM (Theory Id)
+trDecl :: A.Decl -> CM (Theory Id)
 trDecl x =
   local $
     case x of
@@ -97,7 +97,8 @@ trDecl x =
         do -- add their types, abstractly
            forM_ datatypes $ \dt -> do
              sym <- addSym GlobalId (dataSym dt)
-             newSort (Sort sym (length tvs))
+             tvi <- mapM (addSym LocalId) tvs
+             newSort (Sort sym tvi)
            newScope $
              do tvi <- mapM (addSym LocalId) tvs
                 mapM newTyVar tvi
@@ -106,7 +107,8 @@ trDecl x =
 
       DeclareSort s n ->
         do i <- addSym GlobalId s
-           return emptyTheory{ thy_sorts = [Sort i (fromIntegral n)] }
+           tvs <- lift . lift $ mapM refresh (replicate (fromInteger n) i)
+           return emptyTheory{ thy_sorts = [Sort i tvs] }
 
       DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
 

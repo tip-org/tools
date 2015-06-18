@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Tip.Pretty where
 
 import Text.PrettyPrint
@@ -34,6 +35,27 @@ class PrettyVar a where
 instance (PrettyVar a,PrettyVar b) => PrettyVar (Either a b) where
   varStr (Left x)  = varStr x
   varStr (Right y) = varStr y
+
+instance (Pretty a,Pretty b) => Pretty (a,b) where
+  pp (x,y) = parens (pp x <+> "," $\ pp y)
+
+instance (Pretty a) => Pretty [a] where
+  pp xs = brackets (sep (punctuate "," (map pp xs)))
+
+instance Pretty Int where
+  pp = int
+
+instance Pretty () where
+  pp _ = "()"
+
+newtype PPVar a = PPVar { unPPVar :: a }
+  deriving (Eq,Ord,PrettyVar)
+
+instance PrettyVar a => Pretty (PPVar a) where
+  pp (PPVar x) = ppVar x
+
+instance PrettyVar a => Show (PPVar a) where
+  show (PPVar x) = varStr x
 
 -- | Variable to 'Doc'
 ppVar :: PrettyVar a => a -> Doc

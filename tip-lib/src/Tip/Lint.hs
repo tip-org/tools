@@ -28,12 +28,12 @@ import Data.Maybe
 import Text.PrettyPrint
 import Tip.Pretty.SMT
 import Data.List
---import Debug.Trace
+-- import Debug.Trace
 
 -- | Crashes if the theory is malformed
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
 lint pass thy0@(renameAvoiding [] return -> thy) =
-  -- trace ("Linting:" ++ pass ++ ":\n" ++ ppRender thy) $
+--   trace (" ==== Linting: " ++ pass ++ " ====\n" ++ ppRender thy0 ++ "\n ====") $
   case lintTheory thy0 of
     Nothing -> thy0
     Just doc ->
@@ -63,6 +63,7 @@ lintTheory thy@Theory{..} =
   either Just (const Nothing) .
   runScope . withTheory thy $ inContext thy $ do
     mapM_ lintDatatype thy_datatypes
+    mapM_ lintSort thy_sorts
     mapM_ lintSignature thy_sigs
     mapM_ lintFunction thy_funcs
     mapM_ lintFormula thy_asserts
@@ -74,6 +75,11 @@ lintDatatype dt@Datatype{..} =
     forM_ data_cons $ \Constructor{..} -> do
       forM_ con_args $ \(_, ty) ->
         lintType ty
+
+lintSort :: (PrettyVar a, Ord a) => Sort a -> ScopeM a ()
+lintSort sort@Sort{..} =
+  local $ inContext sort $
+    mapM_ newTyVar sort_tvs
 
 lintPolyType :: (PrettyVar a, Ord a) => PolyType a -> ScopeM a ()
 lintPolyType polyty@PolyType{..} =
@@ -98,7 +104,7 @@ lintType (TyCon x tys) = do
   case info of
     TyVarInfo ->
       throwError (fsep ["Type variable", nest 2 (ppVar x), "used as type constructor"])
-    SortInfo n -> checkArity n
+    SortInfo Sort{..} -> checkArity (length sort_tvs)
     DatatypeInfo Datatype{..} -> checkArity (length data_tvs)
   mapM_ lintType tys
 lintType (args :=>: res) = do

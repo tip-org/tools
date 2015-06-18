@@ -61,10 +61,11 @@ handle passes mode s =
               CVC4 ->
                 fmap_pp SMT.ppTheory . runPasses
                   (passes ++
-                  [ LambdaLift, AxiomatizeLambdas
+                  [ TypeSkolemConjecture, Monomorphise
+                  , LambdaLift, AxiomatizeLambdas
                   , CollapseEqual, RemoveAliases
                   , SimplifyGently, RemoveMatch
-                  , SimplifyGently, NegateConjecture, AxiomatizeFuncdefs
+                  , SimplifyGently, Monomorphise, NegateConjecture, AxiomatizeFuncdefs
                   , SimplifyGently
                   ])
               Haskell ->

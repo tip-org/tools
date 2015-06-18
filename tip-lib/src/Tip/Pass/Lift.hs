@@ -133,7 +133,8 @@ axiomatizeLambdas thy0 = do
     arities = usort [ length args | args :=>: _ <- universeBi thy :: [Type a] ]
     makeArrow n = do
       ty <- freshNamed ("fun" ++ show n)
-      return (n, Sort ty (n+1))
+      tvs <- replicateM (n+1) fresh
+      return (n, Sort ty tvs)
     makeAt arrows n = do
       name <- freshNamed ("apply" ++ show n)
       tvs <- mapM (freshNamed . mkTyVarName) [0..(n-1)]

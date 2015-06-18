@@ -1,0 +1,6 @@
+(declare-sort a 0)
+(declare-datatypes (b) ((list (nil))))
+(declare-fun xs () (list a))
+(declare-fun ys () (list a))
+(assert-not (= xs ys))
+(check-sat)

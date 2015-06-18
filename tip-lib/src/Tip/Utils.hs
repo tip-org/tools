@@ -8,6 +8,7 @@ import Data.List.Split
 import Data.Char
 import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
+import Data.Function (on)
 import Data.Ord
 import Data.Function
 
@@ -48,3 +49,11 @@ flagifyShow = flagify . show
 maximumOn :: forall f a b . (F.Foldable f,Ord b) => (a -> b) -> f a -> b
 maximumOn f = f . F.maximumBy (comparing f)
 
+unionOn :: Ord b => (a -> b) -> [a] -> [a] -> [a]
+unionOn k = unionBy ((==) `on` k)
+
+-- | Pair up a list with its previous elements
+--
+-- > withPrevious "abc" = [('a',""),('b',"a"),('c',"ab")]
+withPrevious :: [a] -> [(a,[a])]
+withPrevious xs = zip xs (inits xs)

@@ -33,7 +33,7 @@ data Scope a = Scope
 data TypeInfo a =
     TyVarInfo
   | DatatypeInfo (Datatype a)
-  | SortInfo Int
+  | SortInfo (Sort a)
   deriving (Eq, Show)
 
 data GlobalInfo a =
@@ -173,10 +173,10 @@ newTyVar ty = do
     types = M.insert ty TyVarInfo (types s) }
 
 newSort :: (Monad m, Ord a, PrettyVar a) => Sort a -> ScopeT a m ()
-newSort Sort{..} = do
+newSort sort@Sort{..} = do
   newName sort_name
   modify $ \s -> s {
-    types = M.insert sort_name (SortInfo sort_arity) (types s) }
+    types = M.insert sort_name (SortInfo sort) (types s) }
 
 newDatatype :: (Monad m, Ord a, PrettyVar a) => Datatype a -> ScopeT a m ()
 newDatatype dt@Datatype{..} = do

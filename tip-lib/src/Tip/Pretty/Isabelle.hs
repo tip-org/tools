@@ -76,7 +76,7 @@ ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
 ppSort :: (PrettyVar a, Ord a) => Sort a -> Doc
 --ppSort (Sort sort 0) = "type" $\ ppVar sort
 ppSort (Sort sort n) =
-  error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show n ++ " to Isabelle"
+  error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show (length n) ++ " to Isabelle"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas []  = empty

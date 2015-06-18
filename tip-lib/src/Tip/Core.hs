@@ -114,17 +114,22 @@ apply :: Expr a -> [Expr a] -> Expr a
 apply e es@(_:_) = Builtin At :@: (e:es)
 apply _ [] = ERROR("tried to construct nullary lambda function")
 
-applyType :: Ord a => [a] -> [Type a] -> Type a -> Type a
-applyType tvs tys ty
-  | length tvs == length tys =
-      flip transformType ty $ \ty' ->
-        case ty' of
-          TyVar x ->
-            Map.findWithDefault ty' x m
-          _ -> ty'
-  | otherwise = ERROR("wrong number of type arguments")
+applyTypeIn :: Ord a => ((Type a -> Type a) -> f a -> f a) -> [a] -> [Type a] -> f a -> f a
+applyTypeIn transformer tvs tys
+  | length tvs /= length tys = ERROR("wrong number of type arguments")
+  | otherwise = transformer $ \ty -> case ty of TyVar x -> Map.findWithDefault ty x m
+                                                _       -> ty
   where
     m = Map.fromList (zip tvs tys)
+
+applyType :: Ord a => [a] -> [Type a] -> Type a -> Type a
+applyType = applyTypeIn transformType
+
+applyTypeInExpr :: Ord a => [a] -> [Type a] -> Expr a -> Expr a
+applyTypeInExpr = applyTypeIn transformTypeInExpr
+
+applyTypeInDecl :: Ord a => [a] -> [Type a] -> Decl a -> Decl a
+applyTypeInDecl = applyTypeIn transformTypeInDecl
 
 applyPolyType :: Ord a => PolyType a -> [Type a] -> ([Type a], Type a)
 applyPolyType PolyType{..} tys =

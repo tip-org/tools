@@ -21,7 +21,7 @@ class Pass p where
 unitPass :: Pass p => p -> Mod FlagFields () -> Parser p
 unitPass p mod = flag' () (long (flagify (passName p)) <> mod) *> pure p
 
-runPassLinted :: (Pass p, Name a) => p -> Theory a -> Fresh (Theory a)
+runPassLinted :: (Pass p,Name a) => p -> Theory a -> Fresh (Theory a)
 runPassLinted p = runPass p >=> lintM (passName p)
 
 -- | A sum type that supports 'Enum' and 'Bounded'
@@ -44,7 +44,7 @@ runPasses = go []
   go _    [] = return
   go past (p:ps) =
         runPass p
-    >=> lintM (passName p ++ "(and " ++ intercalate "," past ++ ")")
+    >=> lintM (passName p ++ (if null past then "" else "(after " ++ intercalate "," past ++ ")"))
     >=> go (passName p:past) ps
 
 parsePasses :: Pass p => Parser [p]

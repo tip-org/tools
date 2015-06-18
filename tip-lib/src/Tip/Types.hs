@@ -1,4 +1,5 @@
--- | The abstract syntax
+-- | the abstract syntax
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
 {-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
 module Tip.Types where
@@ -27,13 +28,17 @@ infix 5 :@:
 
 data Expr a
   = Head a :@: [Expr a]
+  -- ^ Function application: always perfectly saturated.
+  --   Lambdas and locals are applied with 'At' as head.
   | Lcl (Local a)
   | Lam [Local a] (Expr a)
   -- Merge with Quant?
   | Match (Expr a) [Case a]
   -- ^ The default case comes first if there is one
   | Let (Local a) (Expr a) (Expr a)
-  -- Allow a list of bound variables, like in SMT-LIB?
+  -- ^ @Let (Local x t) b e@ = @(let ((l x)) b e)@
+  -- Unlike SMT-LIB, this does not accept a list of bound
+  -- variable-/expression-pairs. Fix?
   | Quant QuantInfo Quant [Local a] (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -132,7 +137,7 @@ data Signature a = Signature
 -- | Uninterpreted sort
 data Sort a = Sort
   { sort_name :: a
-  , sort_arity :: Int }
+  , sort_tvs  :: [a] }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | Data definition
@@ -145,8 +150,12 @@ data Datatype a = Datatype
 
 data Constructor a = Constructor
   { con_name    :: a
+  -- ^ Constructor name (e.g. @Cons@)
   , con_discrim :: a
+  -- ^ Discriminator name (e.g. @is-Cons@)
   , con_args    :: [(a,Type a)]
+  -- ^ Argument types names of their projectors
+  --   (e.g. [(@head@,a),(@tail@,List a)])
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -180,6 +189,41 @@ data Formula a = Formula
 data Role = Assert | Prove
   deriving (Eq,Ord,Show)
 
+-- * Other views of theories
+
+-- | The different kinds of declarations in a 'Theory'.
+data Decl a
+    = DataDecl (Datatype a)
+    | SortDecl (Sort a)
+    | SigDecl (Signature a)
+    | FuncDecl (Function a)
+    | AssertDecl (Formula a)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+-- | 'Decl'arations in a 'Theory'
+theoryDecls :: Theory a -> [Decl a]
+theoryDecls (Theory{..}) =
+    map DataDecl thy_datatypes ++
+    map SortDecl thy_sorts ++
+    map SigDecl thy_sigs ++
+    map FuncDecl thy_funcs ++
+    map AssertDecl thy_asserts
+
+-- | Assemble a 'Theory' from some 'Decl'arations
+declsToTheory :: [Decl a] -> Theory a
+declsToTheory ds = Theory
+    { thy_datatypes = [ d | DataDecl d   <- ds ]
+    , thy_sorts     = [ d | SortDecl d   <- ds ]
+    , thy_sigs      = [ d | SigDecl d    <- ds ]
+    , thy_funcs     = [ d | FuncDecl d   <- ds ]
+    , thy_asserts   = [ d | AssertDecl d <- ds ]
+    }
+
+declsPass :: ([Decl a] -> [Decl b]) -> Theory a -> Theory b
+declsPass k = declsToTheory . k . theoryDecls
+
+-- Instances
+
 instanceUniverseBi [t| forall a . (Expr a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Expr a) |]
 instanceUniverseBi [t| forall a . (Function a,Global a) |]
@@ -205,6 +249,8 @@ instanceTransformBi [t| forall a . (Local a,Expr a) |]
 instanceTransformBi [t| forall a . (Pattern a,Expr a) |]
 instanceTransformBi [t| forall a . (Pattern a,Theory a) |]
 instanceTransformBi [t| forall a . (Type a,Theory a) |]
+instanceTransformBi [t| forall a . (Global a,Theory a) |]
+instanceTransformBi [t| forall a . (Type a,Decl a) |]
 instanceTransformBi [t| forall a . (Type a,Expr a) |]
 instanceTransformBi [t| forall a . (Type a,Type a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
@@ -251,5 +297,8 @@ transformTypeInExpr :: (Type a -> Type a) -> Expr a -> Expr a
 transformTypeInExpr =
   $(genTransformBiT' [[t|PolyType|]] [t|forall a. (Type a -> Type a) -> Expr a -> Expr a|])
 
+transformTypeInDecl :: (Type a -> Type a) -> Decl a -> Decl a
+transformTypeInDecl =
+  $(genTransformBiT' [[t|PolyType|]] [t|forall a. (Type a -> Type a) -> Decl a -> Decl a|])
 
 

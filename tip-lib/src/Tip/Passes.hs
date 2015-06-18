@@ -9,6 +9,7 @@ module Tip.Passes
   , removeNewtype
   , uncurryTheory
   , negateConjecture
+  , typeSkolemConjecture
 
   -- * Boolean builtins
   , ifToBoolOp
@@ -36,6 +37,9 @@ module Tip.Passes
   -- * Function definitions
   , axiomatizeFuncdefs
 
+  -- * Monomorphisation
+  , monomorphise
+
   -- * Building pass pipelines
   , StandardPass(..)
   , module Tip.Pass.Pipeline
@@ -52,6 +56,7 @@ import Tip.Pass.RemoveNewtype
 import Tip.Pass.NegateConjecture
 import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
+import Tip.Pass.Monomorphise
 import Tip.Pass.Booleans
 import Tip.Pass.EliminateDeadCode
 import Tip.Pass.FillInCases
@@ -70,6 +75,7 @@ data StandardPass
   | RemoveNewtype
   | UncurryTheory
   | NegateConjecture
+  | TypeSkolemConjecture
   | IfToBoolOp
   | BoolOpToIf
   | AddMatch
@@ -81,6 +87,7 @@ data StandardPass
   | LetLift
   | AxiomatizeLambdas
   | AxiomatizeFuncdefs
+  | Monomorphise
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
@@ -94,6 +101,7 @@ instance Pass StandardPass where
     RemoveNewtype        -> return . removeNewtype
     UncurryTheory        -> uncurryTheory
     NegateConjecture     -> negateConjecture
+    TypeSkolemConjecture -> typeSkolemConjecture
     IfToBoolOp           -> return . ifToBoolOp
     BoolOpToIf           -> return . theoryBoolOpToIf
     AddMatch             -> addMatch
@@ -105,6 +113,7 @@ instance Pass StandardPass where
     LetLift              -> letLift
     AxiomatizeLambdas    -> axiomatizeLambdas
     AxiomatizeFuncdefs   -> return . axiomatizeFuncdefs
+    Monomorphise         -> monomorphise
     CSEMatch             -> return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> return . eliminateDeadCode
@@ -120,6 +129,8 @@ instance Pass StandardPass where
         help "Eliminate unnecessary use of higher-order functions",
       unitPass NegateConjecture $
         help "Transform the goal into a negated conjecture",
+      unitPass TypeSkolemConjecture $
+        help "Skolemise the types in the conjecutre",
       unitPass IfToBoolOp $
         help "Replace if-then-else by and/or where appropriate",
       unitPass BoolOpToIf $
@@ -142,6 +153,8 @@ instance Pass StandardPass where
         help "Eliminate lambdas by axiomatisation (requires --lambda-lift)",
       unitPass AxiomatizeFuncdefs $
         help "Transform function definitions to axioms in the most straightforward way",
+      unitPass Monomorphise $
+        help "Try to monomorphise the problem",
       unitPass CSEMatch $
         help "Perform CSE on match scrutinees",
       unitPass CSEMatchWhy3 $
