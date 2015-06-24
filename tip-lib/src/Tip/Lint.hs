@@ -14,7 +14,7 @@
 --  * Default case comes first. No duplicate cases.
 --
 --  * Expressions and formulas not mixed.
-module Tip.Lint (lint, lintM, lintTheory) where
+module Tip.Lint (lint, lintM, lintTheory, lintEither) where
 
 #include "errors.h"
 import Tip.Core
@@ -32,16 +32,10 @@ import Data.List
 
 -- | Crashes if the theory is malformed
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
-lint pass thy0@(renameAvoiding [] return -> thy) =
---   trace (" ==== Linting: " ++ pass ++ " ====\n" ++ ppRender thy0 ++ "\n ====") $
-  case lintTheory thy0 of
-    Nothing -> thy0
-    Just doc ->
-      case lintTheory thy of
-        Just doc ->
-          error ("Lint failed after " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
-        Nothing ->
-          error ("Non-renamed linting pass failed!? " ++ pass ++ ":\n" ++ show doc ++ "\n!!!")
+lint pass thy =
+  case lintEither pass thy of
+    Left doc -> error (show doc)
+    Right x  -> x
 
 -- | Same as 'lint', but returns in a monad, for convenience
 lintM :: (PrettyVar a, Ord a, Monad m) => String -> Theory a -> m (Theory a)
@@ -56,6 +50,19 @@ check' x p = do
   case p scp of
     Nothing -> throwError x
     Just y  -> return y
+
+-- | Returns a Left if the theory is malformed
+lintEither :: (PrettyVar a, Ord a) => String -> Theory a -> Either Doc (Theory a)
+lintEither pass thy0@(renameAvoiding [] return -> thy) =
+--   trace (" ==== Linting: " ++ pass ++ " ====\n" ++ ppRender thy0 ++ "\n ====") $
+  case lintTheory thy0 of
+    Nothing -> return thy0
+    Just doc ->
+      case lintTheory thy of
+        Just doc ->
+          Left (text ("Lint failed after " ++ pass ++ ":") $$ doc $$ "!!!")
+        Nothing ->
+          Left (text ("Non-renamed linting pass failed!? " ++ pass ++ ":") $$ doc $$ "!!!")
 
 -- | Returns the error if the theory is malformed
 lintTheory :: (PrettyVar a, Ord a) => Theory a -> Maybe Doc
