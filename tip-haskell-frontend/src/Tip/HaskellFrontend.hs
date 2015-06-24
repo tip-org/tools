@@ -141,6 +141,7 @@ readModules params@Params{..} cms = do
               Right fn -> Right fn
               Left err -> Left $ showOutputable v ++ ": " ++ err
           | (v,e) <- reachable
+          , all (not . varFromRealModule v) ["mod","div"]
           ]
 
   let (prop_fns,tip_fns) = partition (isPropType . func_res) tip_fns0

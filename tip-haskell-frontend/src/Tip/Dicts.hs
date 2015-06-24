@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, NamedFieldPuns #-}
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Tip.Dicts (inlineDicts,maybeUnfolding) where
+module Tip.Dicts (inlineDicts,maybeUnfolding,varFromRealModule) where
 
 import Tip.GHCUtils (showOutputable)
 #if __GLASGOW_HASKELL__ >= 708
@@ -35,12 +35,13 @@ maybeUnfolding v = case ri of
     ri = realIdUnfolding v
 
 
+varFromRealModule :: Var -> String -> Bool
+varFromRealModule x s = getOccString x == s && nameModule_maybe (varName x) == Just gHC_REAL
 
 inlineDicts :: TransformBi (Expr Id) t => t -> t
 inlineDicts = transformBi $ \ e0 -> case e0 of
     App (App (Var f) (Type t)) (Var d)
-        | getOccString f == "div" && nameModule_maybe (varName f) == Just gHC_REAL -> Var f
-        | getOccString f == "mod" && nameModule_maybe (varName f) == Just gHC_REAL -> Var f
+        | any (varFromRealModule f) ["mod","div"] -> Var f
 #if __GLASGOW_HASKELL__ >= 708
         | [try] <- [ try | BuiltinRule _ _ 2 try <- idCoreRules f ]
         , Just e <- try unsafeGlobalDynFlags (emptyInScopeSet,realIdUnfolding) f [Type t,Var d]
