@@ -98,8 +98,8 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Match e (Case Default def:cases)
           | TyCon ty args <- exprType e,
             Just (d, c@Constructor{..}) <- missingCase mscp ty cases -> do
-              lcls <- lift (mapM (refreshLocal . uncurry Local) con_args)
-              let pat = ConPat (constructor d c args) lcls
+              let gbl = constructor d c args
+              pat <- lift (fmap (ConPat gbl) (freshArgs gbl))
               aux (Match e (Case pat def:cases))
 
         Match e [Case _ e1,Case (LitPat (Bool b)) e2]
