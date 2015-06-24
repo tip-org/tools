@@ -85,6 +85,16 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
 
         Match _ [Case Default body] -> hooray $ return body
 
+        Match e (Case Default (Match e' cases'):cases) | e == e' ->
+          hooray $ aux $
+          Match e (filter (not . dead . case_pat) cases' ++ cases)
+          where
+            dead (LitPat l)   = LitPat l `elem` map case_pat cases
+            dead (ConPat{..}) =
+              gbl_name pat_con `elem`
+                [ gbl_name pat_con | ConPat{..} <- map case_pat cases ]
+            dead Default = False
+
         Match e (Case Default def:cases)
           | TyCon ty args <- exprType e,
             Just (d, c@Constructor{..}) <- missingCase mscp ty cases -> do
