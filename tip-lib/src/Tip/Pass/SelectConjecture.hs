@@ -37,3 +37,14 @@ provedConjecture n thy@Theory{..}
           take n proves ++ drop (n+1) proves }
   where
     (asserts, proves) = partition ((== Assert) . fm_role) thy_asserts
+
+deleteConjecture :: Int -> Theory a -> Theory a
+deleteConjecture n thy@Theory{..}
+  | n < 0 || n >= length proves = error "Conjecture number out of range"
+  | otherwise =
+      thy {
+        thy_asserts =
+          asserts ++
+          take n proves ++ drop (n+1) proves }
+  where
+    (asserts, proves) = partition ((== Assert) . fm_role) thy_asserts

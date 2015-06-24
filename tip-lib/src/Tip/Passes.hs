@@ -44,6 +44,7 @@ module Tip.Passes
   , makeConjecture
   , selectConjecture
   , provedConjecture
+  , deleteConjecture
 
   -- * Building pass pipelines
   , StandardPass(..)
@@ -100,6 +101,7 @@ data StandardPass
   | MakeConjecture Int
   | SelectConjecture Int
   | ProvedConjecture Int
+  | DeleteConjecture Int
  deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
@@ -129,6 +131,7 @@ instance Pass StandardPass where
     MakeConjecture n     -> return . makeConjecture n
     SelectConjecture n   -> return . selectConjecture n
     ProvedConjecture n   -> return . provedConjecture n
+    DeleteConjecture n   -> return . deleteConjecture n
   parsePass =
     foldr (<|>) empty [
       unitPass SimplifyGently $
@@ -187,4 +190,9 @@ instance Pass StandardPass where
         option auto $
           long "proved-conjecture" <>
           metavar "CONJECTURE-NUMBER" <>
-          help "Mark a particular conjecture as proved"]
+          help "Mark a particular conjecture as proved",
+      fmap DeleteConjecture $
+        option auto $
+          long "delete-conjecture" <>
+          metavar "CONJECTURE-NUMBER" <>
+          help "Delete a particular conjecture"]
