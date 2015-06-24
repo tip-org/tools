@@ -254,9 +254,10 @@ trExpr e0 = case e0 of
                             return (T.Match e cases')
   A.Let letdecls expr -> trLetDecls letdecls expr
   A.Binder binder bindings expr -> newScope $ trBinder binder <$> mapM trLocalBinding bindings <*> trExpr expr
-  A.LitInt n -> return $ intLit n
-  A.LitTrue  -> return $ bool True
-  A.LitFalse -> return $ bool False
+  A.LitInt n    -> return $ intLit n
+  A.LitNegInt n -> return $ intLit (negate n)
+  A.LitTrue     -> return $ bool True
+  A.LitFalse    -> return $ bool False
 
 trHead :: Maybe (T.Type Id) -> A.Head -> [T.Expr Id] -> CM (T.Expr Id)
 trHead mgt A.IfThenElse  [c,t,f] = return (makeIf c t f)

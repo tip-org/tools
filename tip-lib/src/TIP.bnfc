@@ -46,15 +46,16 @@ ArrowTy. Type ::= "(" "=>" [Type] ")";
 IntTy.   Type ::= "Int";
 BoolTy.  Type ::= "Bool";
 
-Var.      Expr ::= Symbol;
-As.       Expr ::= "(" "as" Expr Type ")";
-App.      Expr ::= "(" Head [Expr] ")";
-Match.    Expr ::= "(" "match" Expr [Case] ")";
-Let.      Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
-Binder.   Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
-LitInt.   Expr ::= Integer;
-LitTrue.  Expr ::= "true";
-LitFalse. Expr ::= "false";
+Var.       Expr ::= Symbol;
+As.        Expr ::= "(" "as" Expr Type ")";
+App.       Expr ::= "(" Head [Expr] ")";
+Match.     Expr ::= "(" "match" Expr [Case] ")";
+Let.       Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
+Binder.    Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
+LitInt.    Expr ::= Integer;
+LitNegInt. Expr ::= "-" Integer;
+LitTrue.   Expr ::= "true";
+LitFalse.  Expr ::= "false";
 
 Lambda. Binder ::= "lambda";
 Forall. Binder ::= "forall";
