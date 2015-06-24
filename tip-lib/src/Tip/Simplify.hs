@@ -140,8 +140,10 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Builtin Distinct :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s /= t))
 
         Builtin Not     :@: [e]      -> share (neg e)
-        Builtin And     :@: [e1, e2] -> share (e1 /\ e2)
-        Builtin Or      :@: [e1, e2] -> share (e1 \/ e2)
+        Builtin And     :@: [e1, e2] | e1 == e2  -> return e1
+                                     | otherwise -> share (e1 /\ e2)
+        Builtin Or      :@: [e1, e2] | e1 == e2  -> return e1
+                                     | otherwise -> share (e1 \/ e2)
         Builtin Implies :@: [e1, e2] -> share (e1 ==> e2)
 
         Builtin Equal :@: [e1, e2] ->
