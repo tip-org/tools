@@ -38,7 +38,20 @@ trList = $(genTransformBi 'trListTYPE)
 monomorphise :: forall a . Name a => Theory a -> Fresh (Theory a)
 monomorphise = fmap (fmap unPPVar) . monomorphise' . fmap PPVar
 
+monomorphicThy :: Theory a -> Bool
+monomorphicThy = all monomorphicDecl . theoryDecls
+
+monomorphicDecl :: Decl a -> Bool
+monomorphicDecl d =
+  case d of
+    DataDecl Datatype{..}  -> null data_tvs
+    SortDecl Sort{..}      -> null sort_tvs
+    SigDecl Signature{..}  -> null (polytype_tvs sig_type)
+    FuncDecl Function{..}  -> null func_tvs
+    AssertDecl Formula{..} -> null fm_tvs
+
 monomorphise' :: forall a . (Name a,Pretty a) => Theory a -> Fresh (Theory a)
+monomorphise' thy | monomorphicThy thy = return thy
 monomorphise' thy = do
     let ds = theoryDecls thy
         seeds = theorySeeds thy
@@ -59,13 +72,13 @@ theorySeeds :: Ord a => Theory a -> [Closed (Con a)]
 theorySeeds Theory{..} = usort (Con Dummy []:concat [ map close (exprRecords b) | Formula Prove [] b <- thy_asserts ])
 
 exprPredRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
-exprPredRecords e =
+exprPredRecords e = usort $
     [ Con (Pred gbl_name) (map trType gbl_args)
     | Global{..} <- universeBi e
     ]
 
 exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
-exprRecords e =
+exprRecords e = usort $
     exprPredRecords e ++
     [ Con (TCon tc) (map trType args)
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e

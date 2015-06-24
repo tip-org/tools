@@ -197,7 +197,7 @@ data Decl a
     | SortDecl (Sort a)
     | SigDecl (Signature a)
     | FuncDecl (Function a)
-    | AssertDecl (Formula a)
+    | AssertDecl (Formula a) -- rename to FormulaDecl?
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- | 'Decl'arations in a 'Theory'
