@@ -119,7 +119,7 @@ instance Pass StandardPass where
     IfToBoolOp           -> return . ifToBoolOp
     BoolOpToIf           -> return . theoryBoolOpToIf
     AddMatch             -> addMatch
-    CommuteMatch         -> commuteMatch
+    CommuteMatch         -> commuteMatchTheory
     RemoveMatch          -> removeMatch
     CollapseEqual        -> return . collapseEqual
     RemoveAliases        -> return . removeAliases

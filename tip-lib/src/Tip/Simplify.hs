@@ -99,20 +99,8 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Match (Let x e body) alts | touch_lets ->
           aux (Let x e (Match body alts))
 
-        Match (hd :@: args) alts | isConstructor mscp hd ->
-          -- We use reverse because the default case comes first and we want it last
-          case filter (matches hd . case_pat) (reverse alts) of
-            [] -> return e0
-            Case (ConPat _ lcls) body:_ ->
-              hooray $
-              aux $
-                foldr (uncurry Let) body (zip lcls args)
-            Case _ body:_ -> hooray $ return body
-          where
-            matches (Gbl gbl) (ConPat gbl' _) = gbl == gbl'
-            matches (Builtin (Lit lit)) (LitPat lit') = lit == lit'
-            matches _ Default = True
-            matches _ _ = False
+        Match e alts
+          | Just e' <- tryMatch mscp e alts -> hooray $ aux e'
 
         Match (Lcl x) alts | remove_variable_scrutinee_in_branches ->
           Match (Lcl x) <$> sequence
@@ -214,3 +202,18 @@ missingCase mscp tc cases = do
   case filter (not . matched) data_cons of
     [con] -> return (dt, con)
     _     -> Nothing
+
+tryMatch :: Name a => Maybe (Scope a) -> Expr a -> [Case a] -> Maybe (Expr a)
+tryMatch mscp (hd :@: args) alts | isConstructor mscp hd =
+  -- We use reverse because the default case comes first and we want it last
+  case filter (matches hd . case_pat) (reverse alts) of
+    [] -> Nothing
+    Case (ConPat _ lcls) body:_ ->
+      Just $ foldr (uncurry Let) body (zip lcls args)
+    Case _ body:_ -> Just body
+  where
+    matches (Gbl gbl) (ConPat gbl' _) = gbl == gbl'
+    matches (Builtin (Lit lit)) (LitPat lit') = lit == lit'
+    matches _ Default = True
+    matches _ _ = False
+tryMatch _ _ _ = Nothing
