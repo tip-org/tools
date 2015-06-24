@@ -83,14 +83,21 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
              (e2, Any simplified) <- lift (runWriterT (aux e1))
              if simplified then hooray $ return e2 else return e0
 
+        Match _ [Case Default body] -> hooray $ return body
+
+        Match e (Case Default def:cases)
+          | TyCon ty args <- exprType e,
+            Just (d, c@Constructor{..}) <- missingCase mscp ty cases -> do
+              lcls <- lift (mapM (refreshLocal . uncurry Local) con_args)
+              let pat = ConPat (constructor d c args) lcls
+              aux (Match e (Case pat def:cases))
+
         Match e [Case _ e1,Case (LitPat (Bool b)) e2]
           | e1 == bool (not b) && e2 == bool b -> hooray $ return e
           | e1 == bool b && e2 == bool (not b) -> hooray $ return (neg e)
 
         Match (Let x e body) alts | touch_lets ->
           aux (Let x e (Match body alts))
-
-        Match _ [Case Default body] -> hooray $ return body
 
         Match (hd :@: args) alts | isConstructor mscp hd ->
           -- We use reverse because the default case comes first and we want it last
@@ -195,3 +202,13 @@ isConstructor mscp (Gbl gbl) = isJust $ do
   scp <- mscp
   lookupConstructor (gbl_name gbl) scp
 isConstructor _ _ = False
+
+missingCase :: Name a => Maybe (Scope a) -> a -> [Case a] -> Maybe (Datatype a, Constructor a)
+missingCase mscp tc cases = do
+  scp <- mscp
+  dt@Datatype{..} <- lookupDatatype tc scp
+  let matched Constructor{..} =
+        con_name `elem` [ gbl_name pat_con | ConPat{..} <- map case_pat cases ]
+  case filter (not . matched) data_cons of
+    [con] -> return (dt, con)
+    _     -> Nothing
