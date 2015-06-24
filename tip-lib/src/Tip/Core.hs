@@ -144,6 +144,9 @@ applyPolyType PolyType{..} tys =
   (map (applyType polytype_tvs tys) polytype_args,
    applyType polytype_tvs tys polytype_res)
 
+gblType :: Ord a => Global a -> ([Type a], Type a)
+gblType Global{..} = applyPolyType gbl_type gbl_args
+
 -- * Predicates and examinations on expressions
 
 litView :: Expr a -> Maybe Lit
@@ -301,7 +304,7 @@ freshLocal :: Name a => Type a -> Fresh (Local a)
 freshLocal ty = liftM2 Local fresh (return ty)
 
 freshArgs :: Name a => Global a -> Fresh [Local a]
-freshArgs gbl = mapM freshLocal (polytype_args (gbl_type gbl))
+freshArgs gbl = mapM freshLocal (fst (gblType gbl))
 
 refreshLocal :: Name a => Local a -> Fresh (Local a)
 refreshLocal (Local name ty) = liftM2 Local (refresh name) (return ty)
