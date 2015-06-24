@@ -12,7 +12,7 @@ import Tip.Fresh
 import Tip.Core hiding (Expr)
 import qualified Tip.Core as Tip
 
-import Data.Foldable as F
+import qualified Data.Foldable as F
 
 import Tip.Pretty
 import Text.PrettyPrint

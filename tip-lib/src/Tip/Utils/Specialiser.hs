@@ -14,6 +14,7 @@ import Tip.Fresh
 import Tip.Utils
 import Tip.Pretty
 
+import Control.Applicative
 import Control.Monad
 import Data.Maybe
 import Data.Foldable (Foldable)
