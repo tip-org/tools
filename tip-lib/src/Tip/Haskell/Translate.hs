@@ -418,7 +418,7 @@ makeSig thy@Theory{..} =
 
   scp = scope thy
 
-  cg = map (map defines) (flatCallGraph (CallGraphOpts True False) thy)
+  cg = map (map defines) (flatCallGraph (CallGraphOpts False False) thy)
 
   poly_type (PolyType _ args res) = args :=>: res
 

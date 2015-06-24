@@ -1,0 +1,41 @@
+#!/bin/zsh
+
+IFS=' '
+file=$(tip-spec $1 | tee /dev/stderr | grep -A1000000 '^(declare-')
+
+prove() {
+    file=$(cat)
+
+    progress=
+    n=0
+
+    while true; do
+    	if echo $file|tip --select-conjecture $n >& /dev/null; then
+    		goal=$(echo $file|tip --select-conjecture $n --smtlib)
+    		result=$((echo '(set-logic ALL_SUPPORTED)'; echo $goal) |
+    					 cvc4 --lang smt2.5 --tlimit=$1 --quant-ind)
+    		if [[ $result = unsat ]]; then
+    			echo -n ':) ' >&2
+    			file=$(echo $file|tip --proved-conjecture $n)
+    			progress=yes
+    		else
+    			echo -n ':( ' >&2
+    			((n=$n+1))
+    		fi
+    	else
+    		echo >&2
+    		if [[ -z $progress ]]; then break; fi
+    		progress=
+    		n=0
+    	fi
+    done
+
+    echo $file
+}
+
+for i in 100 400 1000; do
+    file=$(echo $file | prove $i)
+done
+
+echo
+echo $file | tip --why

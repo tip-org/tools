@@ -63,6 +63,7 @@ library
     Tip.Pass.Monomorphise
     Tip.Pass.EliminateDeadCode
     Tip.Pass.FillInCases
+    Tip.Pass.SelectConjecture
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
