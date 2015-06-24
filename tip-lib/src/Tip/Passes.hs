@@ -41,6 +41,7 @@ module Tip.Passes
   , monomorphise
 
   -- * Miscellaneous
+  , makeConjecture
   , selectConjecture
   , provedConjecture
 
@@ -96,6 +97,7 @@ data StandardPass
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
+  | MakeConjecture Int
   | SelectConjecture Int
   | ProvedConjecture Int
  deriving (Eq,Ord,Show,Read)
@@ -124,6 +126,7 @@ instance Pass StandardPass where
     CSEMatch             -> return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> return . eliminateDeadCode
+    MakeConjecture n     -> return . makeConjecture n
     SelectConjecture n   -> return . selectConjecture n
     ProvedConjecture n   -> return . provedConjecture n
   parsePass =
@@ -170,6 +173,11 @@ instance Pass StandardPass where
         help "Aggressively perform CSE on match scrutinees (helps Why3's termination checker)",
       unitPass EliminateDeadCode $
         help "Dead code elimination (doesn't work on dead recursive functions)",
+      fmap MakeConjecture $
+        option auto $
+          long "make-conjecture" <>
+          metavar "CONJECTURE-NUMBER" <>
+          help "Make an assert into an assert-not",
       fmap SelectConjecture $
         option auto $
           long "select-conjecture" <>
