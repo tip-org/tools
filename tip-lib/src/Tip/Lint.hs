@@ -260,13 +260,15 @@ isExpression _ = False
 lintCase :: (PrettyVar a, Ord a) => ExprKind -> Expr a -> Case a -> ScopeM a ()
 lintCase kind _ (Case Default body) = lintExpr kind body
 lintCase kind _ (Case LitPat{} body) = lintExpr kind body
-lintCase kind expr (Case (ConPat gbl@Global{..} args) body) =
+lintCase kind expr (Case pat@(ConPat gbl@Global{..} args) body) =
   local $ do
-    mapM_ lintBinder args
-    lintExpr kind (Gbl gbl :@: map Lcl args)
+    inContext pat $ do
+      mapM_ lintBinder args
+      lintExpr kind (Gbl gbl :@: map Lcl args)
+      check ("Global" <+> pp gbl <+> "used as constructor")
+        (isJust . lookupConstructor gbl_name)
+      let (_, res) = applyPolyType gbl_type gbl_args
+      unless (res == exprType expr) $
+        throwError (fsep ["Constructor", nest 2 (pp (Gbl gbl :@: map Lcl args)), "has type", nest 2 (pp res), "but should be", nest 2 (pp (exprType expr))])
+
     lintExpr kind body
-    check ("Global" <+> pp gbl <+> "used as constructor")
-      (isJust . lookupConstructor gbl_name)
-    let (_, res) = applyPolyType gbl_type gbl_args
-    unless (res == exprType expr) $
-      throwError (fsep ["Constructor", nest 2 (pp (Gbl gbl :@: map Lcl args)), "has type", nest 2 (pp res), "but should be", nest 2 (pp (exprType expr))])
