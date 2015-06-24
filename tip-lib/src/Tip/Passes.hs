@@ -45,6 +45,7 @@ module Tip.Passes
   , selectConjecture
   , provedConjecture
   , deleteConjecture
+  , dropSuffix
 
   -- * Building pass pipelines
   , StandardPass(..)
@@ -68,6 +69,7 @@ import Tip.Pass.EliminateDeadCode
 import Tip.Pass.FillInCases
 import Tip.Pass.AxiomatizeFuncdefs
 import Tip.Pass.SelectConjecture
+import Tip.Pass.DropSuffix
 
 import Tip.Fresh
 
@@ -102,6 +104,7 @@ data StandardPass
   | SelectConjecture Int
   | ProvedConjecture Int
   | DeleteConjecture Int
+  | DropSuffix String
  deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
@@ -132,6 +135,7 @@ instance Pass StandardPass where
     SelectConjecture n   -> return . selectConjecture n
     ProvedConjecture n   -> return . provedConjecture n
     DeleteConjecture n   -> return . deleteConjecture n
+    DropSuffix cs        -> dropSuffix cs
   parsePass =
     foldr (<|>) empty [
       unitPass SimplifyGently $
@@ -195,4 +199,9 @@ instance Pass StandardPass where
         option auto $
           long "delete-conjecture" <>
           metavar "CONJECTURE-NUMBER" <>
-          help "Delete a particular conjecture"]
+          help "Delete a particular conjecture",
+      fmap DropSuffix $
+        option str $
+          long "drop-suffix" <>
+          metavar "SUFFIX-CHARS" <>
+          help "Drop the suffix delimited by some character set"]

@@ -64,6 +64,7 @@ library
     Tip.Pass.EliminateDeadCode
     Tip.Pass.FillInCases
     Tip.Pass.SelectConjecture
+    Tip.Pass.DropSuffix
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
