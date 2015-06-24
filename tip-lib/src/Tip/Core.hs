@@ -41,6 +41,10 @@ oppositeQuant :: Quant -> Quant
 oppositeQuant Forall = Exists
 oppositeQuant Exists = Forall
 
+gentleNeg :: Expr a -> Expr a
+gentleNeg (Builtin Not :@: [e]) = e
+gentleNeg e = Builtin Not :@: [e]
+
 neg :: Expr a -> Expr a
 neg (Quant qi q lcs e)   = Quant qi (oppositeQuant q) lcs (neg e)
 neg (Builtin And :@: es) = Builtin Or  :@: map neg es

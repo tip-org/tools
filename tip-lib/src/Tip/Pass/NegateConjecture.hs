@@ -13,7 +13,7 @@ negateConjecture :: Name a => Theory a -> Fresh (Theory a)
 negateConjecture = fmap (declsPass (map neg1)) . typeSkolemConjecture
   where
   neg1 (AssertDecl (Formula Prove [] form))
-      = AssertDecl (Formula Assert [] (neg form))
+      = AssertDecl (Formula Assert [] (gentleNeg form))
   neg1 d0 = d0
 
 -- | Introduce skolem types in case the goal is polymorphic.

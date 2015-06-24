@@ -65,8 +65,8 @@ handle passes mode s =
                   , LambdaLift, AxiomatizeLambdas
                   , CollapseEqual, RemoveAliases
                   , SimplifyGently, RemoveMatch
-                  , SimplifyGently, Monomorphise, NegateConjecture, AxiomatizeFuncdefs
-                  , SimplifyGently
+                  , SimplifyGently, Monomorphise, AxiomatizeFuncdefs
+                  , SimplifyGently, NegateConjecture
                   ])
               Haskell ->
                 fmap_pp HS.ppTheory . runPasses passes
