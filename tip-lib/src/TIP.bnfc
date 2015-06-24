@@ -97,5 +97,5 @@ terminator FunDecl "";
 terminator FunDef "";
 terminator FunDec "";
 
-position token Symbol (letter|["~!@$%^&*_-+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
+position token Symbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
 
