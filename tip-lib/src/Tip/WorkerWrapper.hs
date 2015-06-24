@@ -29,7 +29,7 @@ workerWrapperFunctions f =
 
 workerWrapper :: Name a => [WorkerWrapper a] -> Theory a -> Fresh (Theory a)
 workerWrapper wws thy@Theory{..} =
-  transformExprInM updateUse thy' >>= simplifyTheory gently
+  transformExprInM updateUse thy' >>= simplifyTheory gentlyNoInline
   where
     thy' = thy { thy_funcs = map updateDef thy_funcs }
     m = Map.fromList [(func_name (ww_func ww), ww) | ww <- wws]

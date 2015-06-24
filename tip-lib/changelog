@@ -15,6 +15,7 @@ current development version:
 * Add PPVar drop-in replacement for variables with a Pretty instance
 * Add Decl view of Theory
 * Add Tip.Utils.unionOn and Tip.Utils.withPrevious
+* Add gentleNoInline as an Simplify option
 
 tip-lib 0.1.2 (released 2015-06-11):
 * Make haddock documentation build (reported by Peter Simons.)

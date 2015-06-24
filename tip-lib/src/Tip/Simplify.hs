@@ -25,19 +25,25 @@ data SimplifyOpts a =
     -- @(match x (case (K y) (e (K y) y))@
     -- This is useful for triggering other known-case simplifications,
     -- and is therefore on by default.
-    should_inline :: Maybe (Scope a) -> Expr a -> Bool,
+    should_inline :: Occurrences -> Maybe (Scope a) -> Expr a -> Bool,
     -- ^ Inlining predicate
     inline_match  :: Bool
     -- ^ Allow function inlining to introduce match
   }
 
+newtype Occurrences = Occurrences Int
+
+-- | Gentle, but without inlining
+gentlyNoInline :: SimplifyOpts a
+gentlyNoInline = gently { should_inline = \ _ _ _ -> False }
+
 -- | Gentle options: if there is risk for code duplication, only inline atomic expressions
 gently :: SimplifyOpts a
-gently       = SimplifyOpts True True (const atomic) True
+gently       = SimplifyOpts True True (\ (Occurrences occ) _ e -> occ <= 1 || atomic e) True
 
 -- | Aggressive options: inline everything that might plausibly lead to simplification
 aggressively :: Name a => SimplifyOpts a
-aggressively = SimplifyOpts True True useful True
+aggressively = SimplifyOpts True True (\ (Occurrences occ) mscp e -> occ <= 1 || useful mscp e) True
   where
     useful _ Lam{} = True
     useful mscp (f :@: _) = isConstructor mscp f
@@ -159,7 +165,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
 
         _ -> return e0
 
-    inlineable body var val = should_inline mscp val || occurrences var body <= 1
+    inlineable body var val = should_inline (Occurrences (occurrences var body)) mscp val
     mscp = fmap scope mthy
 
     isRecursiveGroup [fun] = defines fun `elem` uses fun
