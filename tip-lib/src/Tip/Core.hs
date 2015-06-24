@@ -37,7 +37,15 @@ e1 === e2 = Builtin Equal :@: [e1,e2]
 (=/=) :: Expr a -> Expr a -> Expr a
 e1 =/= e2 = Builtin Distinct :@: [e1,e2]
 
+oppositeQuant :: Quant -> Quant
+oppositeQuant Forall = Exists
+oppositeQuant Exists = Forall
+
 neg :: Expr a -> Expr a
+neg (Quant qi q lcs e)   = Quant qi (oppositeQuant q) lcs (neg e)
+neg (Builtin And :@: es) = Builtin Or  :@: map neg es
+neg (Builtin Or  :@: es) = Builtin And :@: map neg es
+neg (Builtin Not :@: [e]) = e
 neg (Builtin op :@: [e1,e2])
   | Equal    <- op = e1 =/= e2
   | Distinct <- op = e1 === e2
