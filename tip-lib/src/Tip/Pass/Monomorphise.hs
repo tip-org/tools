@@ -54,11 +54,10 @@ monomorphise' :: forall a . (Name a,Pretty a) => Theory a -> Fresh (Theory a)
 monomorphise' thy | monomorphicThy thy = return thy
 monomorphise' thy = do
     let ds = theoryDecls thy
-        seeds = theorySeeds thy
         insts :: [(Decl a,Subst a Void (Con a))]
         loops :: [Decl a]
-        rules = [ (d,declToRule d) | d <- ds ]
-        (insts,loops) = specialise rules seeds
+        rules = [ (d,declToRule True d) | d <- ds ]
+        (insts,loops) = specialise rules
     traceM (show ("rules:" $\ pp rules))
     traceM (show ("loops:" $\ pp loops))
     traceM (show ("insts:" $\ pp insts))
@@ -68,18 +67,15 @@ monomorphise' thy = do
         return $ renameWith (renameRenames renames) (declsToTheory insts')
       else return thy
 
-theorySeeds :: Ord a => Theory a -> [Closed (Con a)]
-theorySeeds Theory{..} = usort (Con Dummy []:concat [ map close (exprRecords b) | Formula Prove [] b <- thy_asserts ])
-
-exprPredRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
-exprPredRecords e = usort $
+exprGlobalRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
+exprGlobalRecords e = usort $
     [ Con (Pred gbl_name) (map trType gbl_args)
     | Global{..} <- universeBi e
     ]
 
 exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
 exprRecords e = usort $
-    exprPredRecords e ++
+    exprGlobalRecords e ++
     [ Con (TCon tc) (map trType args)
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e
     , TyCon tc args :: Type a <- universeBi lcl_type
@@ -148,8 +144,8 @@ data Con a = Pred a | TCon a | TyArr | TyBun BuiltinType | Dummy
   deriving (Eq,Ord,Show)
 
 instance Pretty a => Pretty (Con a) where
-  pp (Pred x)   = "Pred" <+> parens (pp x)
-  pp (TCon x)   = "TCon" <+> parens (pp x)
+  pp (Pred x)   = "Pred" <+> pp x
+  pp (TCon x)   = "TCon" <+> pp x
   pp TyArr      = "=>"
   pp (TyBun bu) = ppBuiltinType bu
   pp Dummy      = "dummy"
@@ -169,49 +165,32 @@ toType (Con (TyBun bun) []) = BuiltinType bun
 close :: Expr (Con a) a -> Closed (Con a)
 close = fmap (error "contains variables")
 
-sigRule :: a -> [a] -> Type a -> Rule (Con a) a
-sigRule f tvs t = Rule (Con (Pred f) (map Var tvs)) (trType t)
+sigRule :: Ord a => Bool -> a -> [a] -> [Type a] -> Type a -> [Rule (Con a) a]
+sigRule signature_trigger f tvs args res =
+    [ Rule (map trType (usort $ res : args)) (Con (Pred f) (map Var tvs)) | signature_trigger ] ++
+    [ Rule [Con (Pred f) (map Var tvs)] (trType t) | t <- usort $ res : args ]
 
-declToRule :: Ord a => Decl a -> [Rule (Con a) a]
-declToRule d = usort $ case d of
-    SortDecl (Sort d tvs)         -> [Rule (Con (TCon d) (map Var tvs)) (Con Dummy [])]
+declToRule :: Ord a => Bool -> Decl a -> [Rule (Con a) a]
+declToRule signature_trigger d = usort $ case d of
+    SortDecl (Sort d tvs) ->
+        [Rule [Con (TCon d) (map Var tvs)] (Con Dummy [])]
     SigDecl (Signature f (PolyType tvs args res)) ->
-        [ sigRule f tvs t | t <- args ++ [res] ]
-    AssertDecl (Formula r tvs b) ->
-        [ Rule (Con Dummy []) (Con Dummy [])
-        | null tvs
-        , Prove <- [r]
-        ] ++
-        quadratic
-            [ e
-            | e <- exprRecords b
-            , and [ t `elem` F.toList e | t <- tvs ]
-            ]
+        sigRule False f tvs args res
+    AssertDecl (Formula Prove tvs b) ->
+        map (Rule []) (Con Dummy []:exprRecords b)
+    AssertDecl (Formula Assert tvs b) ->
+        [Rule (exprRecords b) (Con Dummy [])]
     DataDecl (Datatype tc tvs cons) ->
         let tcon x = Con (TCon x) (map Var tvs)
             pred x = Con (Pred x) (map Var tvs)
-        in (coactive $
-              [ tcon tc ] ++
-              [ pred f
-              | Constructor k d args <- cons
-              , f <- [k,d] ++ map fst args
-              ]) ++
-           [sigRule p tvs t | Constructor _ _ args <- cons, (p,t) <- args ]
-
-    FuncDecl (Function f tvs args res body) ->
-        {- concatMap subtermRules $ -}
-        [ sigRule f tvs t | t <- map lcl_type args ++ [res] ] ++
-        map (Rule (Con (Pred f) (map Var tvs))) (exprPredRecords body)
-
-coactive :: [Expr (Con a) a] -> [Rule (Con a) a]
-coactive []     = []
-coactive [e]    = [Rule e (Con Dummy [])]
-coactive (e:es) = map (Rule e) es ++ map (`Rule` e) es
-
-quadratic :: [Expr (Con a) a] -> [Rule (Con a) a]
-quadratic [e] = [Rule e (Con Dummy [])]
-quadratic es = [ Rule p q
-               | n <- [0..length es-1]
-               , let (l,p:r) = splitAt n es
-               , q <- l ++ r
+        in  concat [ sigRule False k tvs (map snd args) (TyCon tc (map TyVar tvs))
+                   | Constructor k _ args <- cons
+                   ]
+            ++ [ Rule [tcon tc] (pred f)
+               | Constructor k d args <- cons
+               , f <- [k,d] ++ map fst args
                ]
+    FuncDecl (Function f tvs args res body) ->
+        sigRule signature_trigger f tvs (map lcl_type args) res ++
+        map (Rule [Con (Pred f) (map Var tvs)]) (exprGlobalRecords body)
+
