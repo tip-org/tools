@@ -349,7 +349,7 @@ letExpr b k =
 -- expression contains no binders (i.e. no lambdas, no lets, no quantifiers),
 -- since the binders are not refreshed at every insertion point.
 unsafeSubst :: Ord a => Expr a -> Local a -> Expr a -> Expr a
-e `unsafeSubst` _ | not (null (bound e)) = error "Tip.unsafeSubst: contains binders"
+e `unsafeSubst` _ | not (null (bound e)) = ERROR("unsafeSubst: contains binders")
 e `unsafeSubst` x = transformExpr $ \ e0 -> case e0 of
   Lcl y | x == y -> e
   _              -> e0
