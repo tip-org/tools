@@ -32,5 +32,6 @@ handle es s =
          sig' <- choppyQuickSpec chops sig
          let bm  = backMap thy rm
          let fms = mapM (trProperty bm) (usort (QS.background sig')) `freshFrom` thy
+         putStrLn ";; Conjectured theory"
          print (SMT.ppTheory (thy { thy_asserts = thy_asserts thy ++ fms }))
 
