@@ -73,13 +73,15 @@ exprGlobalRecords e = usort $
     | Global{..} <- universeBi e
     ]
 
-exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
-exprRecords e = usort $
-    exprGlobalRecords e ++
+exprTypeRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
+exprTypeRecords e = usort $
     [ Con (TCon tc) (map trType args)
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e
     , TyCon tc args :: Type a <- universeBi lcl_type
     ]
+
+exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
+exprRecords e = usort $ exprGlobalRecords e ++ exprTypeRecords e
 
 renameRenames :: Ord a => [((a,[Type a]),a)] -> [((a,[Type a]),a)]
 renameRenames su =
@@ -172,14 +174,21 @@ sigRule signature_trigger f tvs args res =
 
 declToRule :: Ord a => Bool -> Decl a -> [Rule (Con a) a]
 declToRule signature_trigger d = usort $ case d of
+
     SortDecl (Sort d tvs) ->
         [Rule [Con (TCon d) (map Var tvs)] (Con Dummy [])]
+
     SigDecl (Signature f (PolyType tvs args res)) ->
         sigRule False f tvs args res
+
     AssertDecl (Formula Prove tvs b) ->
         map (Rule []) (Con Dummy []:exprRecords b)
+
     AssertDecl (Formula Assert tvs b) ->
-        [Rule (exprRecords b) (Con Dummy [])]
+        [ Rule (exprTypeRecords b) e
+        | e <- Con Dummy []:exprGlobalRecords b
+        ]
+
     DataDecl (Datatype tc tvs cons) ->
         let tcon x = Con (TCon x) (map Var tvs)
             pred x = Con (Pred x) (map Var tvs)
@@ -190,6 +199,7 @@ declToRule signature_trigger d = usort $ case d of
                | Constructor k d args <- cons
                , f <- [k,d] ++ map fst args
                ]
+
     FuncDecl (Function f tvs args res body) ->
         sigRule signature_trigger f tvs (map lcl_type args) res ++
         map (Rule [Con (Pred f) (map Var tvs)]) (exprGlobalRecords body)
