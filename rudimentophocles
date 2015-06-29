@@ -1,7 +1,7 @@
 #!/bin/bash
 
 IFS=' '
-file=$(tip-spec $1 | tee /dev/stderr | grep -A1000000 '^(declare-')
+file=$(tip-spec $1 | tee /dev/stderr | grep -A1000000 '^;;')
 
 prove() {
     file=$(cat)
