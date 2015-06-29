@@ -78,6 +78,12 @@ exprTypeRecords e = usort $
     [ Con (TCon tc) (map trType args)
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e
     , TyCon tc args :: Type a <- universeBi lcl_type
+    ] ++
+    [ Con (TCon tc) (map trType args)
+    | g@Global{} :: Tip.Global a <- universeBi e
+    , let (as,res) = gblType g
+    , inst_ty <- res:as
+    , TyCon tc args :: Type a <- universeBi inst_ty
     ]
 
 exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
