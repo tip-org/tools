@@ -75,15 +75,25 @@ exprGlobalRecords e = usort $
 
 exprTypeRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
 exprTypeRecords e = usort $
-    [ Con (TCon tc) (map trType args)
+    [ t
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e
-    , TyCon tc args :: Type a <- universeBi lcl_type
+    , t <- typeRecords lcl_type
     ] ++
-    [ Con (TCon tc) (map trType args)
+    [ t
     | g@Global{} :: Tip.Global a <- universeBi e
     , let (as,res) = gblType g
     , inst_ty <- res:as
-    , TyCon tc args :: Type a <- universeBi inst_ty
+    , t <- typeRecords inst_ty
+    ]
+    -- NB: looks at the instantiated global type
+
+typeRecords :: forall a . Ord a => Tip.Type a -> [Expr (Con a) a]
+typeRecords t = usort $
+    [ Con (TCon ty) (map trType args)
+    | TyCon ty args :: Type a <- universeBi t
+    ] ++
+    [ Con TyArr (map trType (args ++ [res]))
+    | args :=>: res :: Type a <- universeBi t
     ]
 
 exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
@@ -173,19 +183,18 @@ toType (Con (TyBun bun) []) = BuiltinType bun
 close :: Expr (Con a) a -> Closed (Con a)
 close = fmap (error "contains variables")
 
-sigRule :: Ord a => Bool -> a -> [a] -> [Type a] -> Type a -> [Rule (Con a) a]
-sigRule signature_trigger f tvs args res =
-    [ Rule (map trType (usort $ res : args)) (Con (Pred f) (map Var tvs)) | signature_trigger ] ++
+sigRule :: Ord a => a -> [a] -> [Type a] -> Type a -> [Rule (Con a) a]
+sigRule f tvs args res =
     [ Rule [Con (Pred f) (map Var tvs)] (trType t) | t <- usort $ res : args ]
 
 declToRule :: Ord a => Bool -> Decl a -> [Rule (Con a) a]
-declToRule signature_trigger d = usort $ case d of
+declToRule enthusiastic_function_inst d = usort $ case d of
 
     SortDecl (Sort d tvs) ->
         [Rule [Con (TCon d) (map Var tvs)] (Con Dummy [])]
 
     SigDecl (Signature f (PolyType tvs args res)) ->
-        sigRule False f tvs args res
+        sigRule f tvs args res
 
     AssertDecl (Formula Prove tvs b) ->
         map (Rule []) (Con Dummy []:exprRecords b)
@@ -198,7 +207,7 @@ declToRule signature_trigger d = usort $ case d of
     DataDecl (Datatype tc tvs cons) ->
         let tcon x = Con (TCon x) (map Var tvs)
             pred x = Con (Pred x) (map Var tvs)
-        in  concat [ sigRule False k tvs (map snd args) (TyCon tc (map TyVar tvs))
+        in  concat [ sigRule k tvs (map snd args) (TyCon tc (map TyVar tvs))
                    | Constructor k _ args <- cons
                    ]
             ++ [ Rule [tcon tc] (pred f)
@@ -207,6 +216,8 @@ declToRule signature_trigger d = usort $ case d of
                ]
 
     FuncDecl (Function f tvs args res body) ->
-        sigRule signature_trigger f tvs (map lcl_type args) res ++
+        sigRule f tvs (map lcl_type args) res ++
+        [ Rule (exprTypeRecords body) (Con (Pred f) (map Var tvs))
+        | enthusiastic_function_inst ] ++
         map (Rule [Con (Pred f) (map Var tvs)]) (exprGlobalRecords body)
 
