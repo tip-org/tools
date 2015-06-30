@@ -61,7 +61,7 @@ induction coords thy@Theory{..} =
                   let body' = hyps ===> concl
                   return
                     (Formula Prove tvs
-                      (Quant qi Forall [ Local v t | (v,t) <- sks] body'))
+                      (mkQuant Forall [ Local v t | (v,t) <- sks] body'))
              | Obligation sks hyps concl <- obligs
              ]
 
