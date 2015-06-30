@@ -80,18 +80,18 @@ exprTypeRecords e = usort $
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e
     , t <- typeRecords lcl_type
     ]
-
-    {-
     ++
+    -- need this for nils lying around
+    -- (another fix is to make list(a) or cons(a) imply a
     [ t
-    | g@Global{} :: Tip.Global a <- universeBi e
+    | g@Global{..} :: Tip.Global a <- universeBi e
     -- , let (as,res) = gblType g
     -- , inst_ty <- res:as
-    -- , t <- typeRecords inst_ty
-    , t <- gbl_args
+    , inst_ty <- gbl_args -- NB: looks at the instantiated global type
+    , t <- typeRecords inst_ty
     ]
-    -- NB: looks at the instantiated global type
-    -}
+    
+    
 
 -- We're traversing right now to get all the TyArr that's needed
 -- Otherwise it's enough to only use the top + add the rules
