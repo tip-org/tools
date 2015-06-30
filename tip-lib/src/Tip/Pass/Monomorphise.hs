@@ -73,20 +73,29 @@ exprGlobalRecords e = usort $
     | Global{..} <- universeBi e
     ]
 
+-- why are you going to use exprTypeRecords?
 exprTypeRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
 exprTypeRecords e = usort $
     [ t
     | Lcl (Local{..}) :: Tip.Expr a <- universeBi e
     , t <- typeRecords lcl_type
-    ] ++
+    ]
+
+    {-
+    ++
     [ t
     | g@Global{} :: Tip.Global a <- universeBi e
-    , let (as,res) = gblType g
-    , inst_ty <- res:as
-    , t <- typeRecords inst_ty
+    -- , let (as,res) = gblType g
+    -- , inst_ty <- res:as
+    -- , t <- typeRecords inst_ty
+    , t <- gbl_args
     ]
     -- NB: looks at the instantiated global type
+    -}
 
+-- We're traversing right now to get all the TyArr that's needed
+-- Otherwise it's enough to only use the top + add the rules
+-- =>(a,b) -> a, b
 typeRecords :: forall a . Ord a => Tip.Type a -> [Expr (Con a) a]
 typeRecords t = usort $
     [ Con (TCon ty) (map trType args)
@@ -184,8 +193,10 @@ close :: Expr (Con a) a -> Closed (Con a)
 close = fmap (error "contains variables")
 
 sigRule :: Ord a => a -> [a] -> [Type a] -> Type a -> [Rule (Con a) a]
-sigRule f tvs args res =
-    [ Rule [Con (Pred f) (map Var tvs)] (trType t) | t <- usort $ res : args ]
+sigRule f tvs args res = usort $
+    [ Rule [Con (Pred f) (map Var tvs)] t
+    | t0 <- res : args, t <- typeRecords t0
+    ]
 
 declToRule :: Ord a => Bool -> Decl a -> [Rule (Con a) a]
 declToRule enthusiastic_function_inst d = usort $ case d of
@@ -200,8 +211,9 @@ declToRule enthusiastic_function_inst d = usort $ case d of
         map (Rule []) (Con Dummy []:exprRecords b)
 
     AssertDecl (Formula Assert tvs b) ->
-        [ Rule (exprTypeRecords b) e
-        | e <- Con Dummy []:exprGlobalRecords b
+        -- careful instantiation
+        [ Rule (exprGlobalRecords b) e
+        | e <- Con Dummy []:exprTypeRecords b
         ]
 
     DataDecl (Datatype tc tvs cons) ->
@@ -216,8 +228,8 @@ declToRule enthusiastic_function_inst d = usort $ case d of
                ]
 
     FuncDecl (Function f tvs args res body) ->
-        sigRule f tvs (map lcl_type args) res ++
-        [ Rule (exprTypeRecords body) (Con (Pred f) (map Var tvs))
+        [ Rule (exprGlobalRecords body) (Con (Pred f) (map Var tvs))
         | enthusiastic_function_inst ] ++
+        sigRule f tvs (map lcl_type args) res ++
         map (Rule [Con (Pred f) (map Var tvs)]) (exprGlobalRecords body)
 

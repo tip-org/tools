@@ -5,11 +5,13 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 module Tip.Utils.Specialiser
     (specialise, Rule(..), Expr(..),
      Void, absurd,
      Closed, subtermRules, subterms, Subst, Inst) where
 
+#include "errors.h"
 import Tip.Fresh
 import Tip.Utils
 import Tip.Pretty
@@ -155,7 +157,7 @@ instPre c r =
   in  map (close su) (rule_pre r)
 
 close :: Eq a => [(a,Closed c)] -> Expr c a -> Closed c
-close su (Var v)    = fromMaybe (error "close") (lookup v su)
+close su (Var v)    = fromMaybe (ERROR("Unbound variable, did you run --type-skolem-conjecture?")) (lookup v su)
 close su (Con c es) = Con c (map (close su) es)
 
 unnamedStep :: (Ord c,Ord a) => [Rule c a] -> [Closed c] -> [Closed c]

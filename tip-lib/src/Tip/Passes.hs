@@ -40,6 +40,9 @@ module Tip.Passes
   -- * Monomorphisation
   , monomorphise
 
+  -- * Induction
+  , induction
+
   -- * Miscellaneous
   , makeConjecture
   , selectConjecture
@@ -70,6 +73,7 @@ import Tip.Pass.FillInCases
 import Tip.Pass.AxiomatizeFuncdefs
 import Tip.Pass.SelectConjecture
 import Tip.Pass.DropSuffix
+import Tip.Pass.Induction
 
 import Tip.Fresh
 
@@ -105,37 +109,40 @@ data StandardPass
   | ProvedConjecture Int
   | DeleteConjecture Int
   | DropSuffix String
+  | Induction [Int]
  deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
   passName = show
   runPass p = case p of
-    SimplifyGently       -> simplifyTheory gently
-    SimplifyAggressively -> simplifyTheory aggressively
-    RemoveNewtype        -> return . removeNewtype
-    UncurryTheory        -> uncurryTheory
-    NegateConjecture     -> negateConjecture
-    TypeSkolemConjecture -> typeSkolemConjecture
-    IfToBoolOp           -> return . ifToBoolOp
-    BoolOpToIf           -> return . theoryBoolOpToIf
-    AddMatch             -> addMatch
-    CommuteMatch         -> commuteMatchTheory
-    RemoveMatch          -> removeMatch
-    CollapseEqual        -> return . collapseEqual
-    RemoveAliases        -> return . removeAliases
-    LambdaLift           -> lambdaLift
-    LetLift              -> letLift
-    AxiomatizeLambdas    -> axiomatizeLambdas
-    AxiomatizeFuncdefs   -> return . axiomatizeFuncdefs
-    Monomorphise         -> monomorphise
-    CSEMatch             -> return . cseMatch cseMatchNormal
-    CSEMatchWhy3         -> return . cseMatch cseMatchWhy3
-    EliminateDeadCode    -> return . eliminateDeadCode
-    MakeConjecture n     -> return . makeConjecture n
-    SelectConjecture n   -> return . selectConjecture n
-    ProvedConjecture n   -> return . provedConjecture n
-    DeleteConjecture n   -> return . deleteConjecture n
-    DropSuffix cs        -> dropSuffix cs
+    SimplifyGently       -> single $ simplifyTheory gently
+    SimplifyAggressively -> single $ simplifyTheory aggressively
+    RemoveNewtype        -> single $ return . removeNewtype
+    UncurryTheory        -> single $ uncurryTheory
+    NegateConjecture     -> single $ negateConjecture
+    TypeSkolemConjecture -> single $ typeSkolemConjecture
+    IfToBoolOp           -> single $ return . ifToBoolOp
+    BoolOpToIf           -> single $ return . theoryBoolOpToIf
+    AddMatch             -> single $ addMatch
+    CommuteMatch         -> single $ commuteMatchTheory
+    RemoveMatch          -> single $ removeMatch
+    CollapseEqual        -> single $ return . collapseEqual
+    RemoveAliases        -> single $ return . removeAliases
+    LambdaLift           -> single $ lambdaLift
+    LetLift              -> single $ letLift
+    AxiomatizeLambdas    -> single $ axiomatizeLambdas
+    AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
+    Monomorphise         -> single $ monomorphise
+    CSEMatch             -> single $ return . cseMatch cseMatchNormal
+    CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
+    EliminateDeadCode    -> single $ return . eliminateDeadCode
+    MakeConjecture n     -> single $ return . makeConjecture n
+    SelectConjecture n   -> single $ return . selectConjecture n
+    ProvedConjecture n   -> single $ return . provedConjecture n
+    DeleteConjecture n   -> single $ return . deleteConjecture n
+    DropSuffix cs        -> single $ dropSuffix cs
+    Induction coords     -> induction coords
+    where single m thy = do x <- m thy; return [x]
   parsePass =
     foldr (<|>) empty [
       unitPass SimplifyGently $
@@ -204,4 +211,10 @@ instance Pass StandardPass where
         option str $
           long "drop-suffix" <>
           metavar "SUFFIX-CHARS" <>
-          help "Drop the suffix delimited by some character set"]
+          help "Drop the suffix delimited by some character set",
+      fmap Induction $
+        option auto $
+          long "induction" <>
+          metavar "VAR-COORD" <>
+          help "Perform induction on the variable coordinates"
+      ]

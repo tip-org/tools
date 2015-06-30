@@ -65,6 +65,7 @@ library
     Tip.Pass.FillInCases
     Tip.Pass.SelectConjecture
     Tip.Pass.DropSuffix
+    Tip.Pass.Induction
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
@@ -84,7 +85,8 @@ library
                        mtl,
                        pretty,
                        array,
-                       optparse-applicative
+                       optparse-applicative,
+                       structural-induction >= 0.3 && < 0.4
   build-tools:         alex, happy
 
 executable tip
@@ -93,4 +95,5 @@ executable tip
   build-depends:       base,
                        tip-lib,
                        pretty,
+                       filepath,
                        optparse-applicative

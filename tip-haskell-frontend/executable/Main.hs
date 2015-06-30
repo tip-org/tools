@@ -55,7 +55,9 @@ main = do
                   , CSEMatch
                   , EliminateDeadCode
                   ]
-        print (SMT.ppTheory (pipeline renamed_thy))
+        case pipeline renamed_thy of
+          [thy'] -> print (SMT.ppTheory thy')
+          _      -> error "tip-ghc: not one theory!"
 
 data Var = Var String | Refresh Var Int
   deriving (Show,Eq,Ord)
