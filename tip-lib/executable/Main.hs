@@ -59,7 +59,7 @@ handle passes mode multipath s =
     Right thy -> do
       let fmap_pp f = fmap (show . map f)
       let show_passes c = fmap (\ s -> c ++ show passes ++ "\n" ++ s)
-      let (pretty,pipeline) =
+      let (pretty,pipeline,ext) =
             case mode of
               CVC4 ->
                 ( SMT.ppTheory
@@ -71,22 +71,22 @@ handle passes mode multipath s =
                   , SimplifyGently, Monomorphise, AxiomatizeFuncdefs
                   , SimplifyGently, NegateConjecture
                   ]
-                )
-              Haskell  -> (HS.ppTheory,       passes)
-              Why3     -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3])
-              Isabelle -> (Isabelle.ppTheory, passes)
-              TIP      -> (SMT.ppTheory,      passes)
-      case freshPass (runPasses pipeline) (lint "parse" thy) of
-        [thy] -> print (pretty thy)
-        []    -> error "No theory remaining"
-        thys  ->
-          case multipath of
-            Nothing -> error "Multiple theories, specify an output path"
-            Just d ->
-              do putStrLn $ "Putting theories in " ++ d
-                 sequence_
-                   [ do putStrLn $ "Writing " ++ (d </> show n)
-                        writeFile (d </> show n) (show (pretty thy))
-                   | (n, thy) <- [(0 :: Int)..] `zip` thys
-                   ]
+                , "smt2")
+              Haskell  -> (HS.ppTheory,       passes, "hs")
+              Why3     -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
+              Isabelle -> (Isabelle.ppTheory, passes, "thy")
+              TIP      -> (SMT.ppTheory,      passes, "smt2")
+      let thys = freshPass (runPasses pipeline) (lint "parse" thy)
+      case multipath of
+        Nothing ->
+          case thys of
+            [thy] -> print (pretty thy)
+            []    -> error "No theory remaining"
+            _     -> error "Multiple theories, specify an output path"
+        Just d ->
+          sequence_
+            [ do putStrLn $ d </> show n <.> ext
+                 writeFile (d </> show n <.> ext) (show (pretty thy))
+            | (n, thy) <- [(0 :: Int)..] `zip` thys
+            ]
 
