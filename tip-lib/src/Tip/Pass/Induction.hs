@@ -36,10 +36,12 @@ trTerm (Fun f tms) = Builtin At :@: (Lcl f:map trTerm tms)
 induction :: (Name a,Ord a) => [Int] -> Theory a -> Fresh [Theory a]
 induction coords thy@Theory{..} =
   case goal of
-    Formula Prove tvs (Quant qi Forall lcls body) ->
+    Formula Prove tvs (Quant qi Forall lcls body)
+      | cs@(_:_) <- [ x | x <- coords, x >= length lcls || x < 0 ] -> error $ "Induction coordinates " ++ show cs ++ " out of bounds!"
+      | otherwise ->
       do (obligs,_) <-
            unTagMapM
-             (\ (v :~ _) -> refresh v) 
+             (\ (v :~ _) -> refresh v)
              (subtermInduction
                (theoryTyEnv thy)
                [(lcl_name,lcl_type) | Local{..} <- lcls]
