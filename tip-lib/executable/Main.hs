@@ -66,7 +66,7 @@ handle passes mode multipath s =
                 , passes ++
                   [ TypeSkolemConjecture, Monomorphise
                   , LambdaLift, AxiomatizeLambdas
-                  , CollapseEqual, RemoveAliases
+                  , SimplifyGently, CollapseEqual, RemoveAliases
                   , SimplifyGently, RemoveMatch
                   , SimplifyGently, Monomorphise, AxiomatizeFuncdefs
                   , SimplifyGently, NegateConjecture
