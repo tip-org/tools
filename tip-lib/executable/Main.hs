@@ -4,6 +4,7 @@ import System.Environment
 
 import Tip.Parser
 import Tip.Pretty.SMT as SMT
+import Tip.Pretty.TFF as TFF
 import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
 import Tip.Pretty.Haskell as HS
@@ -19,7 +20,7 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell | Why3 | CVC4 | Isabelle | TIP
+data OutputMode = Haskell | Why3 | CVC4 | Isabelle | TIP | TFF
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -27,6 +28,7 @@ parseOutputMode =
   <|> flag' Why3 (long "why" <> help "WhyML output")
   <|> flag' CVC4 (long "smtlib" <> help "SMTLIB output (CVC4-compatible)")
   <|> flag' Isabelle (long "isabelle" <> help "Isabelle output")
+  <|> flag' TFF (long "tff" <> help "TPTP TFF output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
 
 optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
@@ -72,6 +74,17 @@ handle passes mode multipath s =
                   , SimplifyGently, NegateConjecture
                   ]
                 , "smt2")
+              TFF ->
+                ( TFF.ppTheory
+                , passes ++
+                  [ TypeSkolemConjecture, Monomorphise
+                  , LambdaLift, AxiomatizeLambdas
+                  , SimplifyGently, CollapseEqual, RemoveAliases
+                  , SimplifyGently, Monomorphise, IfToBoolOp, CommuteMatch
+                  , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
+                  , SimplifyGently, AxiomatizeDatadecls
+                  ]
+                , "p")
               Haskell  -> (HS.ppTheory,       passes, "hs")
               Why3     -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
               Isabelle -> (Isabelle.ppTheory, passes, "thy")
