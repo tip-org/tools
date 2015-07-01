@@ -70,10 +70,24 @@ e1 \/ e2
   | otherwise = Builtin Or :@: [e1,e2]
 
 ands :: [Expr a] -> Expr a
-ands xs = foldl (/\) trueExpr xs
+ands xs =
+  case flatAnd (foldl (/\) trueExpr xs) of
+    []  -> trueExpr
+    [x] -> x
+    xs  -> Builtin And :@: xs
+  where
+    flatAnd (Builtin And :@: xs) = concatMap flatAnd xs
+    flatAnd x = [x]
 
 ors :: [Expr a] -> Expr a
-ors xs = foldl (\/) falseExpr xs
+ors xs =
+  case flatOr (foldl (\/) falseExpr xs) of
+    []  -> falseExpr
+    [x] -> x
+    xs  -> Builtin Or :@: xs
+  where
+    flatOr (Builtin Or :@: xs) = concatMap flatOr xs
+    flatOr x = [x]
 
 (==>) :: Expr a -> Expr a -> Expr a
 e1 ==> e2

@@ -29,20 +29,32 @@ formulaBoolOpToIf e0 =
 hasBoolType :: Ord a => Expr a -> Bool
 hasBoolType e = exprType e == boolType
 
--- | Transforms @and@, @or@, @=>@, @not@ and @=@ and @distict@ on @Bool@
+-- | Transforms @and@, @or@, @=>@, @not@ and @=@ and @distinct@ on @Bool@
 --   into @ite@ (i.e. @match@)
 boolOpToIf :: (Ord a,TransformBi (Expr a) (f a)) => f a -> f a
 boolOpToIf = transformExprIn $
   \ e0 -> case e0 of
-    Builtin And :@: [a,b]     -> makeIf a b falseExpr
-    Builtin Or  :@: [a,b]     -> makeIf a trueExpr b
-    Builtin Not :@: [a]       -> makeIf a falseExpr trueExpr
-    Builtin Implies :@: [a,b] -> makeIf a b trueExpr
-    Builtin Equal    :@: [a,b] | hasBoolType a -> makeIf a b (neg_if b)
-    Builtin Distinct :@: [a,b] | hasBoolType a -> makeIf a (neg_if b) b
-    _ -> e0
+    Builtin And :@: as  -> ands as
+    Builtin Or  :@: as  -> ors  as
+    Builtin Not :@: [a] -> neg_if a
+    Builtin Implies :@: [a, b] -> makeIf a b trueExpr
+    Builtin Equal :@: as | all hasBoolType as -> equals as
+    Builtin Distinct :@: as | all hasBoolType as -> distincts as
   where
-    neg_if a = makeIf a falseExpr trueExpr
+    ands []         = trueExpr
+    ands [a]        = a
+    ands (a:as)     = makeIf a (ands as) falseExpr
+    ors  []         = falseExpr
+    ors  [a]        = a
+    ors  (a:as)     = makeIf a trueExpr (ors as)
+    neg_if a        = makeIf a falseExpr trueExpr
+    equals []       = trueExpr
+    equals [_]      = trueExpr
+    equals (a:as)   = makeIf a (ands as) (neg_if (ors as))
+    distincts []    = trueExpr
+    distincts [_]   = trueExpr
+    distincts [a,b] = makeIf a (neg_if b) b
+    distincts _     = falseExpr
 
 -- | Transforms @ite@ (@match@) on boolean literals in the branches
 --   into the corresponding builtin boolean function.
