@@ -43,6 +43,7 @@ module Tip.Passes
 
   -- * Function definitions
   , axiomatizeFuncdefs
+  , axiomatizeFuncdefs2
 
   -- * Data types
   , axiomatizeDatadecls
@@ -109,6 +110,7 @@ data StandardPass
   | LetLift
   | AxiomatizeLambdas
   | AxiomatizeFuncdefs
+  | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
   | Monomorphise
   | CSEMatch
@@ -144,6 +146,7 @@ instance Pass StandardPass where
     LetLift              -> single $ letLift
     AxiomatizeLambdas    -> single $ axiomatizeLambdas
     AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
+    AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2
     AxiomatizeDatadecls  -> single $ axiomatizeDatadecls
     Monomorphise         -> single $ monomorphise
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
@@ -196,6 +199,8 @@ instance Pass StandardPass where
         help "Eliminate lambdas by axiomatisation (requires --lambda-lift)",
       unitPass AxiomatizeFuncdefs $
         help "Transform function definitions to axioms in the most straightforward way",
+      unitPass AxiomatizeFuncdefs2 $
+        help "Transform function definitions to axioms with left hand side pattern matching instead of match",
       unitPass AxiomatizeDatadecls $
         help "Transform data declarations to axioms",
       unitPass Monomorphise $

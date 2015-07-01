@@ -1,6 +1,8 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 module Tip.Pass.AxiomatizeDatadecls where
 
+#include "errors.h"
 import Tip.Core
 import Tip.Fresh
 import Tip.Scope
@@ -12,7 +14,7 @@ import qualified Data.Map as M
 axiomatizeDatadecls :: Name a => Theory a -> Fresh (Theory a)
 axiomatizeDatadecls thy@Theory{..} =
   do thys <- mapM trDatatype thy_datatypes
-     return (mconcat (thy { thy_datatypes = [] } : thys))
+     return (mconcat (thys ++ [thy { thy_datatypes = [] }]))
 
 trDatatype :: Name a => Datatype a -> Fresh (Theory a)
 trDatatype dt@Datatype{..} =
@@ -42,7 +44,7 @@ trDatatype dt@Datatype{..} =
                     Gbl (projector dt c i ty_args) :@:
                       [Gbl (constructor dt c ty_args) :@: map Lcl qs]
                     ===
-                    Lcl (qs !! i)
+                    Lcl (case drop i qs of q:_ -> q; [] -> __)
          | c@(Constructor _ _ args) <- data_cons
          , i <- [0..length args-1]
          ]

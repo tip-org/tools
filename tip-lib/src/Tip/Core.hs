@@ -418,7 +418,7 @@ projector :: Datatype a -> Constructor a -> Int -> [Type a] -> Global a
 projector dt Constructor{..} i tys =
   Global proj_name (destructorType dt proj_ty) tys
   where
-    (proj_name, proj_ty) = con_args !! i
+    (proj_name, proj_ty) = case drop i con_args of ca:_ -> ca; [] -> __
 
 discriminator :: Datatype a -> Constructor a -> [Type a] -> Global a
 discriminator dt Constructor{..} tys =
@@ -432,7 +432,7 @@ theoryGoals = partitionGoals . thy_asserts
 
 -- | Goals in first component, assertions in second
 partitionGoals :: [Formula a] -> ([Formula a],[Formula a])
-partitionGoals = partition ((Prove ==) . fm_role) 
+partitionGoals = partition ((Prove ==) . fm_role)
 
 mapDecls :: forall a b . (forall t . Traversable t => t a -> t b) -> Theory a -> Theory b
 mapDecls k (Theory a b c d e) = Theory (map k a) (map k b) (map k c) (map k d) (map k e)
