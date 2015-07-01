@@ -99,7 +99,7 @@ handle passes mode multipath s =
         Just d ->
           sequence_
             [ do putStrLn $ d </> show n <.> ext
-                 writeFile (d </> show n <.> ext) (show (pretty thy))
+                 writeFile (d </> show n <.> ext) (show (pretty thy) ++ "\n")
             | (n, thy) <- [(0 :: Int)..] `zip` thys
             ]
 

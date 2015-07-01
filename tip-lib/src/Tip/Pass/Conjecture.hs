@@ -27,30 +27,37 @@ skolemiseConjecture' thy =
   case goals of
     [Formula Prove tvs body] ->
       case tvs of
-        [] -> do let (body',sks) = runWriter (skolemise body)
-                 sks' <- mapM refreshLocal sks
-                 body'' <- substMany (sks `zip` map Lcl sks') body'
+        [] -> do let (body',(sks,pre)) = runWriter (skolemise body)
+
+                 sks' <- sequence
+                   [ do v' <- refresh v
+                        return (Signature v' (PolyType [] [] t))
+                   | Local v t <- sks
+                   ]
+
+                 let su = substMany (sks `zip` map (\ sk -> applySignature sk [] []) sks')
+
+                 body'' <- su body'
+
+                 pre'' <- mapM su pre
+
                  return thy {
-                       thy_sigs    = map local_signature sks' ++ thy_sigs thy,
-                       thy_asserts = Formula Prove [] body'' : assums
+                       thy_sigs    = sks' ++ thy_sigs thy,
+                       thy_asserts = Formula Prove [] body'' : map (Formula Assert []) pre'' ++ assums
                      }
         _ -> ERROR("Cannot skolemise conjecture with type variables")
     _ -> ERROR("Need one co:jecture to skolemise conjecture")
   where
   (goals,assums) = theoryGoals thy
 
-  local_signature :: Local b -> Signature b
-  local_signature (Local v t) = Signature v (PolyType [] [] t)
-
-skolemise :: Expr a -> Writer [Local a] (Expr a)
+skolemise :: Expr a -> Writer ([Local a],[Expr a]) (Expr a)
 skolemise e0
   = case e0 of
-      Quant qi Forall lcls e -> tell lcls >> skolemise e
+      Quant qi Forall lcls e -> tell (lcls,[]) >> skolemise e
       Builtin Not :@: [e]    -> skolemise (neg e)
-      Builtin Implies :@: es -> do e' <- skolemise (last es)
-                                   return (Builtin Implies :@: (init es ++ [e']))
+      Builtin Implies :@: es -> tell ([],init es) >> skolemise (last es)
       _ -> return e0
- 
+
 
 -- | Negates the conjecture: changes assert-not into assert, and
 --   introduce skolem types in case the goal is polymorphic.

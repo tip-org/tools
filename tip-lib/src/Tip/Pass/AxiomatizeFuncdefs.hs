@@ -52,7 +52,7 @@ axiomatize2 scp fn@Function{..} =
   , map (Formula Assert func_tvs)
      (ax func_args [] (map Lcl func_args) func_body)
   )
- where
+  where
 
   -- ax vars pre args body
   --   ~=
