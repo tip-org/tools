@@ -44,6 +44,9 @@ module Tip.Passes
   -- * Function definitions
   , axiomatizeFuncdefs
 
+  -- * Data types
+  , axiomatizeDatadecls
+
   -- * Monomorphisation
   , monomorphise
 
@@ -74,6 +77,7 @@ import Tip.Pass.Booleans
 import Tip.Pass.EliminateDeadCode
 import Tip.Pass.FillInCases
 import Tip.Pass.AxiomatizeFuncdefs
+import Tip.Pass.AxiomatizeDatadecls
 import Tip.Pass.SelectConjecture
 import Tip.Pass.DropSuffix
 import Tip.Pass.Induction
@@ -105,6 +109,7 @@ data StandardPass
   | LetLift
   | AxiomatizeLambdas
   | AxiomatizeFuncdefs
+  | AxiomatizeDatadecls
   | Monomorphise
   | CSEMatch
   | CSEMatchWhy3
@@ -139,6 +144,7 @@ instance Pass StandardPass where
     LetLift              -> single $ letLift
     AxiomatizeLambdas    -> single $ axiomatizeLambdas
     AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
+    AxiomatizeDatadecls  -> single $ axiomatizeDatadecls
     Monomorphise         -> single $ monomorphise
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
@@ -190,6 +196,8 @@ instance Pass StandardPass where
         help "Eliminate lambdas by axiomatisation (requires --lambda-lift)",
       unitPass AxiomatizeFuncdefs $
         help "Transform function definitions to axioms in the most straightforward way",
+      unitPass AxiomatizeDatadecls $
+        help "Transform data declarations to axioms",
       unitPass Monomorphise $
         help "Try to monomorphise the problem",
       unitPass CSEMatch $
