@@ -1,7 +1,41 @@
 #!/bin/bash
 
-IFS=' '
 file=$(tip-spec $1 | tee /dev/stderr | grep -A1000000 '^;;')
+
+e() {
+	tip --skolemise-conjecture --tff |
+	jukebox fof /dev/stdin 2>/dev/null |
+	eprover --tstp-in --soft-cpu-limit=$1 --auto --silent >& /dev/null
+}
+
+dir_e() {
+	for i in $1/*; do
+		if ! cat $i|e $2; then
+			return 1
+		fi
+	done
+}
+
+inductive_e() {
+	local file="$(cat)"
+	local n=0
+
+	while true; do
+		dir=$(mktemp -d)
+		if echo "$file"|tip --induction "[$n]" - $dir >& /dev/null; then
+			if dir_e $dir $1; then
+				rm -r $dir
+				return
+			else
+				rm -r $dir
+				((n=$n+1))
+			fi
+		else
+			rm -r $dir
+			return 1
+		fi
+	done
+}
 
 prove() {
     file=$(cat)
@@ -10,40 +44,34 @@ prove() {
     n=0
 
     while true; do
-    	if echo $file|tip --select-conjecture $n >& /dev/null; then
-    		goal=$(echo $file|tip --select-conjecture $n --smtlib)
-    		result=$((echo '(set-logic ALL_SUPPORTED)'; echo $goal) |
-					 cvc4 --lang smt2.5 --tlimit=100)
-    		if [[ $result = unsat ]]; then
-				echo -n ':D ' >&2
-			file=$(echo $file|tip --delete-conjecture $n)
-    			progress=yes
-			else
-			result=$((echo '(set-logic ALL_SUPPORTED)'; echo $goal) |
-						 cvc4 --lang smt2.5 --tlimit=$1 --quant-ind)
-			if [[ $result = unsat ]]; then
+	if echo "$file"|tip --select-conjecture $n >& /dev/null; then
+		goal=$(echo "$file"|tip --select-conjecture $n)
+			if echo "$goal"|e 1; then
 				echo -n ':) ' >&2
-				file=$(echo $file|tip --proved-conjecture $n)
+				file=$(echo "$file"|tip --delete-conjecture $n)
+			progress=yes
+			elif echo "$goal"|inductive_e $1; then
+				echo -n ':D ' >&2
+				file=$(echo "$file"|tip --proved-conjecture $n)
 				progress=yes
 			else
 				echo -n ':( ' >&2
 				((n=$n+1))
 			fi
-			fi
     	else
     		echo >&2
-    		if [[ -z $progress ]]; then break; fi
+		if [ -z $progress ]; then break; fi
     		progress=
     		n=0
     	fi
     done
 
-    echo $file
+    echo "$file"
 }
 
-for i in 100 400 1000; do
-    file=$(echo $file | prove $i)
+for i in 1 5; do
+    file=$(echo "$file" | prove $i)
 done
 
 echo
-echo $file | tip --why
+echo "$file" | tip --why
