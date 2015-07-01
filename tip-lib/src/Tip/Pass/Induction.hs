@@ -72,5 +72,5 @@ induction coords thy@Theory{..} =
 
     _ -> return [thy]
   where
-  (goal:goals,assums) = partition ((Prove ==) . fm_role) thy_asserts
+  (goal:goals,assums) = partitionGoals thy_asserts
 

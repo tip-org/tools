@@ -48,24 +48,25 @@ library
     Tip.CallGraph
     Tip.Utils.Specialiser
   other-modules:
+    Tip.Pass.AddMatch
     Tip.Pass.AxiomatizeFuncdefs
-    Tip.Pass.Lift
+    Tip.Pass.AxiomatizeDatadecls
     Tip.Pass.Booleans
     Tip.Pass.CommuteMatch
-    Tip.Pass.AddMatch
+    Tip.Pass.Conjecture
     Tip.Pass.CSEMatch
-    Tip.Pass.RemoveNewtype
-    Tip.Pass.RemoveMatch
-    Tip.Pass.NegateConjecture
-    Tip.Pass.EqualFunctions
-    Tip.Pass.Uncurry
-    Tip.Pass.Pipeline
-    Tip.Pass.Monomorphise
-    Tip.Pass.EliminateDeadCode
-    Tip.Pass.FillInCases
-    Tip.Pass.SelectConjecture
     Tip.Pass.DropSuffix
+    Tip.Pass.EliminateDeadCode
+    Tip.Pass.EqualFunctions
+    Tip.Pass.FillInCases
     Tip.Pass.Induction
+    Tip.Pass.Lift
+    Tip.Pass.Monomorphise
+    Tip.Pass.Pipeline
+    Tip.Pass.RemoveMatch
+    Tip.Pass.RemoveNewtype
+    Tip.Pass.SelectConjecture
+    Tip.Pass.Uncurry
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP

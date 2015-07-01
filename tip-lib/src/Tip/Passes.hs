@@ -8,8 +8,15 @@ module Tip.Passes
   , simplifyTheory, gently, aggressively, SimplifyOpts(..)
   , removeNewtype
   , uncurryTheory
-  , negateConjecture
-  , typeSkolemConjecture
+
+  -- * Simplifyng conjectures
+  , module Tip.Pass.Conjecture
+
+  -- * Changing status of conjectures
+  , makeConjecture
+  , selectConjecture
+  , provedConjecture
+  , deleteConjecture
 
   -- * Boolean builtins
   , ifToBoolOp
@@ -44,10 +51,6 @@ module Tip.Passes
   , induction
 
   -- * Miscellaneous
-  , makeConjecture
-  , selectConjecture
-  , provedConjecture
-  , deleteConjecture
   , dropSuffix
 
   -- * Building pass pipelines
@@ -63,7 +66,7 @@ import Tip.Pass.RemoveMatch
 import Tip.Pass.CSEMatch
 import Tip.Pass.Uncurry
 import Tip.Pass.RemoveNewtype
-import Tip.Pass.NegateConjecture
+import Tip.Pass.Conjecture
 import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
 import Tip.Pass.Monomorphise
@@ -89,6 +92,8 @@ data StandardPass
   | UncurryTheory
   | NegateConjecture
   | TypeSkolemConjecture
+  | SplitConjecture
+  | SkolemiseConjecture
   | IfToBoolOp
   | BoolOpToIf
   | AddMatch
@@ -121,6 +126,8 @@ instance Pass StandardPass where
     UncurryTheory        -> single $ uncurryTheory
     NegateConjecture     -> single $ negateConjecture
     TypeSkolemConjecture -> single $ typeSkolemConjecture
+    SplitConjecture      -> return . splitConjecture
+    SkolemiseConjecture  -> skolemiseConjecture
     IfToBoolOp           -> single $ return . ifToBoolOp
     BoolOpToIf           -> single $ return . theoryBoolOpToIf
     AddMatch             -> single $ addMatch
@@ -157,6 +164,10 @@ instance Pass StandardPass where
         help "Transform the goal into a negated conjecture",
       unitPass TypeSkolemConjecture $
         help "Skolemise the types in the conjecutre",
+      unitPass SplitConjecture $
+        help "Puts goals in separate theories",
+      unitPass SkolemiseConjecture $
+        help "Skolemise the conjecture",
       unitPass IfToBoolOp $
         help "Replace if-then-else by and/or where appropriate",
       unitPass BoolOpToIf $

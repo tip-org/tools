@@ -17,7 +17,7 @@ import Data.Traversable (Traversable)
 import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Generics.Geniplate
-import Data.List ((\\))
+import Data.List ((\\),partition)
 import Data.Ord
 import Control.Monad
 import qualified Data.Map as Map
@@ -425,6 +425,14 @@ discriminator dt Constructor{..} tys =
   Global con_discrim (destructorType dt (BuiltinType Boolean)) tys
 
 -- * Operations on theories
+
+-- | Goals in first component, assertions in second
+theoryGoals :: Theory a -> ([Formula a],[Formula a])
+theoryGoals = partitionGoals . thy_asserts
+
+-- | Goals in first component, assertions in second
+partitionGoals :: [Formula a] -> ([Formula a],[Formula a])
+partitionGoals = partition ((Prove ==) . fm_role) 
 
 mapDecls :: forall a b . (forall t . Traversable t => t a -> t b) -> Theory a -> Theory b
 mapDecls k (Theory a b c d e) = Theory (map k a) (map k b) (map k c) (map k d) (map k e)
