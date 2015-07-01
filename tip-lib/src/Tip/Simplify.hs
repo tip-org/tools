@@ -135,6 +135,23 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
 
         Builtin Equal :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s == t))
 
+        -- cons(x,y) == nil ~> false
+        -- cons(x,y) /= nil ~> true
+        --
+        -- cons(x1,y1) == cons(x2,y2) ~> x1==x2 & y1==y2
+        -- cons(x1,y1) /= cons(x2,y2) ~> x1/=x2 | y1/=y2
+        Builtin eq_op :@: [Gbl k :@: kargs,Gbl j :@: jargs]
+          | Just scp <- mscp
+          , Just (_,Constructor kk _ _) <- lookupConstructor (gbl_name k) scp
+          , Just (_,Constructor jj _ _) <- lookupConstructor (gbl_name j) scp
+          , Just res <- case (eq_op, kk == jj) of
+                          (Equal   ,False) -> Just falseExpr
+                          (Distinct,False) -> Just trueExpr
+                          (Equal,   True)  -> Just (ands (zipWith (===) kargs jargs))
+                          (Distinct,True)  -> Just (ors  (zipWith (=/=) kargs jargs))
+                          _                -> Nothing
+          -> hooray $ aux res
+
         Builtin Distinct :@: [litView -> Just s,litView -> Just t] -> hooray $ return (bool (s /= t))
 
         Builtin Not     :@: [e]      -> share (neg e)
