@@ -50,7 +50,6 @@ library
   other-modules:
     Tip.Pass.AddMatch
     Tip.Pass.AxiomatizeFuncdefs
-    Tip.Pass.AxiomatizeDatadecls
     Tip.Pass.Booleans
     Tip.Pass.CommuteMatch
     Tip.Pass.Conjecture
