@@ -8,6 +8,7 @@ import Tip.Fresh
 import Tip.Scope
 
 import Data.List (tails)
+import Data.Monoid
 
 import qualified Data.Map as M
 
