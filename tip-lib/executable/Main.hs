@@ -66,21 +66,21 @@ handle passes mode multipath s =
               CVC4 ->
                 ( SMT.ppTheory
                 , passes ++
-                  [ TypeSkolemConjecture, Monomorphise
+                  [ TypeSkolemConjecture, Monomorphise True
                   , LambdaLift, AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual, RemoveAliases
                   , SimplifyGently, RemoveMatch
-                  , SimplifyGently, Monomorphise, AxiomatizeFuncdefs
+                  , SimplifyGently, Monomorphise True, AxiomatizeFuncdefs
                   , SimplifyGently, NegateConjecture
                   ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory
                 , passes ++
-                  [ TypeSkolemConjecture, Monomorphise
+                  [ TypeSkolemConjecture, Monomorphise True
                   , LambdaLift, AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual, RemoveAliases
-                  , SimplifyGently, Monomorphise, IfToBoolOp, CommuteMatch
+                  , SimplifyGently, Monomorphise True, IfToBoolOp, CommuteMatch
                   , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
                   , SimplifyGently, AxiomatizeDatadecls
                   ]

@@ -25,9 +25,7 @@ import Data.Generics.Geniplate
 
 import Data.List (union)
 
--- import Debug.Trace
-
-traceM _ = return ()
+import Debug.Trace
 
 trListTYPE :: (Type a -> Type a) -> [((a,[Type a]),a)] -> [((a,[Type a]),a)]
 trListTYPE = undefined
@@ -35,8 +33,8 @@ return []
 trList :: (Type a -> Type a) -> [((a,[Type a]),a)] -> [((a,[Type a]),a)]
 trList = $(genTransformBi 'trListTYPE)
 
-monomorphise :: forall a . Name a => Theory a -> Fresh (Theory a)
-monomorphise = fmap (fmap unPPVar) . monomorphise' . fmap PPVar
+monomorphise :: forall a . Name a => Bool -> Theory a -> Fresh (Theory a)
+monomorphise verbose = fmap (fmap unPPVar) . monomorphise' verbose . fmap PPVar
 
 monomorphicThy :: Theory a -> Bool
 monomorphicThy = all monomorphicDecl . theoryDecls
@@ -50,17 +48,18 @@ monomorphicDecl d =
     FuncDecl Function{..}  -> null func_tvs
     AssertDecl Formula{..} -> null fm_tvs
 
-monomorphise' :: forall a . (Name a,Pretty a) => Theory a -> Fresh (Theory a)
-monomorphise' thy | monomorphicThy thy = return thy
-monomorphise' thy = do
+monomorphise' :: forall a . (Name a,Pretty a) => Bool -> Theory a -> Fresh (Theory a)
+monomorphise' _verbose thy | monomorphicThy thy = return thy
+monomorphise'  verbose thy = do
     let ds = theoryDecls thy
         insts :: [(Decl a,Subst a Void (Con a))]
         loops :: [Decl a]
         rules = [ (d,declToRule True d) | d <- ds ]
         (insts,loops) = specialise rules
-    traceM (show ("rules:" $\ pp rules))
-    traceM (show ("loops:" $\ pp loops))
-    traceM (show ("insts:" $\ pp insts))
+    when verbose $
+      do traceM (show ("rules:" $\ pp rules))
+         traceM (show ("loops:" $\ pp loops))
+         traceM (show ("insts:" $\ pp insts))
     if null loops
       then do
         (insts',renames) <- runWriterT (mapM (uncurry renameDecl) insts)

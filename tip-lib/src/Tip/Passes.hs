@@ -112,7 +112,7 @@ data StandardPass
   | AxiomatizeFuncdefs
   | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
-  | Monomorphise
+  | Monomorphise Bool
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
@@ -148,7 +148,7 @@ instance Pass StandardPass where
     AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
     AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2
     AxiomatizeDatadecls  -> single $ axiomatizeDatadecls
-    Monomorphise         -> single $ monomorphise
+    Monomorphise b       -> single $ monomorphise b
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> single $ return . eliminateDeadCode
@@ -203,8 +203,8 @@ instance Pass StandardPass where
         help "Transform function definitions to axioms with left hand side pattern matching instead of match",
       unitPass AxiomatizeDatadecls $
         help "Transform data declarations to axioms",
-      unitPass Monomorphise $
-        help "Try to monomorphise the problem",
+      flag' () (long ("monomorphise") <> help "Try to monomorphise the problem") *> pure (Monomorphise False),
+      flag' () (long ("monomorphise-verbose") <> help "Try to monomorphise the problem verbosely") *> pure (Monomorphise True),
       unitPass CSEMatch $
         help "Perform CSE on match scrutinees",
       unitPass CSEMatchWhy3 $
