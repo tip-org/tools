@@ -14,6 +14,9 @@ import qualified QuickSpec.Signature as QS
 import Tip.Core
 import Tip.Fresh
 import Tip.Utils
+import Data.List
+import GHC.IO.Handle
+import System.IO
 
 main :: IO ()
 main =
@@ -23,15 +26,23 @@ main =
         f:es   -> handle es =<< readFile f
         es     -> handle es =<< getContents
 
+toStderr :: IO a -> IO a
+toStderr mx = do
+  oldStdout <- hDuplicate stdout
+  hDuplicateTo stderr stdout
+  x <- mx
+  hDuplicateTo oldStdout stdout
+  hClose oldStdout
+  return x
+
 handle :: [String] -> String -> IO ()
 handle es s =
   case parse s of
     Left err  -> error $ "Parse failed: " ++ err
     Right thy ->
       do ((chops,sig),rm) <- theorySignature thy
-         sig' <- choppyQuickSpec chops sig
+         sig' <- toStderr $ choppyQuickSpec chops sig
          let bm  = backMap thy rm
-         let fms = mapM (trProperty bm) (usort (QS.background sig')) `freshFrom` thy
-         putStrLn ";; Conjectured theory"
+         let fms = mapM (trProperty bm) (nub (QS.background sig')) `freshFrom` thy
          print (SMT.ppTheory (thy { thy_asserts = thy_asserts thy ++ fms }))
 

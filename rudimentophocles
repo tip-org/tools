@@ -1,6 +1,6 @@
 #!/bin/bash
 
-file=$(tip-spec $1 | tee /dev/stderr | grep -A1000000 '^;;')
+file=$(tip-spec $1)
 
 e() {
 	tip --skolemise-conjecture --tff |
