@@ -399,6 +399,7 @@ makeSig thy@Theory{..} =
                | Signature f _ <- thy_sigs
                ])
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int (if translate_UFs then 15 else 7)])
+          , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
           ]
       ]
