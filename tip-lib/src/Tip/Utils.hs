@@ -11,6 +11,9 @@ import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Ord
 import Data.Function
+import Control.Monad (mplus)
+
+-- import Test.QuickCheck
 
 -- | Sort and remove duplicates
 usort :: Ord a => [a] -> [a]
@@ -57,3 +60,31 @@ unionOn k = unionBy ((==) `on` k)
 -- > withPrevious "abc" = [('a',""),('b',"a"),('c',"ab")]
 withPrevious :: [a] -> [(a,[a])]
 withPrevious xs = zip xs (inits xs)
+
+-- | Binary search over a monotonic predicate
+binsearch :: (Int -> Bool) -> Int -> Int -> Maybe Int
+binsearch p l u
+  | u < l     = Nothing
+  | p m       = binsearch p l (m-1) `mplus` Just m
+  | otherwise = binsearch p (m+1) u
+  where
+  m = (l + u) `div` 2
+
+{-
+-- | Property for 'binsearch'
+prop_binsearch :: Int -> Int -> Int -> Bool
+prop_binsearch l u m =
+  case binsearch (>= m) l u of
+    Just m' -> m' == if l > m then l else m
+    Nothing -> m >= u || l > u
+
+-- | Property for 'binsearch'
+prop_binsearch_is_linsearch :: Int -> Int -> Int -> Bool
+prop_binsearch_is_linsearch l u m = binsearch (>= m) l u == linsearch (>= m) l u
+  where
+  linsearch :: (Int -> Bool) -> Int -> Int -> Maybe Int
+  linsearch p l u
+    | l > u     = Nothing
+    | p l       = Just l
+    | otherwise = linsearch p (l+1) u
+-}

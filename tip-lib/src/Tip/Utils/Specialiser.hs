@@ -6,8 +6,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Tip.Utils.Specialiser
-    (specialise, Rule(..), Expr(..),
+    (specialise, specialiseWithWeakener, specialiseWithWeakener', Rule(..), Expr(..),
+     Verbosity(..),
      Void, absurd,
      Closed, subtermRules, subterms, Subst, Inst) where
 
@@ -16,6 +18,7 @@ import Tip.Fresh
 import Tip.Utils
 import Tip.Pretty
 
+import Control.Arrow (first)
 import Control.Applicative
 import Control.Monad
 import Data.Maybe
@@ -24,152 +27,139 @@ import Data.Traversable (Traversable)
 
 import Data.Set (Set)
 import qualified Data.Set as S
+import Data.Map (Map)
+import qualified Data.Map as M
 
 import Data.Generics.Genifunctors
 
 import Text.PrettyPrint
 
+import Debug.Trace
+
+data Verbosity = Silent | Verbose
+  deriving (Eq,Ord,Show,Read,Enum,Bounded)
+
 data Expr c a = Var a | Con c [Expr c a]
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-data Rule c a = Rule
-  { rule_pre  :: [Expr c a]
-  -- ^ The trigger(s).
-  , rule_post :: Expr c a
-  -- ^ The action. The variables here must be a subset of those in pre.
-  }
+data Rule c a = [Expr c a] :==> Expr c a
+  -- The variables on the rhs must be a subset of those in lhs.
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 return []
 
+type Ctx a = (Ord a,Pretty a)
+
 bimapRule :: (c -> c') -> (a -> a') -> Rule c a -> Rule c' a'
 bimapRule = $(genFmap ''Rule)
 
-mapRuleOrd :: (c -> c') -> Rule c a -> Rule c' a
-mapRuleOrd c = bimapRule c id
+mapRuleCtx :: (c -> c') -> Rule c a -> Rule c' a
+mapRuleCtx c = bimapRule c id
 
 instance (Pretty c,Pretty a) => Pretty (Expr c a) where
   pp (Var x)    = pp x
   pp (Con k es) = pp k <+> parens (fsep (punctuate "," (map pp es)))
 
 instance (Pretty c,Pretty a) => Pretty (Rule c a) where
-  pp (Rule ps q) = parens (fsep (punctuate "," (map pp ps))) <+> "=>" $\ pp q
+  pp (ps :==> q) = parens (fsep (punctuate "," (map pp ps))) <+> "=>" $\ pp q
 
 subtermRules :: Rule c a -> [Rule c a]
-subtermRules (Rule p q) = map (Rule p) (subterms q)
+subtermRules (p :==> q) = map (p :==>) (subterms q)
 
 subterms :: Expr c a -> [Expr c a]
 subterms e = e : case e of Var a    -> []
                            Con _ es -> concatMap subterms es
 
-ruleVars :: Ord a => Rule c a -> [a]
-ruleVars (Rule ps q) = usort $ concatMap go (q:ps)
+ruleVars :: Ctx a => Rule c a -> [a]
+ruleVars (ps :==> q) = usort $ concatMap go (q:ps)
   where
   go (Var x) = [x]
   go (Con c es) = concatMap go es
 
 type Closed c = Expr c Void
 
-data Sk c = Old c | Sk Int
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
-
-instance Pretty c => Pretty (Sk c) where
-  pp (Old c) = pp c
-  pp (Sk i)  = int i
-
-instance Ord c => Name (Sk c) where
-  fresh = Sk <$> fresh
-
-instance PrettyVar (Sk c) where
-  varStr _ = show ""
-
-unSkolem :: Closed (Sk c) -> Expr c Int
-unSkolem (Con (Old k) es) = Con k (map unSkolem es)
-unSkolem (Con (Sk i) [])  = Var i
-
 varOf :: Eq a => a -> Expr c a -> Bool
 x `varOf` Var y    = x == y
 x `varOf` Con _ es = any (x `varOf`) es
 
-specialise :: forall d c a . (Ord d,Ord c,Ord a) =>
-    [(d,[Rule c a])] -> ([(d,Subst a Void c)],[d])
-specialise decl_rules = (which (usort (go [close [] s | (_,Rule [] s) <- named_rules])), scary)
+specialiseWithWeakener' ::
+    forall d c a . (Ctx d,Ctx c,Ctx a) =>
+    (d -> Rule c a -> Maybe (Rule c a)) -> [(d,Rule c a)] ->
+    ([(d,Subst a Void c)],[(d,(Rule c a,Rule c a))],[(d,Rule c a)])
+specialiseWithWeakener' weaken rules
+  = let ds   = map fst rules
+        to   :: Map Int d
+        to   = M.fromList (zip [0..] ds)
+        from :: Map d Int
+        from = M.fromList (zip ds [0..])
+        (ok,weaks,rest) = specialiseWithWeakener
+                        (\ i -> weaken (to M.! i))
+                        [(from M.! d,r) | (d,r) <- rules]
+    in  ( map (first (to M.!)) ok
+        , map (first (to M.!)) weaks
+        , map (first (to M.!)) rest
+        )
+
+
+specialiseWithWeakener ::
+    forall d c a . (Ctx d,Ctx c,Ctx a) =>
+    (d -> Rule c a -> Maybe (Rule c a)) -> [(d,Rule c a)] ->
+    ([(d,Subst a Void c)],[(d,(Rule c a,Rule c a))],[(d,Rule c a)])
+specialiseWithWeakener weaken = go
   where
-  free0,free,scary :: [d]
-  (usort -> free0,usort -> scary) = separate [ (d,r) | (d,rs) <- decl_rules, r <- rs ]
-  free = free0 \\ scary
+  go rules =
+    case firstNonterm rules of
+      Nothing -> (specialise rules,[],[])
+      Just (ok,(d,prob),rest) ->
+        case weaken d prob of
+          r | traceShow ("wk" $\ pp d $\ pp prob $\ maybe "" pp r) False -> undefined
+          Just weakened -> let (insts,weaks,probs) = go (ok ++ [(d,weakened)] ++ rest)
+                           in  (insts,(d,(prob,weakened)):weaks,probs)
+          Nothing       -> let (insts,weaks,probs) = go (ok ++ rest)
+                           in  (insts,weaks,(d,prob):probs)
 
-  named_rules :: [(d,Rule c a)]
-  named_rules = [ (d,r) | (d,rules) <- decl_rules, d `elem` free, r <- rules ]
+firstNonterm ::
+    forall d c a . (Ctx d,Ctx c,Ctx a) =>
+    [(d,Rule c a)] -> Maybe ([(d,Rule c a)],(d,Rule c a),[(d,Rule c a)])
+firstNonterm rules =
+  case binsearch (\ i -> traceShow ("binsearch" $\ pp i) $ not $ terminating (map snd $ take i rules)) 0 (length rules) of
+    Nothing -> Nothing
+    Just i  -> let (ok,prob:rest) = splitAt (i-1) rules
+               in  Just (ok,prob,rest)
 
-  go :: [Closed c] -> [Closed c]
-  go insts
-    | null (new_insts \\ insts) = []
-    | otherwise                 = new_insts `union` go (new_insts `union` insts)
-    where
-    new_insts = usort $ map (snd . snd) new
-    new = step named_rules insts
-
-  which :: [Closed c] -> [(d,Subst a Void c)]
-  which cls = usort [ (d,i) | (d,(i,_)) <- step named_rules cls ]
-
--- Return the safe rules, and the scary rules
-separate :: (Ord a,Ord c) => [(name,Rule c a)] -> ([name],[name])
-separate = go []
-  where
-  go rs ((n,r):xs)
-    | terminating (r:rs) = let (a,b) = go (r:rs) xs in (n:a,b  )
-    | otherwise          = let (a,b) = go rs     xs in (  a,n:b)
-  go _ _ = ([],[])
-
-terminating :: forall a c . (Ord a,Ord c) => [Rule c a] -> Bool
-terminating (map (mapRuleOrd Old) -> rs) = go 10 S.empty (usort (inst rs))
-  where
-  go :: Int -> Set (Closed (Sk c)) -> [Closed (Sk c)] -> Bool
-  {-
-  go i visited new
-    | traceShow ("go" $\ sep ["i:" $\ pp i
-                             ,"visited:" $\ pp (S.toList visited)
-                             ,"new:" $\ pp new
-                             ])
-                False = undefined
-  -}
-  go 0 _ _  = False
-  go _ _ [] = True
-  go i visited new =
-    let both = visited `S.union` S.fromList new
-    in  go (i-1) both (unnamedStep rs new \\ S.toList both)
-
-union :: Ord a => [a] -> [a] -> [a]
-union (S.fromList -> s1) (S.fromList -> s2) = S.toList (s1 `S.union` s2)
-
-(\\) :: Ord a => [a] -> [a] -> [a]
-(\\) (S.fromList -> s1) (S.fromList -> s2) = S.toList (s1 S.\\ s2)
-
-inst :: (Ord a,Ord c) => [Rule (Sk c) a] -> [Closed (Sk c)]
-inst rules = runFresh $
-  do i <- fresh
-     return (concatMap (instPre i) rules)
-
-instPre :: (Ord a,Ord c) => Sk c -> Rule (Sk c) a -> [Closed (Sk c)]
-instPre c r =
-  let su = [ (v,Con c []) | v <- ruleVars r ]
-  in  map (close su) (rule_pre r)
+-- loops if it does not terminate
+specialise :: forall d c a . (Ctx d,Ctx c,Ctx a) => [(d,Rule c a)] -> [(d,Subst a Void c)]
+specialise rules = let res = FROMJUST("Cannot fail")(steps (-1) rules)
+                   in  [ (d,su) | (d,(su,_)) <- res ]
 
 close :: Eq a => [(a,Closed c)] -> Expr c a -> Closed c
 close su (Var v)    = fromMaybe (ERROR("Unbound variable, did you run --type-skolem-conjecture?")) (lookup v su)
 close su (Con c es) = Con c (map (close su) es)
 
-unnamedStep :: (Ord c,Ord a) => [Rule c a] -> [Closed c] -> [Closed c]
-unnamedStep rs = usort . map (snd . snd) . step (map ((,) ()) rs)
+terminating :: forall a c . (Ctx a,Ctx c) => [Rule c a] -> Bool
+terminating rs = isJust (steps 5 (map ((,) ()) rs))
 
-step :: (Ord name,Ord c,Ord a) => [(name,Rule c a)] -> [Closed c] -> [(name,Inst a c)]
+steps :: forall name c a . (Ctx name,Ctx c,Ctx a) =>
+         Int -> [(name,Rule c a)] -> Maybe [(name,Inst a c)]
+steps max_steps rules = fmap usort (go max_steps [])
+  where
+  go :: Int -> [Closed c] -> Maybe [(name,Inst a c)]
+  go i insts | traceShow ("steps" $\ pp i $\ pp insts) False = undefined
+  go 0 _ = Nothing
+  go i insts
+    | null (new_insts \\ insts) = Just []
+    | otherwise                 = fmap (new++) (go (i-1) (new_insts `union` insts))
+    where
+    new_insts = usort $ map (snd . snd) new
+    new       = step rules insts
+
+step :: (Ctx name,Ctx c,Ctx a) => [(name,Rule c a)] -> [Closed c] -> [(name,Inst a c)]
 step rs es = usort [ (name,i) | (name,r) <- rs, i <- activateOne r es ]
 
 type Inst a c = (Subst a Void c,Closed c)
 
-activateOne :: (Ord c,Ord a) => Rule c a -> [Closed c] -> [Inst a c]
-activateOne (Rule ps q) es = [ (su,close su q) | su <- go ps ]
+activateOne :: (Ctx c,Ctx a) => Rule c a -> [Closed c] -> [Inst a c]
+activateOne (ps :==> q) es = [ (su,close su q) | su <- go ps ]
   where
     go []     = [[]] -- success, return the empty substitution
     go (p:ps) = [ su
@@ -182,15 +172,15 @@ activateOne (Rule ps q) es = [ (su,close su q) | su <- go ps ]
 
 type Subst a b c = [(a,Expr c b)]
 
-merge :: (Ord a,Ord b,Ord c) => Subst a b c -> Subst a b c -> Maybe (Subst a b c)
+merge :: (Ctx a,Ctx b,Ctx c) => Subst a b c -> Subst a b c -> Maybe (Subst a b c)
 merge xs ys =
   do guard (and [ maybe True (e ==) (lookup v ys) | (v,e) <- xs ])
      Just (unionOn fst xs ys)
 
-merges :: (Ord a,Ord b,Ord c) => [Subst a b c] -> Maybe (Subst a b c)
+merges :: (Ctx a,Ctx b,Ctx c) => [Subst a b c] -> Maybe (Subst a b c)
 merges = foldM merge []
 
-match :: (Ord a,Ord b,Ord c) => Expr c a -> Expr c b -> Maybe (Subst a b c)
+match :: (Ctx a,Ctx b,Ctx c) => Expr c a -> Expr c b -> Maybe (Subst a b c)
 match (Var x) e = Just [(x,e)]
 match (Con c xs) (Con d ys)
   | c == d
@@ -206,4 +196,11 @@ absurd (Void v) = absurd v
 
 instance Pretty Void where
   pp = absurd
+
+sbin :: Ctx a => (Set a -> Set a -> Set a) -> [a] -> [a] -> [a]
+sbin op = \ xs ys -> S.toList (S.fromList xs `op` S.fromList ys)
+
+union,(\\) :: Ctx a => [a] -> [a] -> [a]
+union = sbin S.union
+(\\)  = sbin (S.\\)
 

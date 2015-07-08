@@ -50,6 +50,7 @@ module Tip.Passes
 
   -- * Monomorphisation
   , monomorphise
+  , Verbosity(..)
 
   -- * Induction
   , induction
@@ -112,7 +113,7 @@ data StandardPass
   | AxiomatizeFuncdefs
   | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
-  | Monomorphise Bool
+  | Monomorphise Verbosity
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
@@ -203,8 +204,8 @@ instance Pass StandardPass where
         help "Transform function definitions to axioms with left hand side pattern matching instead of match",
       unitPass AxiomatizeDatadecls $
         help "Transform data declarations to axioms",
-      flag' () (long ("monomorphise") <> help "Try to monomorphise the problem") *> pure (Monomorphise False),
-      flag' () (long ("monomorphise-verbose") <> help "Try to monomorphise the problem verbosely") *> pure (Monomorphise True),
+      flag' () (long ("monomorphise") <> help "Try to monomorphise the problem") *> pure (Monomorphise Silent),
+      flag' () (long ("monomorphise-verbose") <> help "Try to monomorphise the problem verbosely") *> pure (Monomorphise Verbose),
       unitPass CSEMatch $
         help "Perform CSE on match scrutinees",
       unitPass CSEMatchWhy3 $
