@@ -1,77 +1,114 @@
 #!/bin/bash
 
+# Run the input file through QuickSpec.
+# Discovered lemmas get added as new goals.
+echo Dreaming up conjectures...
 file=$(tip-spec $1)
 
+# Sends a TIP problem to E, without doing induction.
+# Reads the problem from stdin, succeeds if E proves the goal.
+# Expects one argument, which is the timeout (in seconds).
 e() {
-	tip --skolemise-conjecture --tff |
-	jukebox fof /dev/stdin 2>/dev/null |
-	eprover --tstp-in --soft-cpu-limit=$1 --auto --silent >& /dev/null
+  # Convert the problem to TFF.
+  tip --skolemise-conjecture --tff |
+  # Use Monotonox to convert the TFF to FOF.
+  jukebox fof /dev/stdin 2>/dev/null |
+  # Send the FOF problem to E.
+  eprover --tstp-in --soft-cpu-limit=$1 --auto --silent >& /dev/null
 }
 
+# Sends a whole directory of TIP problems to E, without doing induction.
+# Expects two parameters, the directory and the timeout.
 dir_e() {
-	for i in $1/*; do
-		if ! cat $i|e $2; then
-			return 1
-		fi
-	done
+  for i in $1/*; do
+    if ! e $2 < $i; then
+      return 1
+    fi
+  done
 }
 
+# Attempts to prove a TIP problem by induction with the help of E.
+# Uses the TIP tool's induction pass to generate proof obligations,
+# and the dir_e command from above to prove them.
+# Reads the problem from stdin and expects the timeout as an argument.
 inductive_e() {
-	local file="$(cat)"
-	local n=0
+  local file="$(cat)"
+  local n=0  # The position of the variable to do induction on.
 
-	while true; do
-		dir=$(mktemp -d)
-		if echo "$file"|tip --induction "[$n]" - $dir >& /dev/null; then
-			if dir_e $dir $1; then
-				rm -r $dir
-				return
-			else
-				rm -r $dir
-				((n=$n+1))
-			fi
-		else
-			rm -r $dir
-			return 1
-		fi
-	done
+  while true; do
+    dir=$(mktemp -d)
+    # Use TIP to generate proof obligations for doing induction
+    # on the nth variable. Fails if n is out of bounds.
+    if echo "$file"|tip --induction "[$n]" - $dir >& /dev/null; then
+      # Use E to discharge the proof obligations.
+      if dir_e $dir $1; then
+        # Success!
+        rm -r $dir
+        return
+      else
+        # Failed - try the next variable.
+        rm -r $dir
+        ((n=$n+1))
+      fi
+    else
+      # Tried all variables unsuccessfully - fail.
+      rm -r $dir
+      return 1
+    fi
+  done
 }
 
+# Read a problem from stdin and try to prove as many goals as possible.
+# Takes a single parameter, which is the timeout to give to E.
 prove() {
-    file=$(cat)
+  file=$(cat)
 
-    progress=
-    n=0
+  progress= # Set to yes if we manage to prove some goal.
+  n=0       # The index of the goal we're trying to prove now.
 
-    while true; do
-	if echo "$file"|tip --select-conjecture $n >& /dev/null; then
-		goal=$(echo "$file"|tip --select-conjecture $n)
-			if echo "$goal"|e 1; then
-				echo -n ':) ' >&2
-				file=$(echo "$file"|tip --delete-conjecture $n)
-			progress=yes
-			elif echo "$goal"|inductive_e $1; then
-				echo -n ':D ' >&2
-				file=$(echo "$file"|tip --proved-conjecture $n)
-				progress=yes
-			else
-				echo -n ':( ' >&2
-				((n=$n+1))
-			fi
-    	else
-    		echo >&2
-		if [ -z $progress ]; then break; fi
-    		progress=
-    		n=0
-    	fi
-    done
+  while true; do
+    # Check that n isn't out of bounds.
+    if echo "$file"|tip --select-conjecture $n >& /dev/null; then
+      # Make a theory where goal n is the only goal.
+      goal=$(echo "$file"|tip --select-conjecture $n)
+      # Can we prove it without induction?
+      if echo "$goal"|e $1; then
+        # Proved without induction - delete the goal.
+        echo -n ':) ' >&2
+        file=$(echo "$file"|tip --delete-conjecture $n)
+        progress=yes
+      # Can we prove the goal with induction?
+      elif echo "$goal"|inductive_e $1; then
+        # Proved with induction - change the goal into a lemma.
+        echo -n ':D ' >&2
+        file=$(echo "$file"|tip --proved-conjecture $n)
+        progress=yes
+      else
+        # Failed to prove the goal - try the next one.
+        echo -n ':( ' >&2
+        ((n=$n+1))
+      fi
+    else
+      # We've tried all goals - if we failed to prove any,
+      # then stop, otherwise go round again.
+      echo >&2
+      if [ -z $progress ]; then break; fi
+      progress=
+      n=0
+    fi
+  done
 
-    echo "$file"
+  # Print out the final theory.
+  echo "$file"
 }
 
-for i in 1 5; do
-    file=$(echo "$file" | prove $i)
+# Run the proof loop, gradually increasing the timeout.
+echo Trying to prove conjectures...
+for i in 0 1 5 30; do
+  file=$(echo "$file" | prove $i)
 done
 
+# Print the final theory out.
 echo
-echo "$file" | tip --why
+echo ";; Final theory"
+echo "$file"
