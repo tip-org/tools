@@ -80,13 +80,13 @@ axiomatize2 scp fn@Function{..} =
       where
       ax_pat :: Expr a -> Pattern a -> Expr a -> [Expr a]
       ax_pat _ Default       _   = __
-      ax_pat s (LitPat lit)  rhs = rec vars         pre args rhs s (literal lit)
-      ax_pat s (ConPat k bs) rhs = rec (vars ++ bs) pre args rhs s (Gbl k :@: map Lcl bs)
+      ax_pat s (LitPat lit)  rhs = rec [] rhs s (literal lit)
+      ax_pat s (ConPat k bs) rhs = rec bs rhs s (Gbl k :@: map Lcl bs)
 
-  rec :: [Local a] -> [Expr a] -> [Expr a] -> Expr a -> Expr a -> Expr a -> [Expr a]
-  rec vars pre args e (Lcl x) e' =
-    let su = unsafeSubst e' x
-    in  ax (delete x vars) (map su pre) (map su args) (su e)
+      rec :: [Local a] -> Expr a -> Expr a -> Expr a -> [Expr a]
+      rec new e (Lcl x) pat_expr =
+        let su = unsafeSubst pat_expr x
+        in  ax (delete x vars ++ new) (map su pre) (map su args) (su e)
 
-  rec vars pre args e s       e' = ax vars (pre ++ [s === e']) args e
+      rec new e scrut   pat_expr = ax (vars ++ new) (pre ++ [scrut === pat_expr]) args e
 
