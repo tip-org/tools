@@ -2,22 +2,23 @@ current development version:
 * New option remove_variable_scrutinee_in_branches in Simplifier.
   (The simplifier could instead be parameterised
    on things to simplify, i.e. Let,Match,Lambda+At,Builtins, and so on.)
-* Export Tip.Utils.usortOn
+* Export Tip.Utils.usortOn, duplicates, cursor, unionOn and withPrevious
 * Export Tip.Parser.parseFile
 * PrettyVar instance for Either
 * Parser changes:
     * Support declare-const, define-fun, define-fun-rec.
     * Correctly handle let-expressions
+* Pretty print chained let expressions in groups
 * Add --axiomatize-funcdefs pass
 * Add --monomorphise pass and Tip.Utils.Specialiser
 * Sorts take a list of type variables instead of an Int
 * Add applyTypeInExpr, applyTypeInDecl
 * Add PPVar drop-in replacement for variables with a Pretty instance
 * Add Decl view of Theory
-* Add Tip.Utils.unionOn and Tip.Utils.withPrevious
 * Add gentleNoInline as an Simplify option
 * Add --make-conjecture
 * Add --drop-suffix
+* Add Tip.Core.makeLets, collectLets, forallView, theoryTypes
 
 tip-lib 0.1.2 (released 2015-06-11):
 * Make haddock documentation build (reported by Peter Simons.)

@@ -165,7 +165,15 @@ applyPolyType PolyType{..} tys =
 gblType :: Ord a => Global a -> ([Type a], Type a)
 gblType Global{..} = applyPolyType gbl_type gbl_args
 
+makeLets :: [(Local a,Expr a)] -> Expr a -> Expr a
+makeLets []           e = e
+makeLets ((x,ex):xes) e = Let x ex (makeLets xes e)
+
 -- * Predicates and examinations on expressions
+
+collectLets :: Expr a -> ([(Local a,Expr a)],Expr a)
+collectLets (Let y rhs e) = let (bs,e') = collectLets e in ((y,rhs):bs,e')
+collectLets e             = ([],e)
 
 litView :: Expr a -> Maybe Lit
 litView (Builtin (Lit l) :@: []) = Just l
@@ -174,6 +182,11 @@ litView _ = Nothing
 boolView :: Expr a -> Maybe Bool
 boolView e = case litView e of Just (Bool b) -> Just b
                                _             -> Nothing
+
+forallView :: Expr a -> ([Local a],Expr a)
+forallView (Quant _ Forall vs1 e) = let (vs2,e') = forallView e
+                                    in (vs1++vs2,e')
+forallView e                      = ([],e)
 
 -- | A representation of Nested patterns, used in 'patternMatchingView'
 data DeepPattern a
@@ -315,6 +328,8 @@ builtinType IntLe _ = boolType
 builtinType At ((_  :=>: res):_) = res
 builtinType At _ = ERROR("ill-typed lambda application")
 
+theoryTypes :: (UniverseBi (t a) (Type a),Ord a) => t a -> [Type a]
+theoryTypes = usort . universeBi
 
 -- * Substition and refreshing
 

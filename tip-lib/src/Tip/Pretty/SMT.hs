@@ -5,7 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Core (ifView, topsort, neg, exprType, makeGlobal, uses)
+import Tip.Core (ifView, topsort, neg, exprType, makeGlobal, uses, collectLets)
 import Tip.Rename
 import Data.Maybe
 import Data.Char (isAlphaNum)
@@ -107,7 +107,12 @@ ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVar (lcl_name l)
 ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]
 ppExpr (Match e as) = "(match" $\ ppExpr e $\ (vcat (map ppCase as) <> ")")
-ppExpr (Let x b e)  = parExprSep "let" [parens (parens (ppVar (lcl_name x) $\ ppExpr b)), ppExpr e]
+ppExpr lets@Let{} =
+  parExprSep "let"
+    [ parens (vcat (map parens [ppVar (lcl_name x) $\ ppExpr b | (x,b) <- bs]))
+    , ppExpr e
+    ]
+  where (bs,e) = collectLets lets
 ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: PrettyVar a => [Local a] -> Doc
