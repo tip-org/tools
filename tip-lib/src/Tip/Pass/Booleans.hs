@@ -40,6 +40,7 @@ boolOpToIf = transformExprIn $
     Builtin Implies :@: [a, b] -> makeIf a b trueExpr
     Builtin Equal :@: as | all hasBoolType as -> equals as
     Builtin Distinct :@: as | all hasBoolType as -> distincts as
+    _ -> e0
   where
     ands []         = trueExpr
     ands [a]        = a
