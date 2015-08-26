@@ -39,17 +39,25 @@ import Data.Generics.Geniplate
 
 import qualified Tip.Parser as TipP
 
+import System.FilePath
+
 -- | If the file cannot be read as a TIP file, it is instead read as a Haskell file.
 readHaskellOrTipFile :: FilePath -> Params -> IO (Either String (Theory (Either TipP.Id Id)))
 readHaskellOrTipFile file params =
-  do mthy1 <- TipP.parseFile file
-     case mthy1 of
-       Right thy -> return (Right (fmap Left thy))
-       Left err1 ->
-         do mthy2 <- readHaskellFile file params
-            case mthy2 of
-              Right thy -> return (Right (fmap Right thy))
-              Left err2 -> return (Left (err1 ++ "\n" ++ err2))
+  let ext = takeExtension file in
+  if ext == ".smt2" then
+    fmap (fmap (fmap Left)) (TipP.parseFile file)
+  else if ext == ".hs" || ext == ".lhs" then
+    fmap (fmap (fmap Right)) (readHaskellFile file params)
+  else
+    do mthy1 <- TipP.parseFile file
+       case mthy1 of
+         Right thy -> return (Right (fmap Left thy))
+         Left err1 ->
+           do mthy2 <- readHaskellFile file params
+              case mthy2 of
+                Right thy -> return (Right (fmap Right thy))
+                Left err2 -> return (Left (err1 ++ "\n" ++ err2))
 
 -- | Transforms a Haskell file to a Tip Theory or an error
 readHaskellFile :: FilePath -> Params -> IO (Either String (Theory Id))
