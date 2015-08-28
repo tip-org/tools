@@ -77,22 +77,22 @@ renameGlobals rns = transformBi $ \ h0 ->
 
 -- | If we have
 --
--- > g x y = f x y
+-- > g [a] x y = f [T1 a,T2 a] x y
 --
--- then we remove @g@ and replace it with @f@ everywhere
-removeAliases :: Eq a => Theory a -> Theory a
+-- then we remove @g [t]@ and replace it with @f [T1 t,T2 t]@ everywhere
+removeAliases :: Ord a => Theory a -> Theory a
 removeAliases thy@(Theory{thy_funcs=fns0})
     | null renamings = thy
     | otherwise = removeAliases $ renameGlobals renamings thy{ thy_funcs = survivors }
   where
     renamings = take 1
       [ (g,k)
-      | Function g ty_vars vars _res_ty (hd :@: args) <- fns0
+      | Function g g_tvs vars _ (hd :@: args) <- fns0
       , map Lcl vars == args
-      , let (ok,k) = case hd of
-              Gbl (Global f pty ty_args) -> (map TyVar ty_vars == ty_args, \ ts -> Gbl (Global f pty ts))
-              Builtin{}                  -> (True, \ _ -> hd)
-      , ok
+      , let k = case hd of
+                  Builtin{} -> \ _ -> hd
+                  Gbl (Global f pty f_args) ->
+                    \ g_app -> Gbl (Global f pty (map (applyType g_tvs g_app) f_args))
       ]
 
     remove = map fst renamings
