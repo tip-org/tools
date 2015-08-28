@@ -1,9 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveFunctor #-}
 -- | Handy utilities
 module Tip.Utils where
 
 import Data.List
-import Data.Graph
+import Data.Maybe
+import Data.Graph hiding (components)
 import Data.List.Split
 import Data.Char
 import Data.Foldable (Foldable)
@@ -29,15 +31,43 @@ duplicates :: Ord a => [a] -> [a]
 duplicates xs = usort [ x | x <- xs, count x > 1 ]
   where count x = length (filter (== x) xs)
 
--- | Sort things in topologically in strongly connected components
-sortThings :: Ord name => (thing -> name) -> (thing -> [name]) -> [thing] -> [[thing]]
-sortThings name refers things =
-    map flattenSCC $ stronglyConnComp
+data Component a = Rec [a] | NonRec a
+  deriving (Eq,Ord,Show,Functor)
+
+flattenComponent :: Component a -> [a]
+flattenComponent (Rec xs) = xs
+flattenComponent (NonRec x) = [x]
+
+-- | Strongly connected components
+components :: Ord name => (thing -> name) -> (thing -> [name]) -> [thing] -> [Component thing]
+components name refers things =
+    [ case comp of
+        [(thing,n,refs)]
+          | n `notElem` refs -> NonRec thing
+        _                    -> Rec [ thing | (thing,_,_) <- comp ]
+    | comp <- map flattenSCC $ stronglyConnCompR
         [ (thing,name thing,filter (`elem` names) (refers thing))
         | thing <- things
         ]
+    ]
   where
-    names = map name things
+  names = map name things
+
+lookupComponent :: Eq thing => thing -> [Component thing] -> Maybe (Component thing)
+lookupComponent x = listToMaybe . mapMaybe h
+  where
+  h c = case c of NonRec y | x == y      -> Just c
+                  Rec ys   | x `elem` ys -> Just c
+                  _ -> Nothing
+
+-- | Sort things in topologically in strongly connected components
+sortThings :: Ord name => (thing -> name) -> (thing -> [name]) -> [thing] -> [[thing]]
+sortThings name refers things = map flattenComponent (components name refers things)
+
+-- | Recursive
+recursive :: Ord name => (thing -> name) -> (thing -> [name]) -> [thing] -> [name]
+recursive name refers things =
+  [ name x | Rec xs <- components name refers things, x <- xs ]
 
 -- | Makes a nice flag from a constructor string
 --
