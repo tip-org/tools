@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 module Tip.Pass.Conjecture where
 
@@ -46,17 +47,19 @@ skolemiseConjecture' thy =
                        thy_asserts = Formula Prove [] body'' : map (Formula Assert []) pre'' ++ assums
                      }
         _ -> ERROR("Cannot skolemise conjecture with type variables")
-    _ -> ERROR("Need one co:jecture to skolemise conjecture")
+    _ -> ERROR("Need one conjecture to skolemise conjecture")
   where
   (goals,assums) = theoryGoals thy
 
 skolemise :: Expr a -> Writer ([Local a],[Expr a]) (Expr a)
-skolemise e0
-  = case e0 of
-      Quant qi Forall lcls e -> tell (lcls,[]) >> skolemise e
-      Builtin Not :@: [e]    -> skolemise (neg e)
-      Builtin Implies :@: es -> tell ([],init es) >> skolemise (last es)
-      _ -> return e0
+skolemise = go True
+  where
+  go i e0 =
+    case e0 of
+      Quant qi Forall lcls e  -> tell (lcls,[]) >> go True e
+      Builtin Not :@: [e] | i -> go False (neg e)
+      Builtin Implies :@: es  -> tell ([],init es) >> go True (last es)
+      _                       -> return e0
 
 
 -- | Negates the conjecture: changes assert-not into assert, and
