@@ -89,8 +89,8 @@ exprTypeRecords e = usort $
     , inst_ty <- gbl_args -- NB: looks at the instantiated global type
     , t <- typeRecords inst_ty
     ]
-    
-    
+
+
 
 -- We're traversing right now to get all the TyArr that's needed
 -- Otherwise it's enough to only use the top + add the rules
@@ -160,7 +160,7 @@ renameDecl d su = case d of
   ty_inst tvs d = applyTypeInDecl tvs (ty_args tvs) d
 
   rename :: [a] -> a -> WriterT [((a,[Type a]),a)] Fresh a
-  -- rename [] f = return f
+  rename [] f = return f
   rename tvs f = do
     f' <- lift (refresh f)
     tell [((f,ty_args tvs),f')]
