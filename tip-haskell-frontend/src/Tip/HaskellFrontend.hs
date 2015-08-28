@@ -65,6 +65,7 @@ readHaskellFile file params@Params{..} = do
 
   let cfg :: CompConfig ModGuts
       cfg = defaultConfig {
+          cfgUseGhcErrorLogger = True,
           cfgGhcFlags =
             ["-dynamic-too"
             ,"-fno-ignore-interface-pragmas"
