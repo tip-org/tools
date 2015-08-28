@@ -20,7 +20,9 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell | Why3 | CVC4 | Isabelle | TIP | TFF
+data MinOpt = MinEnabled | MinDisabled
+
+data OutputMode = Haskell | Why3 | CVC4 | Isabelle | TIP | TFF MinOpt
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -28,7 +30,8 @@ parseOutputMode =
   <|> flag' Why3 (long "why" <> help "WhyML output")
   <|> flag' CVC4 (long "smtlib" <> help "SMTLIB output (CVC4-compatible)")
   <|> flag' Isabelle (long "isabelle" <> help "Isabelle output")
-  <|> flag' TFF (long "tff" <> help "TPTP TFF output")
+  <|> flag' (TFF MinDisabled) (long "tff" <> help "TPTP TFF output")
+  <|> flag' (TFF MinEnabled)  (long "tff-min" <> help "TPTP TFF output with Min")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
 
 optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
@@ -74,16 +77,18 @@ handle passes mode multipath s =
                   , SimplifyGently, NegateConjecture
                   ]
                 , "smt2")
-              TFF ->
+              TFF min_mode ->
                 ( TFF.ppTheory
                 , passes ++
                   [ TypeSkolemConjecture, Monomorphise False
                   , LambdaLift, AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual, RemoveAliases
                   , SimplifyGently, Monomorphise False, IfToBoolOp, CommuteMatch
-                  , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
-                  , SimplifyGently, AxiomatizeDatadecls
-                  ]
+                  , SimplifyGently, LetLift, SimplifyGently
+                  ] ++
+                  case min_mode of
+                    MinEnabled  -> [Min]
+                    MinDisabled -> [AxiomatizeFuncdefs2, SimplifyGently, AxiomatizeDatadecls]
                 , "p")
               Haskell  -> (HS.ppTheory,       passes, "hs")
               Why3     -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")

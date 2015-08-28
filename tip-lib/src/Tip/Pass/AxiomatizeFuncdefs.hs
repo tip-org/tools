@@ -8,6 +8,7 @@ import Tip.Core
 import Tip.Fresh
 import Tip.Scope
 
+import Data.Maybe
 import Data.List (delete)
 import Data.Generics.Geniplate
 import Control.Applicative
@@ -35,8 +36,8 @@ axiomatize fn@Function{..} =
 
 -- | Makes function definitions into case by converting case to
 --   left hand side pattern matching.
-axiomatizeFuncdefs2 :: Name a => Theory a -> Theory a
-axiomatizeFuncdefs2 thy@Theory{..} =
+axiomatizeFuncdefs2 :: Name a => (Expr a -> Maybe (Expr a)) -> Theory a -> Theory a
+axiomatizeFuncdefs2 min_pred thy@Theory{..} =
   thy{
     thy_funcs   = [],
     thy_sigs    = thy_sigs ++ abs,
@@ -44,29 +45,35 @@ axiomatizeFuncdefs2 thy@Theory{..} =
   }
  where
   scp = scope thy
-  (abs,fms) = unzip (map (axiomatize2 scp) thy_funcs)
+  (abs,fms) = unzip (map (axiomatize2 min_pred scp) thy_funcs)
 
-axiomatize2 :: forall a . Ord a => Scope a -> Function a -> (Signature a, [Formula a])
-axiomatize2 scp fn@Function{..} =
+axiomatize2 :: forall a . Ord a => (Expr a -> Maybe (Expr a)) -> Scope a -> Function a -> (Signature a, [Formula a])
+axiomatize2 min_pred scp fn@Function{..} =
   ( Signature func_name (funcType fn)
   , map (Formula Assert func_tvs)
-     (ax func_args [] (map Lcl func_args) func_body)
+     (ax func_args
+         (maybeToList (min_pred (func_app (map Lcl func_args))))
+         (map Lcl func_args)
+         func_body)
   )
   where
+  func_app = applyFunction fn (map TyVar func_tvs)
 
   -- ax vars pre args body
   --   ~=
   -- forall vars . pre => f(args) = body
   ax :: [Local a] -> [Expr a] -> [Expr a] -> Expr a -> [Expr a]
   ax vars pre args e0 = case e0 of
-    Match s (Case Default def_rhs:alts) -> ax vars (pre ++ map (invert_pat s . case_pat) alts) args def_rhs ++ ax_alts s alts
+    Match s (Case Default def_rhs:alts) ->
+         ax vars (pre ++ map (invert_pat s . case_pat) alts) args def_rhs
+      ++ ax_alts s alts
     Match s alts -> ax_alts s alts
     Let x b e    -> ax (vars ++ [x]) (pre ++ [Lcl x === b]) args e
     Lam{}        -> __
     Quant{}      -> __
     _            ->
       -- e0 should now only be (:@:) and Lcl
-      [mkQuant Forall vars (pre ===> applyFunction fn (map TyVar func_tvs) args === e0)]
+      [mkQuant Forall vars (pre ===> func_app args === e0)]
     where
     invert_pat :: Expr a -> Pattern a -> Expr a
     invert_pat _ Default      = __
@@ -84,9 +91,13 @@ axiomatize2 scp fn@Function{..} =
       ax_pat s (ConPat k bs) rhs = rec bs rhs s (Gbl k :@: map Lcl bs)
 
       rec :: [Local a] -> Expr a -> Expr a -> Expr a -> [Expr a]
-      rec new e (Lcl x) pat_expr =
-        let su = unsafeSubst pat_expr x
-        in  ax (delete x vars ++ new) (map su pre) (map su args) (su e)
-
-      rec new e scrut   pat_expr = ax (vars ++ new) (pre ++ [scrut === pat_expr]) args e
+      rec new e scrut pat_expr =
+           maybeToList
+             (fmap (\ min_scrut -> mkQuant Forall vars (pre ===> min_scrut))
+                   (min_pred scrut))
+        ++ case scrut of
+             Lcl x ->
+               let su = unsafeSubst pat_expr x
+               in  ax (delete x vars ++ new) (map su pre) (map su args) (su e)
+             _ ->  ax (vars ++ new) (pre ++ [scrut === pat_expr]) args e
 

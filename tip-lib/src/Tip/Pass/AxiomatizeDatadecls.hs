@@ -10,15 +10,17 @@ import Tip.Scope
 import Data.List (tails)
 import Data.Monoid
 
+import Data.Maybe
+
 import qualified Data.Map as M
 
-axiomatizeDatadecls :: Name a => Theory a -> Fresh (Theory a)
-axiomatizeDatadecls thy@Theory{..} =
-  do thys <- mapM trDatatype thy_datatypes
+axiomatizeDatadecls :: Name a => (Expr a -> Maybe (Expr a)) -> Theory a -> Fresh (Theory a)
+axiomatizeDatadecls min_pred thy@Theory{..} =
+  do thys <- mapM (trDatatype min_pred) thy_datatypes
      return (mconcat (thys ++ [thy { thy_datatypes = [] }]))
 
-trDatatype :: Name a => Datatype a -> Fresh (Theory a)
-trDatatype dt@Datatype{..} =
+trDatatype :: Name a => (Expr a -> Maybe (Expr a)) -> Datatype a -> Fresh (Theory a)
+trDatatype min_pred dt@Datatype{..} =
   do let ty_args = map TyVar data_tvs
 
      -- X = nil | X = cons(head(X), tail(X))
@@ -39,13 +41,13 @@ trDatatype dt@Datatype{..} =
      inj <-
        sequence
          [ do qs <- mapM freshLocal (map snd args)
+              let con = Gbl (constructor dt c ty_args) :@: map Lcl qs
               return $
                 Formula Assert data_tvs $
                   mkQuant Forall qs $
-                    Gbl (projector dt c i ty_args) :@:
-                      [Gbl (constructor dt c ty_args) :@: map Lcl qs]
-                    ===
-                    Lcl (case drop i qs of q:_ -> q; [] -> __)
+                    maybeToList (min_pred con)
+                    ===> (Gbl (projector dt c i ty_args) :@: [con]
+                          === Lcl (case drop i qs of q:_ -> q; [] -> __))
          | c@(Constructor _ _ args) <- data_cons
          , i <- [0..length args-1]
          ]
@@ -60,7 +62,8 @@ trDatatype dt@Datatype{..} =
               return $
                 Formula Assert data_tvs $
                   mkQuant Forall (qs_k ++ qs_j) $
-                    tm_k =/= tm_j
+                    (maybeToList (min_pred tm_k) ++ maybeToList (min_pred tm_j))
+                    ===> (tm_k =/= tm_j)
          | (k@(Constructor _ _ args_k),j@(Constructor _ _ args_j)) <- diag data_cons
          ]
 

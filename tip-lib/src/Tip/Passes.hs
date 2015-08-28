@@ -79,6 +79,7 @@ import Tip.Pass.EliminateDeadCode
 import Tip.Pass.FillInCases
 import Tip.Pass.AxiomatizeFuncdefs
 import Tip.Pass.AxiomatizeDatadecls
+import Tip.Pass.Min
 import Tip.Pass.SelectConjecture
 import Tip.Pass.DropSuffix
 import Tip.Pass.Induction
@@ -112,6 +113,7 @@ data StandardPass
   | AxiomatizeFuncdefs
   | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
+  | Min
   | Monomorphise Bool
   | CSEMatch
   | CSEMatchWhy3
@@ -146,8 +148,9 @@ instance Pass StandardPass where
     LetLift              -> single $ letLift
     AxiomatizeLambdas    -> single $ axiomatizeLambdas
     AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
-    AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2
-    AxiomatizeDatadecls  -> single $ axiomatizeDatadecls
+    AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2 (const Nothing)
+    AxiomatizeDatadecls  -> single $ axiomatizeDatadecls (const Nothing)
+    Min                  -> single $ minPass
     Monomorphise b       -> single $ monomorphise b
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
@@ -203,6 +206,8 @@ instance Pass StandardPass where
         help "Transform function definitions to axioms with left hand side pattern matching instead of match",
       unitPass AxiomatizeDatadecls $
         help "Transform data declarations to axioms",
+      unitPass Min $
+        help "Transform function and data declarations to axioms, using a ``min'' heuristic",
       flag' () (long ("monomorphise") <> help "Try to monomorphise the problem") *> pure (Monomorphise False),
       flag' () (long ("monomorphise-verbose") <> help "Try to monomorphise the problem verbosely") *> pure (Monomorphise True),
       unitPass CSEMatch $
