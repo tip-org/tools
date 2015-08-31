@@ -15,6 +15,7 @@ module Tip
     , (.&&.)
     , (.||.)
     , neg
+    , question
     , forAll
     , exists
     , module Test.QuickCheck
@@ -67,6 +68,10 @@ bool lhs = lhs === True
 -- | Negation
 neg :: a -> Neg a
 neg = Neg
+
+-- | Question (same as negation)
+question :: a -> Neg a
+question = Neg
 
 -- | Universal quantification
 forAll :: (a -> b) -> Forall a b

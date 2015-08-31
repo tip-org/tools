@@ -48,7 +48,7 @@ parseProperty = goo 0
 
       | isId "bool" x = return e
 
-      | isId "Neg" x || isId "neg" x = neg <$> go e
+      | isId "Neg" x || isId "neg" x || isId "question" x = neg <$> go e
 
   goo i e0@(projAt -> Just (projAt -> Just (projGlobal -> Just x,e1),e2))
 
