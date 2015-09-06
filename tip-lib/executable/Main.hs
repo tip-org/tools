@@ -20,13 +20,14 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell | Why3 | CVC4 | Isabelle | TIP | TFF
+data OutputMode = Haskell | Why3 | SMTLIB Bool | Isabelle | TIP | TFF
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
       flag' Haskell (long "haskell" <> help "Haskell output")
   <|> flag' Why3 (long "why" <> help "WhyML output")
-  <|> flag' CVC4 (long "smtlib" <> help "SMTLIB output (CVC4-compatible)")
+  <|> flag' (SMTLIB False) (long "smtlib" <> help "SMTLIB output")
+  <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
   <|> flag' Isabelle (long "isabelle" <> help "Isabelle output")
   <|> flag' TFF (long "tff" <> help "TPTP TFF output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
@@ -63,16 +64,16 @@ handle passes mode multipath s =
       let show_passes c = fmap (\ s -> c ++ show passes ++ "\n" ++ s)
       let (pretty,pipeline,ext) =
             case mode of
-              CVC4 ->
+              SMTLIB ax_func_decls ->
                 ( SMT.ppTheory
                 , passes ++
                   [ TypeSkolemConjecture, Monomorphise False
                   , LambdaLift, AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual, RemoveAliases
                   , SimplifyGently, RemoveMatch
-                  , SimplifyGently, Monomorphise False, AxiomatizeFuncdefs
-                  , SimplifyGently, NegateConjecture
-                  ]
+                  , SimplifyGently, Monomorphise False ]
+                  ++ [ AxiomatizeFuncdefs | ax_func_decls ]
+                  ++ [ SimplifyGently, NegateConjecture ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory
