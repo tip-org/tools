@@ -269,6 +269,24 @@ smtKeywords =
     , "mod", "div"
     , "=", "=>", "+", "-", "*", ">", ">=", "<", "<=", "@", "!"
     , "as"
+    , "declare-datatypes"
+    , "declare-sort"
+    , "declare-const"
+    , "declare-const"
+    , "declare-fun"
+    , "declare-fun"
+    , "define-fun"
+    , "define-fun"
+    , "define-fun-rec"
+    , "define-fun-rec"
+    , "define-funs-rec"
+    , "check-sat"
+    -- TIP:
+    , "par"
+    , "case"
+    , "match"
+    , "assert"
+    , "assert-not"
     -- Z3:
     , "Bool", "Int", "Array", "List", "insert"
     , "isZero"
@@ -276,6 +294,6 @@ smtKeywords =
     , "select"
     , "subset", "union", "intersect"
     -- CVC4:
-    , "concat"
+    , "concat", "member"
     ]
 
