@@ -174,11 +174,18 @@ isPermutation :: [Nat] -> [Nat] -> Bool
 []     `isPermutation` ys = null ys
 (x:xs) `isPermutation` ys = x `elem` ys && xs `isPermutation` delete x ys
 
-sorted,ordered :: [Nat] -> Bool
+sorted,ordered,uniqsorted :: [Nat] -> Bool
 sorted = ordered
 ordered []       = True
 ordered [x]      = True
 ordered (x:y:xs) = x <= y && ordered (y:xs)
+uniqsorted []       = True
+uniqsorted [x]      = True
+uniqsorted (x:y:xs) = x < y && uniqsorted (y:xs)
+
+unique :: [Nat] -> Bool
+unique []     = True
+unique (x:xs) = if x `elem` xs then False else unique xs
 
 insert :: Nat -> [Nat] -> [Nat]
 insert n [] = [n]
@@ -289,12 +296,20 @@ zisPermutation :: [Int] -> [Int] -> Bool
 []     `zisPermutation` ys = null ys
 (x:xs) `zisPermutation` ys = x `zelem` ys && xs `zisPermutation` zdelete x ys
 
-zsorted,zordered :: [Int] -> Bool
+zsorted,zordered,zuniqsorted :: [Int] -> Bool
 zordered []       = True
 zordered [x]      = True
 zordered (x:y:xs) = x `zle` y && zordered (y:xs)
 
 zsorted = zordered
+
+zuniqsorted []       = True
+zuniqsorted [x]      = True
+zuniqsorted (x:y:xs) = x `zlt` y && zuniqsorted (y:xs)
+
+zunique :: [Int] -> Bool
+zunique []     = True
+zunique (x:xs) = if x `zelem` xs then False else zunique xs
 
 zinsert :: Int -> [Int] -> [Int]
 zinsert n [] = [n]
