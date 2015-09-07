@@ -22,7 +22,7 @@ theorySignature thy =
   withSystemTempDirectory "tip-spec" $
     \ dir ->
       do let a_file = dir </> "A" <.> "hs"
-         let (thy_doc, rename_map) = ppTheoryWithRenamings thy
+         let (thy_doc, rename_map) = ppTheoryWithRenamings QuickSpec thy
          writeFile a_file (show thy_doc)
          setCurrentDirectory dir
          runInterpreter $

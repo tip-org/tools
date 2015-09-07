@@ -20,11 +20,15 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell | Why3 | SMTLIB Bool | Isabelle | TIP | TFF
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle | TIP | TFF
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
-      flag' Haskell (long "haskell" <> help "Haskell output")
+      flag' (Haskell HS.Plain)          (long "haskell"        <> help "Haskell output")
+  <|> flag' (Haskell HS.Feat)           (long "haskell-feat"   <> help "Haskell output with Feat tests")
+  <|> flag' (Haskell HS.QuickCheck)     (long "haskell-qc"     <> help "Haskell output with QuickCheck tests (Feat generators)")
+  <|> flag' (Haskell HS.LazySmallCheck) (long "haskell-lazysc" <> help "Haskell output with LazySmallCheck tests")
+  <|> flag' (Haskell HS.QuickSpec)      (long "haskell-spec"   <> help "Haskell output with QuickSpec signature (Feat generators)")
   <|> flag' Why3 (long "why" <> help "WhyML output")
   <|> flag' (SMTLIB False) (long "smtlib" <> help "SMTLIB output")
   <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
@@ -86,10 +90,10 @@ handle passes mode multipath s =
                   , SimplifyGently, AxiomatizeDatadecls
                   ]
                 , "p")
-              Haskell  -> (HS.ppTheory,       passes, "hs")
-              Why3     -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
-              Isabelle -> (Isabelle.ppTheory, passes, "thy")
-              TIP      -> (SMT.ppTheory,      passes, "smt2")
+              Haskell m -> (HS.ppTheory m,     passes, "hs")
+              Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
+              Isabelle  -> (Isabelle.ppTheory, passes, "thy")
+              TIP       -> (SMT.ppTheory,      passes, "smt2")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
         Nothing ->

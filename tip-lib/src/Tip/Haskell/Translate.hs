@@ -50,6 +50,9 @@ quickSpec = Qualified "QuickSpec" (Just "QS")
 feat :: String -> HsId a
 feat = Qualified "Test.Feat" (Just "F")
 
+lsc :: String -> HsId a
+lsc = Qualified "Test.LazySmallCheck" (Just "L")
+
 typeable :: String -> HsId a
 typeable = Qualified "Data.Typeable" (Just "T")
 
@@ -84,8 +87,8 @@ addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" Nothing : imps
   where
   imps = usort [ QualImport m short | Qualified m short _ <- F.toList d ]
 
-trTheory :: (Ord a,PrettyVar a) => Theory a -> Decls (HsId a)
-trTheory = trTheory' . fmap Other
+trTheory :: (Ord a,PrettyVar a) => Mode -> Theory a -> Decls (HsId a)
+trTheory mode = trTheory' mode . fmap Other
 
 data Kind = Expr | Formula deriving Eq
 
@@ -97,15 +100,18 @@ ufInfo Theory{thy_sigs} = (not (null imps),imps)
   where
   imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ <- thy_sigs]
 
-trTheory' :: forall a b . (a ~ HsId b,Ord b,PrettyVar b) => Theory a -> Decls a
-trTheory' thy@Theory{..} =
+data Mode = Feat | QuickCheck | LazySmallCheck | QuickSpec | Plain
+  deriving (Eq,Ord,Show)
+
+trTheory' :: forall a b . (a ~ HsId b,Ord b,PrettyVar b) => Mode -> Theory a -> Decls a
+trTheory' mode thy@Theory{..} =
   Decls $
     concatMap tr_datatype thy_datatypes ++
     map tr_sort thy_sorts ++
     concatMap tr_sig thy_sigs ++
     concatMap tr_func thy_funcs ++
     tr_asserts thy_asserts ++
-    [makeSig thy]
+    [makeSig thy | mode == QuickSpec ]
   where
   (translate_UFs,imps) = ufInfo thy
 
@@ -114,13 +120,33 @@ trTheory' thy@Theory{..} =
     [ DataDecl tc tvs
         [ (c,map (trType . snd) args) | Constructor c _ args <- cons ]
         (map prelude ["Eq","Ord","Show"] ++ [typeable "Typeable"])
-    , TH (Apply (feat "deriveEnumerable") [QuoteTyCon tc])
-    , InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
+    ]
+    ++
+    [ TH (Apply (feat "deriveEnumerable") [QuoteTyCon tc])
+    | any (== mode) [Feat, QuickCheck, QuickSpec] ]
+    ++
+    [ InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
                   (Apply (quickCheck "sized") [Apply (feat "uniform") []])]
-    ]
+    | any (== mode) [QuickCheck, QuickSpec] ]
+    ++
+    [ InstDecl
+        [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
+        (H.TyCon (lsc "Serial") [H.TyCon tc (map H.TyVar tvs)])
+        [funDecl
+          (lsc "series")
+          []
+          (foldr1
+            (\ e1 e2 -> Apply (lsc "\\/") [e1,e2])
+            [ foldl
+               (\ e _ -> Apply (lsc "><") [e,Apply (lsc "series") []])
+               (Apply (lsc "cons") [Apply c []])
+               as
+            | Constructor c _ as <- cons
+            ])]
+    | mode == LazySmallCheck ]
 
   tr_sort :: Sort a -> Decl a
   tr_sort (Sort s i) | null i = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
@@ -185,26 +211,51 @@ trTheory' thy@Theory{..} =
 
   tr_asserts :: [T.Formula a] -> [Decl a]
   tr_asserts fms =
-    let (names,decls) = unzip (zipWith tr_assert [1..] fms)
-    in  decls {- ++
-          [ TH (Apply (prelude "return") [List []])
-          , funDecl (Exact "main") []
-              (mkDo [ Stmt (THSplice (Apply (quickCheckAll "polyQuickCheck")
-                                            [QuoteName name]))
-                    | name <- names ]
-                    Noop)
-          ] -}
+    let (info,decls) = unzip (zipWith tr_assert [1..] fms)
+    in  concat decls ++
+          case mode of
+            QuickCheck ->
+              [ TH (Apply (prelude "return") [List []])
+              , funDecl (Exact "main") []
+                  (mkDo [ Stmt (THSplice (Apply (quickCheckAll "polyQuickCheck")
+                                                [QuoteName name]))
+                        | (name,_) <- info ]
+                        Noop)
+              ]
+            LazySmallCheck ->
+              [ funDecl (Exact "main") []
+                  (mkDo [Stmt (Apply (lsc "test") [var name]) | (name,_) <- info] Noop)
+              ]
+            Feat ->
+              [ funDecl (Exact "main") []
+                  (mkDo [Stmt (Apply (feat "featCheckStop")
+                          [ H.Lam [TupPat (map VarPat vs)] (H.Apply name (map var vs))
+                          ])
+                        | (name,vs) <- info ] Noop)
+              ]
+            _ -> []
 
-  tr_assert :: Int -> T.Formula a -> (a,Decl a)
-  tr_assert i (T.Formula r _ b) =
-    (prop_name,funDecl prop_name args (assume (tr_expr Formula body)))
+  tr_assert :: Int -> T.Formula a -> ((a,[a]),[Decl a])
+  tr_assert i (T.Formula r tvs b) =
+    ((prop_name,args),
+      [ TySig prop_name []
+          (foldr TyArr
+             (case mode of LazySmallCheck -> H.TyCon (lsc "Property") []
+                           _              -> H.TyCon (prelude "Bool") [])
+             [ trType (applyType tvs (replicate (length tvs) (intType)) t)
+             | Local _ t <- typed_args ])
+      | any (== mode) [Feat, LazySmallCheck] ]
+      ++
+      [ funDecl prop_name args (assume (tr_expr (if mode == Feat then Expr else Formula) body)) ]
+    )
     where
     prop_name | i == 1    = Exact "prop"
               | otherwise = Exact ("prop" ++ show i)
-    (args,body) =
+    (typed_args,body) =
       case b of
-        Quant _ Forall lcls term -> (map lcl_name lcls,term)
+        Quant _ Forall lcls term -> (lcls,term)
         _                        -> ([],b)
+    args = map lcl_name typed_args
 
     assume e =
       case r of
@@ -224,11 +275,11 @@ trTheory' thy@Theory{..} =
   tr_pattern (T.LitPat (Bool b))      = withBool H.ConPat b
 
   tr_expr :: Kind -> T.Expr a -> H.Expr a
-  tr_expr k e0 =
+  tr_expr k e0 = formula_transition $
     case e0 of
       Builtin (Lit (T.Int i)) :@: [] -> H.Int i
       Builtin (Lit (Bool b)) :@: []  -> withBool Apply b
-      hd :@: es -> let (f,k') = tr_head k hd
+      hd :@: es -> let (f,k') = tr_head (map exprType es) k hd
                    in Apply f (map (tr_expr k') es)
       Lcl x -> var (lcl_name x)
       T.Lam xs b  -> H.Lam (map (VarPat . lcl_name) xs) (tr_expr Expr b)
@@ -246,30 +297,44 @@ trTheory' thy@Theory{..} =
     default_last (def@(T.Case Default _):alts) = alts ++ [def]
     default_last alts = alts
 
-  tr_head :: Kind -> T.Head a -> (a,Kind)
-  tr_head k (Gbl Global{..}) = (gbl_name,Expr)
-  tr_head k (Builtin b)      = tr_builtin k b
+    formula_transition e_res =
+      case (mode,k,e_res) of
+        (LazySmallCheck,Formula,Apply (Qualified "Test.LazySmallCheck" _ _) _) -> e_res
+        (LazySmallCheck,Formula,_) -> Apply (lsc "lift") [e_res]
+        _ -> e_res
 
-  tr_builtin :: Kind -> T.Builtin -> (a,Kind)
-  tr_builtin k b =
+  tr_head :: [T.Type a] -> Kind -> T.Head a -> (a,Kind)
+  tr_head ts k (Gbl Global{..}) = (gbl_name,Expr)
+  tr_head ts k (Builtin b)      = tr_builtin ts k b
+
+  tr_builtin :: [T.Type a] -> Kind -> T.Builtin -> (a,Kind)
+  tr_builtin ts k b =
     case b of
       At        -> (prelude "id",Expr)
       Lit{}     -> error "tr_builtin"
-      And       -> case_kind ".&&."
-      Or        -> case_kind ".||."
-      Not       -> case_kind "neg"
-      Implies   -> case_kind "==>"
-      Equal     -> case_kind "==="
-      Distinct  -> case_kind "=/="
+      And       -> case_kind (tipDSL ".&&.") (Just (lsc "*&*"))
+      Or        -> case_kind (tipDSL ".||.") (Just (lsc "*|*"))
+      Not       -> case_kind (tipDSL "neg")  (Just (lsc "neg"))
+      Implies   -> case_kind (tipDSL "==>")  (Just (lsc "*=>*"))
+      Equal     -> case_kind (tipDSL "===") $ case ts of
+                                                BuiltinType Boolean:_ -> Just (lsc "*=*")
+                                                _                     -> Nothing
+      Distinct  -> case_kind (tipDSL "=/=")  Nothing
       _         -> prelude_fn
     where
     Just prelude_str_ = lookup b hsBuiltins
     prelude_fn = (prelude prelude_str_,Expr)
 
-    case_kind sf =
+    case_kind tip_version lsc_version =
       case k of
         Expr    -> prelude_fn
-        Formula -> (tipDSL sf,Formula)
+        Formula ->
+          case mode of
+            LazySmallCheck ->
+              case lsc_version of
+                Just v  -> (v,Formula)
+                Nothing -> prelude_fn
+            _ -> (tip_version,Formula)
 
   -- ignores the type variables
   tr_polyType_inner :: T.PolyType a -> H.Type a

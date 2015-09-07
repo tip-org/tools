@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Tip.Pretty.Haskell (module Tip.Pretty.Haskell, RenameMap) where
+module Tip.Pretty.Haskell (module Tip.Pretty.Haskell, RenameMap, Mode(..)) where
 
 import Tip.Haskell.Repr
 import Tip.Haskell.Translate
@@ -7,15 +7,15 @@ import Tip.Haskell.Rename
 import qualified Tip.Core as T
 import Tip.Pretty
 import Tip.Fresh
-import Text.PrettyPrint
+import Text.PrettyPrint hiding (Mode)
 
 import Data.Map (Map)
 
-ppTheory :: Name a => T.Theory a -> Doc
-ppTheory = fst . ppTheoryWithRenamings
+ppTheory :: Name a => Mode -> T.Theory a -> Doc
+ppTheory mode = fst . ppTheoryWithRenamings mode
 
-ppTheoryWithRenamings :: Name a => T.Theory a -> (Doc,RenameMap a)
-ppTheoryWithRenamings = fst_pp . renameDecls . addHeader . addImports . trTheory
+ppTheoryWithRenamings :: Name a => Mode -> T.Theory a -> (Doc,RenameMap a)
+ppTheoryWithRenamings mode = fst_pp . renameDecls . addHeader . addImports . trTheory mode
   where fst_pp (x,y) = (pp x,y)
 
 -- * Pretty printing
