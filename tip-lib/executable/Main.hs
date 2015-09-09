@@ -20,7 +20,9 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle | TIP | TFF
+data MinOpt = MinEnabled | MinDisabled
+
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle | TIP | TFF MinOpt
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -33,7 +35,8 @@ parseOutputMode =
   <|> flag' (SMTLIB False) (long "smtlib" <> help "SMTLIB output")
   <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
   <|> flag' Isabelle (long "isabelle" <> help "Isabelle output")
-  <|> flag' TFF (long "tff" <> help "TPTP TFF output")
+  <|> flag' (TFF MinDisabled) (long "tff" <> help "TPTP TFF output")
+  <|> flag' (TFF MinEnabled)  (long "tff-min" <> help "TPTP TFF output with Min")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
 
 optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
@@ -79,16 +82,18 @@ handle passes mode multipath s =
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
                   ++ [ SimplifyGently, NegateConjecture ]
                 , "smt2")
-              TFF ->
+              TFF min_mode ->
                 ( TFF.ppTheory
                 , passes ++
                   [ TypeSkolemConjecture, Monomorphise False
                   , LambdaLift, AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual, RemoveAliases
                   , SimplifyGently, Monomorphise False, IfToBoolOp, CommuteMatch
-                  , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
-                  , SimplifyGently, AxiomatizeDatadecls
-                  ]
+                  , SimplifyGently, LetLift, SimplifyGently
+                  ] ++
+                  case min_mode of
+                    MinEnabled  -> [Min]
+                    MinDisabled -> [AxiomatizeFuncdefs2, SimplifyGently, AxiomatizeDatadecls]
                 , "p")
               Haskell m -> (HS.ppTheory m,     passes, "hs")
               Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")

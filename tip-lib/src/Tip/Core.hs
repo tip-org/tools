@@ -23,6 +23,8 @@ import Control.Monad
 import qualified Data.Map as Map
 import Control.Applicative ((<|>))
 
+import Data.Maybe
+
 infix  4 ===
 -- infixr 3 /\
 infixr 2 \/
