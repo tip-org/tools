@@ -54,7 +54,7 @@ trDatatype min_pred dt@Datatype{..} =
 
      -- nil /= cons(X,Y)
      distinct <-
-       concat <$> sequence
+       concat `fmap` sequence
          [ do qs_k <- mapM freshLocal (map snd args_k)
               qs_j <- mapM freshLocal (map snd args_j)
               let tm_k = Gbl (constructor dt k ty_args) :@: map Lcl qs_k
