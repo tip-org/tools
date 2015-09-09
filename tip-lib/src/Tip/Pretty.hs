@@ -39,6 +39,9 @@ instance (PrettyVar a,PrettyVar b) => PrettyVar (Either a b) where
 instance (Pretty a,Pretty b) => Pretty (a,b) where
   pp (x,y) = parens (pp x <+> "," $\ pp y)
 
+instance (Pretty a,Pretty b,Pretty c) => Pretty (a,b,c) where
+  pp (x,y,z) = parens (pp x <+> "," $\ pp y <+> "," $\ pp z)
+
 instance (Pretty a) => Pretty [a] where
   pp xs = brackets (sep (punctuate "," (map pp xs)))
 
