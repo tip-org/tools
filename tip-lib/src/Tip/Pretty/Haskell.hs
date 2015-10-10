@@ -12,10 +12,17 @@ import Text.PrettyPrint hiding (Mode)
 import Data.Map (Map)
 
 ppTheory :: Name a => Mode -> T.Theory a -> Doc
-ppTheory mode = fst . ppTheoryWithRenamings mode
+ppTheory mode = fst . ppTheoryWithRenamings mod_name mode
+  where
+  mod_name =
+    case mode of
+      Feat{}           -> "Main"
+      LazySmallCheck{} -> "Main"
+      Smten{}          -> "Main"
+      _                -> "A"
 
-ppTheoryWithRenamings :: Name a => Mode -> T.Theory a -> (Doc,RenameMap a)
-ppTheoryWithRenamings mode = fst_pp . renameDecls . addHeader . addImports . trTheory mode
+ppTheoryWithRenamings :: Name a => String -> Mode -> T.Theory a -> (Doc,RenameMap a)
+ppTheoryWithRenamings mod_name mode = fst_pp . renameDecls . addHeader mod_name . addImports . trTheory mode
   where fst_pp (x,y) = (pp x,y)
 
 -- * Pretty printing
@@ -108,6 +115,7 @@ ppPat i p =
     ConPat k [] -> ppHsVar k
     ConPat k ps -> parIf (i >= 1) (ppOper k (map (ppPat 1) ps))
     TupPat ps   -> tuple (map (ppPat 0) ps)
+    IntPat i    -> integer i
     WildPat     -> "_"
 
 instance PrettyHsVar a => Pretty (Decl a) where
@@ -133,6 +141,10 @@ instance PrettyHsVar a => Pretty (Decl a) where
                else "deriving" $\ tuple (map ppHsVar derivs))
         InstDecl ctx head ds ->
           (("instance" $\
+            (pp_ctx ctx $\ pp head)) $\
+               "where") $\ vcat (map (go 1) ds)
+        ClassDecl ctx head ds ->
+          (("class" $\
             (pp_ctx ctx $\ pp head)) $\
                "where") $\ vcat (map (go 1) ds)
         TypeDef lhs rhs -> "type" <+> ppType False 0 lhs <+> "=" $\ pp rhs

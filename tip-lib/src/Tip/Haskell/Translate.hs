@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternGuards #-}
 module Tip.Haskell.Translate where
 
 #include "errors.h"
@@ -47,6 +48,17 @@ quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 quickSpec :: String -> HsId a
 quickSpec = Qualified "QuickSpec" (Just "QS")
 
+smtenSym :: String -> HsId a
+smtenSym = Qualified "Smten.Symbolic" (Just "S")
+
+smtenMinisat :: String -> HsId a
+smtenMinisat = Qualified "Smten.Symbolic.Solver.MiniSat" (Just "S")
+
+smtenMonad :: String -> HsId a
+smtenMonad = Qualified "Smten.Control.Monad" (Just "S")
+
+-- smten also needs Prelude to be replaced with Smten.Prelude
+
 feat :: String -> HsId a
 feat = Qualified "Test.Feat" (Just "F")
 
@@ -78,9 +90,9 @@ instance PrettyVar a => PrettyVar (HsId a) where
   varStr (Other x) = varStr x
   varStr (Derived o s) = s ++ varStr o
 
-addHeader :: Decls a -> Decls a
-addHeader (Decls ds) =
-    Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators","ImplicitParams","RankNTypes"] ++ Module "A" : ds)
+addHeader :: String -> Decls a -> Decls a
+addHeader mod_name (Decls ds) =
+    Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators","ImplicitParams","RankNTypes"] ++ Module mod_name : ds)
 
 addImports :: Ord a => Decls (HsId a) -> Decls (HsId a)
 addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" Nothing : imps ++ ds)
@@ -100,8 +112,14 @@ ufInfo Theory{thy_sigs} = (not (null imps),imps)
   where
   imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ <- thy_sigs]
 
-data Mode = Feat | QuickCheck | LazySmallCheck | QuickSpec | Plain
+data Mode = Feat | QuickCheck | LazySmallCheck (Maybe Int) | Smten Int | QuickSpec | Plain
   deriving (Eq,Ord,Show)
+
+isLazySmallCheck LazySmallCheck{} = True
+isLazySmallCheck _                = False
+
+isSmten Smten{} = True
+isSmten _       = False
 
 trTheory' :: forall a b . (a ~ HsId b,Ord b,PrettyVar b) => Mode -> Theory a -> Decls a
 trTheory' mode thy@Theory{..} =
@@ -111,15 +129,24 @@ trTheory' mode thy@Theory{..} =
     concatMap tr_sig thy_sigs ++
     concatMap tr_func thy_funcs ++
     tr_asserts thy_asserts ++
+    [space_decl | isSmten mode ]  ++
     [makeSig thy | mode == QuickSpec ]
   where
   (translate_UFs,imps) = ufInfo thy
+
+  space_decl :: Decl a
+  space_decl = ClassDecl [] (TyCon (Exact "Space") [TyVar (Exact "stv")])
+                            [TySig (Exact "space") []
+                               (TyArr (TyCon (prelude "Int") [])
+                                 (TyCon (smtenSym "Symbolic") [TyVar (Exact "stv")]))
+                            ]
 
   tr_datatype :: Datatype a -> [Decl a]
   tr_datatype (Datatype tc tvs cons) =
     [ DataDecl tc tvs
         [ (c,map (trType . snd) args) | Constructor c _ args <- cons ]
-        (map prelude ["Eq","Ord","Show"] ++ [typeable "Typeable"])
+        (map prelude ["Eq","Ord","Show"]
+         ++ [typeable "Typeable" | not (isSmten mode) ])
     ]
     ++
     [ TH (Apply (feat "deriveEnumerable") [QuoteTyCon tc])
@@ -146,7 +173,42 @@ trTheory' mode thy@Theory{..} =
                as
             | Constructor c _ as <- cons
             ])]
-    | mode == LazySmallCheck ]
+    | isLazySmallCheck mode ]
+    ++
+    [ InstDecl
+        [H.TyCon (Exact "Space") [H.TyVar a] | a <- tvs]
+        (H.TyCon (Exact "Space") [H.TyCon tc (map H.TyVar tvs)])
+        [funDecl
+          (Exact "space")
+          [d]
+          (H.Case (var d)
+            [(H.IntPat 0,
+               Apply (smtenMonad "msum")
+                 [List
+                   [ foldl (\ e1 _ ->
+                             Apply (smtenMonad "ap")
+                               [e1,Apply (Exact "space") [H.Int 0]])
+                           (Apply (smtenMonad "return") [Apply c []])
+                           args
+                   | Constructor c _ args <- cons
+                   , and [ tc2 /= tc | (_,T.TyCon tc2 _) <- args ]
+                   ]])
+            ,(H.WildPat,
+               Apply (smtenMonad "msum")
+                 [List
+                   [ foldl (\ e1 _ ->
+                             Apply (smtenMonad "ap")
+                               [e1,Apply (Exact "space")
+                                     [Apply (prelude "-") [var d,H.Int 1]]])
+                           (Apply (smtenMonad "return") [Apply c []])
+                           args
+                   | Constructor c _ args <- cons
+                   ]])
+            ])
+        ]
+    | let d = Exact "d"
+    , isSmten mode
+    ]
 
   tr_sort :: Sort a -> Decl a
   tr_sort (Sort s i) | null i = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
@@ -222,10 +284,13 @@ trTheory' mode thy@Theory{..} =
                         | (name,_) <- info ]
                         Noop)
               ]
-            LazySmallCheck ->
+            LazySmallCheck md ->
               [ funDecl (Exact "main") []
-                  (mkDo [Stmt (Apply (lsc "test") [var name]) | (name,_) <- info] Noop)
+                  (mkDo [Stmt (fn name) | (name,_) <- info] Noop)
               ]
+              where fn name = case md of
+                           Nothing -> Apply (lsc "test") [var name]
+                           Just d  -> Apply (lsc "depthCheck") [H.Int (fromIntegral d),var name]
             Feat ->
               [ funDecl (Exact "main") []
                   (mkDo [Stmt (Apply (feat "featCheckStop")
@@ -233,20 +298,34 @@ trTheory' mode thy@Theory{..} =
                           ])
                         | (name,vs) <- info ] Noop)
               ]
-            _ -> []
+            Smten d | [(name,vs)] <- info ->
+              [ funDecl (Exact "main") []
+                  $ mkDo [Bind (Exact "r")
+                          (Apply (smtenSym "run_symbolic")
+                            [Apply (smtenMinisat "minisat") []
+                            ,mkDo (
+                              [ Bind v (Apply (Exact "space") [H.Int (fromIntegral d)])
+                              | v <- vs ]
+                              ++
+                              [ Stmt $ Apply (smtenMonad "guard") [Apply (prelude "not") [Apply name (map var vs)]] ])
+                              (Apply (smtenMonad "return") [Tup (map var vs)])
+                            ])
+                        ]
+                        (Apply (prelude "print") [var (Exact "r")])
+              ]
 
   tr_assert :: Int -> T.Formula a -> ((a,[a]),[Decl a])
   tr_assert i (T.Formula r tvs b) =
     ((prop_name,args),
       [ TySig prop_name []
           (foldr TyArr
-             (case mode of LazySmallCheck -> H.TyCon (lsc "Property") []
-                           _              -> H.TyCon (prelude "Bool") [])
+             (case mode of LazySmallCheck{} -> H.TyCon (lsc "Property") []
+                           _                -> H.TyCon (prelude "Bool") [])
              [ trType (applyType tvs (replicate (length tvs) (intType)) t)
              | Local _ t <- typed_args ])
-      | any (== mode) [Feat, LazySmallCheck] ]
+      | mode == Feat || isLazySmallCheck mode ]
       ++
-      [ funDecl prop_name args (assume (tr_expr (if mode == Feat then Expr else Formula) body)) ]
+      [ funDecl prop_name args (assume (tr_expr (if mode == Feat || isSmten mode then Expr else Formula) body)) ]
     )
     where
     prop_name | i == 1    = Exact "prop"
@@ -299,8 +378,8 @@ trTheory' mode thy@Theory{..} =
 
     formula_transition e_res =
       case (mode,k,e_res) of
-        (LazySmallCheck,Formula,Apply (Qualified "Test.LazySmallCheck" _ _) _) -> e_res
-        (LazySmallCheck,Formula,_) -> Apply (lsc "lift") [e_res]
+        (LazySmallCheck{},Formula,Apply (Qualified "Test.LazySmallCheck" _ _) _) -> e_res
+        (LazySmallCheck{},Formula,_) -> Apply (lsc "lift") [e_res]
         _ -> e_res
 
   tr_head :: [T.Type a] -> Kind -> T.Head a -> (a,Kind)
@@ -330,7 +409,7 @@ trTheory' mode thy@Theory{..} =
         Expr    -> prelude_fn
         Formula ->
           case mode of
-            LazySmallCheck ->
+            LazySmallCheck{} ->
               case lsc_version of
                 Just v  -> (v,Formula)
                 Nothing -> prelude_fn

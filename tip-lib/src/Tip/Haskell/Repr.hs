@@ -20,6 +20,9 @@ data Decl a
   | InstDecl [Type a] {- context -}
              (Type a) {- head -}
              [Decl a] {- declarations (associated types and fun decls) -}
+  | ClassDecl [Type a] {- context -}
+              (Type a) {- head -}
+              [Decl a] {- declarations (type signatures) -}
   | TypeDef (Type a) (Type a)
   | Decl a `Where` [Decl a]
   | TH (Expr a)
