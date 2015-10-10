@@ -6,6 +6,7 @@ import Tip.Parser
 import Tip.Fresh
 import Tip.Pretty
 import Control.Monad.Writer
+import Control.Applicative
 
 import Data.Monoid
 
