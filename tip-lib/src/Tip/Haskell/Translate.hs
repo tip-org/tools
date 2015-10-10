@@ -371,7 +371,11 @@ trTheory' mode thy@Theory{..} =
                    in Apply f (map (tr_expr k') es)
       Lcl x -> lsc_lift (var (lcl_name x))
       T.Lam xs b  -> H.Lam (map (VarPat . lcl_name) xs) (tr_expr Expr b)
-      Match e alts -> H.Case (tr_expr Expr e) [ (tr_pattern p,tr_expr Expr rhs) | T.Case p rhs <- default_last alts ]
+      Match e alts -> H.Case (tr_expr Expr e) [ (tr_pattern p,tr_expr brs_k rhs) | T.Case p rhs <- default_last alts ]
+        where
+        brs_k
+          | isLazySmallCheck mode = k
+          | otherwise             = Expr
       T.Let x e b -> H.Let (lcl_name x) (tr_expr Expr e) (tr_expr k b)
       T.Quant _ q xs b ->
         foldr
