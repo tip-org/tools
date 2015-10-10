@@ -269,7 +269,16 @@ trTheory' mode thy@Theory{..} =
         [ (map tr_deepPattern dps,tr_expr Expr rhs)
         | (dps,rhs) <- patternMatchingView func_args func_body
         ]
+    ] ++
+    [ FunDecl
+        (prop_version func_name)
+        [ (map tr_deepPattern dps,tr_expr Formula rhs)
+        | (dps,rhs) <- patternMatchingView func_args func_body
+        ]
+    | isLazySmallCheck mode && func_res == boolType
     ]
+
+  prop_version f = Derived f "property"
 
   tr_asserts :: [T.Formula a] -> [Decl a]
   tr_asserts fms =
@@ -354,13 +363,13 @@ trTheory' mode thy@Theory{..} =
   tr_pattern (T.LitPat (Bool b))      = withBool H.ConPat b
 
   tr_expr :: Kind -> T.Expr a -> H.Expr a
-  tr_expr k e0 = formula_transition $
+  tr_expr k e0 =
     case e0 of
       Builtin (Lit (T.Int i)) :@: [] -> H.Int i
-      Builtin (Lit (Bool b)) :@: []  -> withBool Apply b
+      Builtin (Lit (Bool b)) :@: [] -> lsc_lift (withBool Apply b)
       hd :@: es -> let (f,k') = tr_head (map exprType es) k hd
                    in Apply f (map (tr_expr k') es)
-      Lcl x -> var (lcl_name x)
+      Lcl x -> lsc_lift (var (lcl_name x))
       T.Lam xs b  -> H.Lam (map (VarPat . lcl_name) xs) (tr_expr Expr b)
       Match e alts -> H.Case (tr_expr Expr e) [ (tr_pattern p,tr_expr Expr rhs) | T.Case p rhs <- default_last alts ]
       T.Let x e b -> H.Let (lcl_name x) (tr_expr Expr e) (tr_expr k b)
@@ -373,18 +382,22 @@ trTheory' mode thy@Theory{..} =
           xs
 
     where
+    lsc_lift e
+      | isLazySmallCheck mode && k == Formula = Apply (lsc "lift") [e]
+      | otherwise                             = e
+
     default_last (def@(T.Case Default _):alts) = alts ++ [def]
     default_last alts = alts
 
-    formula_transition e_res =
-      case (mode,k,e_res) of
-        (LazySmallCheck{},Formula,Apply (Qualified "Test.LazySmallCheck" _ _) _) -> e_res
-        (LazySmallCheck{},Formula,_) -> Apply (lsc "lift") [e_res]
-        _ -> e_res
-
   tr_head :: [T.Type a] -> Kind -> T.Head a -> (a,Kind)
-  tr_head ts k (Gbl Global{..}) = (gbl_name,Expr)
   tr_head ts k (Builtin b)      = tr_builtin ts k b
+  tr_head ts k (Gbl Global{..})
+    | stay_prop = (prop_version gbl_name,Expr)
+    | otherwise = (gbl_name             ,Expr)
+    where
+    stay_prop = k == Formula
+             && isLazySmallCheck mode
+             && polytype_res gbl_type == boolType
 
   tr_builtin :: [T.Type a] -> Kind -> T.Builtin -> (a,Kind)
   tr_builtin ts k b =
