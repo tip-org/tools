@@ -275,6 +275,9 @@ instance Monad m => TransformBiM m (Expr a) (Formula a) where
 instance Monad m => TransformBiM m (Type a) (Type a) where
   {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Type a -> m (Type a)) -> Type a -> m (Type a) |])
+instance Monad m => TransformBiM m (Type a) (Theory a) where
+  {-# INLINE transformBiM #-}
+  transformBiM = $(genTransformBiM' [t| forall m a . (Type a -> m (Type a)) -> Theory a -> m (Theory a) |])
 instance Monad m => TransformBiM m (Function a) (Theory a) where
   {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Function a -> m (Function a)) -> Theory a -> m (Theory a) |])

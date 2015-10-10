@@ -11,6 +11,7 @@ module Tip.Passes
 
   -- * Simplifyng conjectures
   , module Tip.Pass.Conjecture
+  , module Tip.Pass.Concretise
 
   -- * Changing status of conjectures
   , makeConjecture
@@ -72,6 +73,7 @@ import Tip.Pass.CSEMatch
 import Tip.Pass.Uncurry
 import Tip.Pass.RemoveNewtype
 import Tip.Pass.Conjecture
+import Tip.Pass.Concretise
 import Tip.Pass.EqualFunctions
 import Tip.Pass.Lift
 import Tip.Pass.Monomorphise
@@ -98,6 +100,8 @@ data StandardPass
   | UncurryTheory
   | NegateConjecture
   | TypeSkolemConjecture
+  | IntToNat
+  | SortsToNat
   | SplitConjecture
   | SkolemiseConjecture
   | IfToBoolOp
@@ -136,6 +140,8 @@ instance Pass StandardPass where
     UncurryTheory        -> single $ uncurryTheory
     NegateConjecture     -> single $ negateConjecture
     TypeSkolemConjecture -> single $ typeSkolemConjecture
+    IntToNat             -> single $ intToNat
+    SortsToNat           -> single $ sortsToNat
     SplitConjecture      -> return . splitConjecture
     SkolemiseConjecture  -> skolemiseConjecture
     IfToBoolOp           -> single $ return . ifToBoolOp
@@ -177,7 +183,11 @@ instance Pass StandardPass where
       unitPass NegateConjecture $
         help "Transform the goal into a negated conjecture",
       unitPass TypeSkolemConjecture $
-        help "Skolemise the types in the conjecutre",
+        help "Skolemise the types in the conjecture",
+      unitPass IntToNat $
+        help "Replace builtin Integer with a a unary nat datatype nat (if only ordering is used)",
+      unitPass SortsToNat $
+        help "Replace abstract sorts with a unary nat datatype.",
       unitPass SplitConjecture $
         help "Puts goals in separate theories",
       unitPass SkolemiseConjecture $

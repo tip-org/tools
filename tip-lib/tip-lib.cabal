@@ -69,6 +69,7 @@ library
     Tip.Pass.RemoveNewtype
     Tip.Pass.SelectConjecture
     Tip.Pass.Uncurry
+    Tip.Pass.Concretise
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
