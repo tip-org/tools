@@ -48,11 +48,12 @@ library
     Tip.Haskell.Rename
     Tip.CallGraph
     Tip.Utils.Specialiser
+
+    Tip.Pass.Booleans
   other-modules:
     Tip.Pass.AddMatch
     Tip.Pass.AxiomatizeFuncdefs
     Tip.Pass.AxiomatizeDatadecls
-    Tip.Pass.Booleans
     Tip.Pass.CommuteMatch
     Tip.Pass.Conjecture
     Tip.Pass.CSEMatch

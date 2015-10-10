@@ -22,6 +22,7 @@ module Tip.Passes
   , ifToBoolOp
   , boolOpToIf
   , theoryBoolOpToIf
+  , removeBuiltinBool
 
   -- * Match expressions
   , addMatch
@@ -101,6 +102,7 @@ data StandardPass
   | SkolemiseConjecture
   | IfToBoolOp
   | BoolOpToIf
+  | RemoveBuiltinBool
   | AddMatch
   | CommuteMatch
   | RemoveMatch
@@ -137,6 +139,7 @@ instance Pass StandardPass where
     SkolemiseConjecture  -> skolemiseConjecture
     IfToBoolOp           -> single $ return . ifToBoolOp
     BoolOpToIf           -> single $ return . theoryBoolOpToIf
+    RemoveBuiltinBool    -> single $ removeBuiltinBool
     AddMatch             -> single $ addMatch
     CommuteMatch         -> single $ commuteMatchTheory
     RemoveMatch          -> single $ removeMatch
@@ -181,6 +184,8 @@ instance Pass StandardPass where
         help "Replace if-then-else by and/or where appropriate",
       unitPass BoolOpToIf $
         help "Replace and/or by if-then-else",
+      unitPass RemoveBuiltinBool $
+        help "Replace the builtin bool with a datatype",
       unitPass AddMatch $
         help "Transform SMTLIB-style datatype access into pattern matching",
       unitPass CommuteMatch $

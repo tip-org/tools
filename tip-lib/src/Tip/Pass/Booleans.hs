@@ -1,7 +1,10 @@
 {-# LANGUAGE FlexibleContexts, ViewPatterns, RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Tip.Pass.Booleans where
 
 import Tip.Core
+
+import Tip.Fresh
 
 import Data.Generics.Geniplate
 
@@ -68,4 +71,58 @@ ifToBoolOp = transformExprIn $
       | Just True  <- boolView f -> b ==> t -- neg b \/ t
       | Just False <- boolView f -> b /\ t
     _ -> e0
+
+-- | Names to replace the builtin boolean type with
+data BoolNames a =
+  BoolNames
+    { boolName    :: a
+    , trueName    :: a
+    , falseName   :: a
+    , isTrueName  :: a
+    , isFalseName :: a
+    }
+
+freshBoolNames :: Name a => Fresh (BoolNames a)
+freshBoolNames =
+  do boolName    <- freshNamed "Bool"
+     trueName    <- freshNamed "True"
+     falseName   <- freshNamed "False"
+     isTrueName  <- freshNamed "is-True"
+     isFalseName <- freshNamed "is-False"
+     return BoolNames{..}
+
+boolGbl :: BoolNames a -> Bool -> Global a
+boolGbl BoolNames{..} b = Global
+  (if b then trueName else falseName)
+  (PolyType [] [] (TyCon boolName []))
+  []
+
+boolExpr :: BoolNames a -> Bool -> Expr a
+boolExpr names b = Gbl (boolGbl names b) :@: []
+
+removeBuiltinBoolFrom :: forall f a . (TransformBi (Type a) (f a),TransformBi (Pattern a) (f a),TransformBi (Head a) (f a)) => BoolNames a -> f a -> f a
+removeBuiltinBoolFrom names = transformBi h . transformBi f . transformBi g
+  where
+    f :: Head a -> Head a
+    f (Builtin (Lit (Bool b))) = Gbl (boolGbl names b)
+    f hd                       = hd
+
+    g :: Pattern a -> Pattern a
+    g (LitPat (Bool b))    = ConPat (boolGbl names b) []
+    g pat                  = pat
+
+    h :: Type a -> Type a
+    h (BuiltinType Boolean) = TyCon (boolName names) []
+    h ty                    = ty
+
+removeBuiltinBoolWith :: BoolNames a -> Theory a -> Theory a
+removeBuiltinBoolWith names@BoolNames{..} Theory{..}
+  = removeBuiltinBoolFrom names Theory{thy_datatypes=bool_decl:thy_datatypes,..}
+  where
+    bool_decl = Datatype boolName [] [Constructor falseName isFalseName []
+                                     ,Constructor trueName isTrueName []]
+
+removeBuiltinBool :: Name a => Theory a -> Fresh (Theory a)
+removeBuiltinBool thy = do names <- freshBoolNames
+                           return (removeBuiltinBoolWith names thy)
 
