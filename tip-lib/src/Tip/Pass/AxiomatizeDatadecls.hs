@@ -12,13 +12,13 @@ import Data.Monoid
 
 import qualified Data.Map as M
 
-axiomatizeDatadecls :: Name a => Theory a -> Fresh (Theory a)
-axiomatizeDatadecls thy@Theory{..} =
-  do thys <- mapM trDatatype thy_datatypes
+axiomatizeDatadecls :: Name a => Bool -> Theory a -> Fresh (Theory a)
+axiomatizeDatadecls ueq thy@Theory{..} =
+  do thys <- mapM (trDatatype ueq) thy_datatypes
      return (mconcat (thys ++ [thy { thy_datatypes = [] }]))
 
-trDatatype :: Name a => Datatype a -> Fresh (Theory a)
-trDatatype dt@Datatype{..} =
+trDatatype :: Name a => Bool -> Datatype a -> Fresh (Theory a)
+trDatatype ueq dt@Datatype{..} =
   do let ty_args = map TyVar data_tvs
 
      -- X = nil | X = cons(head(X), tail(X))
@@ -74,7 +74,7 @@ trDatatype dt@Datatype{..} =
                DiscriminatorInfo{} -> False
                _ -> True
            ]
-        ++ map AssertDecl (domain:inj ++ distinct)
+        ++ map AssertDecl (if ueq then inj else domain:inj ++ distinct)
 
 diag :: [a] -> [(a,a)]
 diag xs = [ (x,y) | x:ys <- tails xs, y <- ys ]
