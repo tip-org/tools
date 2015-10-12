@@ -121,6 +121,11 @@ trTyCon tc = do
             }
 
 -- | Translate a definition
+--
+-- This does not work when
+-- f = g
+-- when it "should" be
+-- f = /\ a . g @a
 trDefn :: Var -> CoreExpr -> TM [Function Id]
 trDefn v e = do
     let (tvs,ty) = splitForAllTys (C.exprType e)
