@@ -29,12 +29,20 @@ disambig f (f -> x) = x : extra x ++ [ x ++ show (i :: Int) | i <- [2..] ]
     extra x = fromMaybe [] (find (x `elem`) families)
 
     families =
+      [ [ m ++ suff | m <- grp ]
+      | grp <- base
+      , suff <- ["","s","ss"]
+      ]
+
+    base =
        [ ["a","b","c"]
        , ["f","g","h"]
-       , ["p","q"]
+       , ["i","j","k"]
        , ["n","m","o"]
+       , ["p","q","r"]
+       , ["s","t"]
+       , ["u","v","w"]
        , ["x","y","z"]
-       , ["xs","ys","zs"]
        ]
 
 disambig2 :: (a -> String) -> (b -> String) -> Suggestor (Either a b) String

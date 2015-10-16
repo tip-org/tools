@@ -335,7 +335,7 @@ trTheory' mode thy@Theory{..} =
                           ])
                         | (name,vs) <- info ] Noop)
               ]
-            Smten | [(name,vs)] <- info ->
+            Smten | let [(name,vs)] = info ->
               [ funDecl (Exact "main") []
                   $ mkDo [Bind (Exact "args") (Apply (smtenEnv "getArgs") [])
                          ,Bind (Exact "r")
@@ -351,6 +351,7 @@ trTheory' mode thy@Theory{..} =
                         ]
                         (Apply (prelude "print") [var (Exact "r")])
               ]
+            _ -> []
     where
     read_head e = Apply (prelude "read") [Apply (prelude "head") [e]]
 
