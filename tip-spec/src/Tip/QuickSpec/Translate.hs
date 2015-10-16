@@ -145,7 +145,7 @@ unV e =
          rename (Orig f)   = f
      let e' = fmap rename e
      return $
-       Tip.Formula Tip.Prove (M.elems mtvs) (Tip.mkQuant Tip.Forall (Tip.free e') e')
+       Tip.Formula Tip.Prove Tip.Unknown (M.elems mtvs) (Tip.mkQuant Tip.Forall (Tip.free e') e')
 
 freshMap :: (Ord a,Name b) => [a] -> Fresh (Map a b)
 freshMap xs = M.fromList <$> sequence [ (,) x <$> fresh | x <- xs ]

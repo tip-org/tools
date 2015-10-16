@@ -141,7 +141,7 @@ lintBinder lcl@Local{..} = do
   newLocal lcl
 
 lintFormula :: (PrettyVar a, Ord a) => Formula a -> ScopeM a ()
-lintFormula form@(Formula _ tvs expr) =
+lintFormula form@(Formula _ _ tvs expr) =
   local $ inContext form $ do
     mapM_ newTyVar tvs
     lintExpr FormulaKind expr
@@ -196,9 +196,9 @@ lintExpr kind (Let lcl@Local{..} expr body) = do
       "Expression of type", nest 2 (pp (exprType expr)),
       "bound to variable" <+> pp lcl,
       "of type", nest 2 (pp lcl_type)])
-lintExpr ExprKind (Quant NoInfo _ lcls expr) =
+lintExpr ExprKind (Quant _info _ lcls expr) =
   throwError "Quantifier found in expression"
-lintExpr FormulaKind (Quant NoInfo _ lcls expr) =
+lintExpr FormulaKind (Quant _info _ lcls expr) =
   local $ do
     mapM_ lintBinder lcls
     lintExpr FormulaKind expr

@@ -45,7 +45,7 @@ data Expr a
 data Quant = Forall | Exists
   deriving (Eq,Ord,Show)
 
-data QuantInfo = NoInfo
+data QuantInfo = NoInfo | QuantIH Int
   deriving (Eq,Ord,Show)
 
 data Case a = Case { case_pat :: Pattern a, case_rhs :: Expr a }
@@ -180,10 +180,24 @@ instance Monoid (Theory a) where
 
 data Formula a = Formula
   { fm_role :: Role
+  , fm_info :: Info a
   , fm_tvs  :: [a]
   -- ^ top-level quantified type variables
   , fm_body :: Expr a
   }
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+data Info a
+  = Definition a
+  | IH Int
+  | Lemma Int
+  | Projection a
+  | DataDomain a
+  | DataProjection a
+  | DataDistinct a
+  | Defunction a
+  | UserAsserted
+  | Unknown
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data Role = Assert | Prove

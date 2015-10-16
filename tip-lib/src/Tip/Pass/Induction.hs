@@ -11,12 +11,15 @@ import Control.Applicative
 
 import Data.List (find,partition)
 
-theoryTyEnv :: Ord a => Theory a -> TyEnv (Global a) (Type a)
+theoryTyEnv :: Ord a => Theory a -> TyEnv (Head a) (Type a)
+theoryTyEnv Theory{..} (BuiltinType Boolean) =
+  do return [(Builtin (Lit (Bool b)),[]) | b <- [False,True]]
+
 theoryTyEnv Theory{..} t =
   do TyCon tc ts <- return t
      dt@Datatype{..} <- find ((tc ==) . data_name) thy_datatypes
      return
-         [ (constructor dt c ts
+         [ (Gbl (constructor dt c ts)
            ,[ case applyType data_tvs ts t of
                 t@(TyCon tc' _) | tc == tc' -> Rec t
                 t@(args :=>: _)             -> Exp t args
@@ -27,16 +30,16 @@ theoryTyEnv Theory{..} t =
          | c <- data_cons
          ]
 
-trTerm :: Term (Global a) (Local a) -> Expr a
+trTerm :: Term (Head a) (Local a) -> Expr a
 trTerm (Var lcl)   = Lcl lcl
-trTerm (Con c tms) = Gbl c :@: map trTerm tms
+trTerm (Con h tms) = h :@: map trTerm tms
 trTerm (Fun f tms) = Builtin At :@: (Lcl f:map trTerm tms)
 
 -- | Applies induction at the given coordinates to the first goal
 induction :: (Name a,Ord a) => [Int] -> Theory a -> Fresh [Theory a]
 induction coords thy@Theory{..} =
   case goal of
-    Formula Prove tvs (Quant qi Forall lcls body)
+    Formula Prove i tvs (Quant qi Forall lcls body)
       | cs@(_:_) <- [ x | x <- coords, x >= length lcls || x < 0 ] -> error $ "Induction coordinates " ++ show cs ++ " out of bounds!"
       | otherwise ->
       do (obligs,_) <-
@@ -55,14 +58,14 @@ induction coords thy@Theory{..} =
                           Nothing -> ERROR("Lost type of variable!")
                   let replace env ts = substMany (zip lcls (map (trTerm . fmap (attach_type env)) ts)) body
                   hyps <- sequence
-                            [ mkQuant Forall [ Local v t | (v,t) <- prenex ]
+                            [ Quant (QuantIH i) Forall [ Local v t | (v,t) <- prenex ]
                                 <$> replace prenex inst
-                            | (prenex, inst) <- hyps
+                            | (i, (prenex, inst)) <- [0..] `zip` hyps
                             ]
                   concl <- replace [] concl
                   let body' = hyps ===> concl
                   return
-                    (Formula Prove tvs
+                    (Formula Prove i tvs
                       (mkQuant Forall [ Local v t | (v,t) <- sks] body'))
              | Obligation sks hyps concl <- obligs
              ]

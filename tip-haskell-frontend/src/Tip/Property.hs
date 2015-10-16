@@ -28,7 +28,7 @@ trProperty :: Function Id -> Either String (Formula Id)
 trProperty (Function _name tvs [] res_ty b) = case unLam b of
   (args,e) -> do
     pr <- parseProperty e
-    return (Formula Prove tvs (mkQuant Forall args pr))
+    return (Formula Prove UserAsserted tvs (mkQuant Forall args pr))
   where
     unLam (Lam xs e) = let (ys,e') = unLam e in (xs ++ ys,e')
     unLam e          = ([],e)

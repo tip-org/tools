@@ -23,9 +23,9 @@ formulaBoolOpToIf :: Ord a => Expr a -> Expr a
 formulaBoolOpToIf e0 =
   case e0 of
     Builtin op :@: args@(a:_)
-      | op `elem` [And,Or,Not,Implies] ||
-        op `elem` [Equal,Distinct] && hasBoolType a ->
-        Builtin op :@: map formulaBoolOpToIf args
+      | op `elem` [And,Or,Not,Implies]
+        -- || op `elem` [Equal,Distinct] && hasBoolType a ->
+        -> Builtin op :@: map formulaBoolOpToIf args
     Quant qi q as e -> Quant qi q as (formulaBoolOpToIf e)
     _ -> boolOpToIf e0
 
@@ -115,10 +115,20 @@ removeBuiltinBoolFrom names = transformBi h . transformBi f . transformBi g
     h (BuiltinType Boolean) = TyCon (boolName names) []
     h ty                    = ty
 
-removeBuiltinBoolWith :: BoolNames a -> Theory a -> Theory a
+removeBuiltinBoolWith :: Ord a => BoolNames a -> Theory a -> Theory a
 removeBuiltinBoolWith names@BoolNames{..} Theory{..}
-  = removeBuiltinBoolFrom names Theory{thy_datatypes=bool_decl:thy_datatypes,..}
+  = fixup_asserts
+  $ removeBuiltinBoolFrom names Theory{thy_datatypes=bool_decl:thy_datatypes,..}
   where
+    fixup_asserts Theory{..} = Theory{thy_asserts=map fixup_assert thy_asserts,..}
+    fixup_assert (Formula r i tvs b) = Formula r i tvs (fixup_expr b)
+    fixup_expr (Quant qi q vs e) = Quant qi q vs (fixup_expr e)
+    fixup_expr e
+      | TyCon tc [] <- exprType e
+      , tc == boolName
+      = boolExpr names True === e
+    fixup_expr e = e
+
     bool_decl = Datatype boolName [] [Constructor falseName isFalseName []
                                      ,Constructor trueName isTrueName []]
 

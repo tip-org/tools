@@ -95,8 +95,8 @@ ppFuncSig parv (Function f tyvars args res_ty body) content =
   parv tyvars (ppVar f $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
-ppFormula (Formula Assert tvs term) = apply "assert"     (par' tvs (ppExpr term))
+ppFormula (Formula Prove _ tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
+ppFormula (Formula Assert _ tvs term) = apply "assert"     (par' tvs (ppExpr term))
 
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])

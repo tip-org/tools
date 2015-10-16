@@ -118,7 +118,7 @@ ppDeepPattern (DeepVarPat (Local x _)) = ppVar x
 ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
-ppFormula (Formula role _tvs term) i =
+ppFormula (Formula role _ _tvs term) i =
   (ppRole role <+> ("x" <> int i) <+> ":") $\ (ppExpr 0 term)
 
 ppRole :: Role -> Doc

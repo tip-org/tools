@@ -37,6 +37,8 @@ import Control.Monad
 import Tip.GenericInstances
 import Data.Generics.Geniplate
 
+import qualified Data.Foldable as F
+
 import qualified Tip.Parser as TipP
 
 import System.FilePath
@@ -157,7 +159,10 @@ readModules params@Params{..} cms = do
 
       (prop_errs,tip_props) = partitionEithers (map trProperty prop_fns)
 
-      thy = Theory tip_data [] [Signature Tip.Id.Error errorType] tip_fns tip_props
+      thy = Theory tip_data [] [ Signature Tip.Id.Error errorType
+                               | any (Tip.Id.Error `F.elem`) tip_fns ||
+                                 any (Tip.Id.Error `F.elem`) tip_props
+                               ] tip_fns tip_props
 
       errs = data_errs ++ fn_errs ++ prop_errs
 

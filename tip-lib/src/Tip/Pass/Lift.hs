@@ -85,7 +85,7 @@ axLamFunc Function{..} =
   case func_body of
     Lam lam_args e ->
       let abs = Signature func_name (PolyType func_tvs (map lcl_type func_args) func_res)
-          fm  = Formula Assert func_tvs
+          fm  = Formula Assert (Defunction func_name) func_tvs
                   (mkQuant
                     Forall
                     (func_args ++ lam_args)
