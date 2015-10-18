@@ -51,7 +51,7 @@ skolemiseConjecture' thy =
   where
   (goals,assums) = theoryGoals thy
 
-  formula r tvs (Quant (QuantIH i) q vs e) = Formula r (IH i) tvs (Quant NoInfo q vs e)
+  formula r tvs (Quant (QuantIH i) q vs e) = Formula r (IH i) tvs (mkQuant q vs e)
   formula r tvs e = Formula r Unknown tvs e
 
 skolemise :: Expr a -> Writer ([Local a],[Expr a]) (Expr a)
