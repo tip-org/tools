@@ -1,8 +1,8 @@
-current development version:
+tip-haskell-frontend 0.2 (released 2015-10-28):
 * Depend on ghc-simple by Anton Ekblad, and simplify the internals.
 * Export readHaskellOrTipFile.
 * Add Tip.Prelude
-* Add question
+* Add question (synonymous to neg)
 
 tip-haskell-frontend 0.1.1 (released 2015-06-11):
 * Relax dependency on tip-lib to >= 0.1.1 && <= 0.2.

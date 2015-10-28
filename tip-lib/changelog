@@ -1,24 +1,16 @@
-current development version:
-* New option remove_variable_scrutinee_in_branches in Simplifier.
-  (The simplifier could instead be parameterised
-   on things to simplify, i.e. Let,Match,Lambda+At,Builtins, and so on.)
-* Export Tip.Utils.usortOn, duplicates, cursor, unionOn and withPrevious
-* Export Tip.Parser.parseFile
-* PrettyVar instance for Either
+tip-lib 0.2 (released 2015-10-28):
+* New output modes:
+    * Haskell with support for Feat, QuickCheck, LazySmallCheck, and smten.
+    * TFF
+    * SMTLIB with axiomatised function definitions
+* New passes to manipulate assertions,
+  apply structural induction, monomorphise, transform
+  booleans and integers, axiomatize function declarations.
 * Parser changes:
     * Support declare-const, define-fun, define-fun-rec.
     * Correctly handle let-expressions
 * Pretty print chained let expressions in groups
-* Add --axiomatize-funcdefs pass
-* Add --monomorphise pass and Tip.Utils.Specialiser
-* Sorts take a list of type variables instead of an Int
-* Add applyTypeInExpr, applyTypeInDecl
-* Add PPVar drop-in replacement for variables with a Pretty instance
-* Add Decl view of Theory
-* Add gentleNoInline as an Simplify option
-* Add --make-conjecture
-* Add --drop-suffix
-* Add Tip.Core.makeLets, collectLets, forallView, theoryTypes
+* New helper exports in Tip.Core and Tip.Utils
 
 tip-lib 0.1.2 (released 2015-06-11):
 * Make haddock documentation build (reported by Peter Simons.)
