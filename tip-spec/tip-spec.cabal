@@ -31,7 +31,7 @@ library
                        tip-lib,
                        testing-feat,
                        hint,
-                       quickspec,
+                       quickspec >= 2,
                        term-rewriting
 
 executable tip-spec
