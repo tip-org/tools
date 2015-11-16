@@ -24,7 +24,7 @@ formulaBoolOpToIf e0 =
   case e0 of
     Builtin op :@: args@(a:_)
       | op `elem` [And,Or,Not,Implies]
-        -- || op `elem` [Equal,Distinct] && hasBoolType a ->
+        --  || op `elem` [Equal,Distinct] && hasBoolType a ->
         -> Builtin op :@: map formulaBoolOpToIf args
     Quant qi q as e -> Quant qi q as (formulaBoolOpToIf e)
     _ -> boolOpToIf e0

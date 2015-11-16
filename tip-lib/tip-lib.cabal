@@ -1,5 +1,5 @@
 name:                tip-lib
-version:             0.2
+version:             0.2.1
 synopsis:            tons of inductive problems - support library and tools
 description:         This package provides a tool for processing inductive theorem proving problems in TIP format (see the homepage for details).
 homepage:            http://tip-org.github.io
