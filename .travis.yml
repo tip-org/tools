@@ -2,6 +2,7 @@ language: haskell
 
 ghc:
     - 7.8
+    - "7.10"
 
 install:
     - export PATH=$HOME/.cabal/bin:$PATH
