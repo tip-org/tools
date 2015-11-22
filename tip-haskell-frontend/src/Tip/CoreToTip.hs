@@ -121,17 +121,10 @@ trTyCon tc = do
             }
 
 -- | Translate a definition
---
--- This does not work when
--- f = g
--- when it "should" be
--- f = /\ a . g @a
 trDefn :: Var -> CoreExpr -> TM [Function Id]
 trDefn v e = do
-    let (tvs,ty) = splitForAllTys (C.exprType e)
-    ty' <- lift (trType ty)
-    let (tvs',body) = collectTyBinders e
-    when (tvs /= tvs') (fail "Type variables do not match in type and lambda!")
+    (tvs,body) <- collectTyBindersPad (fst (splitForAllTys (C.exprType e))) e
+    ty <- lift (trType (C.exprType body))
     (body',fns) <- runWriterT (trExpr (tyAppBeta body))
     let v' = idFromVar v
     let rn x | x `elem` map func_name fns = Just (x `LiftedFrom` v')
@@ -140,9 +133,24 @@ trDefn v e = do
         { func_name    = v'
         , func_tvs     = map idFromTyVar tvs
         , func_args    = []
-        , func_res     = ty'
+        , func_res     = ty
         , func_body    = body'
         }] ++ fns
+  where
+  -- When
+  --    f = g
+  -- but g has a forall-type, we expand it to
+  --    f = /\ a . g @a
+  -- The type variable a is stolen from g's type
+  collectTyBindersPad tvs_type e
+    | length tvs_type > length tvs_lam
+      = do let tvs_extra = drop (length tvs_lam) tvs_type
+           when (any (`elem` tvs_extra) tvs_lam) (fail "Type variables collide in type and in lambda")
+           return (tvs_lam ++ tvs_extra,body `mkApps` map (Type . mkTyVarTy) tvs_extra)
+    | length tvs_type == length tvs_lam = return (tvs_lam,body)
+    | otherwise = fail "Too many type variables in lambda"
+    where (tvs_lam,body) = collectTyBinders e
+
 
 rename :: (Functor f,Ord a) => (a -> Maybe a) -> f a -> f a
 rename lk = fmap (\ x -> fromMaybe x (lk x))
