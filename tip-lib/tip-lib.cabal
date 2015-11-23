@@ -35,6 +35,7 @@ library
     Tip.Pretty.Isabelle
     Tip.Pretty.Haskell
     Tip.Pretty.TFF
+    Tip.Pretty.Waldmeister
 
     Tip.Parser
 

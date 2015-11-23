@@ -8,6 +8,7 @@ import Tip.Pretty.TFF as TFF
 import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
 import Tip.Pretty.Haskell as HS
+import Tip.Pretty.Waldmeister as Waldmeister
 import Tip.Pretty
 import Tip.CallGraph
 
@@ -20,7 +21,7 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle | TIP | TFF
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle | TIP | TFF | Waldmeister
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -36,6 +37,7 @@ parseOutputMode =
   <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
   <|> flag' Isabelle (long "isabelle" <> help "Isabelle output")
   <|> flag' TFF (long "tff" <> help "TPTP TFF output")
+  <|> flag' Waldmeister (long "waldmeister" <> help "Waldmeister output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
 
 optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
@@ -92,6 +94,17 @@ handle passes mode multipath s =
                   , SimplifyGently, AxiomatizeDatadecls
                   ]
                 , "p")
+              Waldmeister ->
+                ( Waldmeister.ppTheory . freshPass uniqLocals
+                , passes ++
+                  [ TypeSkolemConjecture, Monomorphise False
+                  , LambdaLift, AxiomatizeLambdas, LetLift
+                  , CollapseEqual, RemoveAliases
+                  , Monomorphise False
+                  , AxiomatizeFuncdefs2, AxiomatizeDatadeclsUEQ
+                  , SkolemiseConjecture
+                  ]
+                , "w")
               Haskell m -> (HS.ppTheory m,     passes, "hs")
               Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
               Isabelle  -> (Isabelle.ppTheory, passes, "thy")
