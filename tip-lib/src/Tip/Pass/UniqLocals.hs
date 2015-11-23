@@ -8,13 +8,15 @@ import Tip.Fresh
 import Control.Monad.State
 import Control.Applicative
 
+import Data.Traversable as T
+
 import qualified Data.Map as M
 import qualified Data.Set as S
 
 uniqLocals :: forall a . Name a => Theory a -> Fresh (Theory a)
 uniqLocals thy
   = fmap declsToTheory
-  . mapM (flip evalStateT M.empty . traverse uq)
+  . mapM (flip evalStateT M.empty . T.traverse uq)
   . theoryDecls
   $ thy
   where
