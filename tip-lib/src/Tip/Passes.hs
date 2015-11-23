@@ -57,6 +57,7 @@ module Tip.Passes
   , induction
 
   -- * Miscellaneous
+  , uniqLocals
   , dropSuffix
 
   -- * Building pass pipelines
@@ -84,6 +85,7 @@ import Tip.Pass.AxiomatizeFuncdefs
 import Tip.Pass.AxiomatizeDatadecls
 import Tip.Pass.SelectConjecture
 import Tip.Pass.DropSuffix
+import Tip.Pass.UniqLocals
 import Tip.Pass.Induction
 
 import Tip.Fresh
@@ -128,6 +130,7 @@ data StandardPass
   | ProvedConjecture Int
   | DeleteConjecture Int
   | DropSuffix String
+  | UniqLocals
   | Induction [Int]
  deriving (Eq,Ord,Show,Read)
 
@@ -168,6 +171,7 @@ instance Pass StandardPass where
     ProvedConjecture n   -> single $ return . provedConjecture n
     DeleteConjecture n   -> single $ return . deleteConjecture n
     DropSuffix cs        -> single $ dropSuffix cs
+    UniqLocals           -> single $ uniqLocals
     Induction coords     -> induction coords
     where single m thy = do x <- m thy; return [x]
   parsePass =
@@ -255,6 +259,8 @@ instance Pass StandardPass where
           long "drop-suffix" <>
           metavar "SUFFIX-CHARS" <>
           help "Drop the suffix delimited by some character set",
+      unitPass UniqLocals $
+        help "Make all local variables unique",
       fmap Induction $
         option auto $
           long "induction" <>

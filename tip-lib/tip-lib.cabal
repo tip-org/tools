@@ -58,6 +58,7 @@ library
     Tip.Pass.Conjecture
     Tip.Pass.CSEMatch
     Tip.Pass.DropSuffix
+    Tip.Pass.UniqLocals
     Tip.Pass.EliminateDeadCode
     Tip.Pass.EqualFunctions
     Tip.Pass.FillInCases
