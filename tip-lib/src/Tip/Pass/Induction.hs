@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE CPP #-}
 module Tip.Pass.Induction where
 
@@ -6,6 +7,8 @@ module Tip.Pass.Induction where
 import Tip.Core
 import Tip.Fresh
 import Induction.Structural
+
+import Tip.Pretty.SMT as SMT
 
 import Control.Applicative
 
@@ -39,8 +42,14 @@ trTerm (Fun f tms) = Builtin At :@: (Lcl f:map trTerm tms)
 induction :: (Name a,Ord a) => [Int] -> Theory a -> Fresh [Theory a]
 induction coords thy@Theory{..} =
   case goal of
-    Formula Prove i tvs (Quant qi Forall lcls body)
-      | cs@(_:_) <- [ x | x <- coords, x >= length lcls || x < 0 ] -> error $ "Induction coordinates " ++ show cs ++ " out of bounds!"
+    Formula Prove i tvs (forallView -> (lcls@(_non:_empty),body))
+      | cs@(_:_) <-
+          [ x | x <- coords, x >= length lcls || x < 0 ]
+          -> error $ unlines
+               [ "In theory: " ++ show (SMT.ppTheory thy)
+               , "Induction coordinates " ++ show cs ++ " out of bounds!"
+               , "on goal: " ++ show (SMT.ppFormula goal)
+               ]
       | otherwise ->
       do (obligs,_) <-
            unTagMapM
