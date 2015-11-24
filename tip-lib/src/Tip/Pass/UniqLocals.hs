@@ -5,10 +5,11 @@ import Tip.Core
 import Tip.Scope as Scope
 import Tip.Fresh
 
+import Control.Monad
 import Control.Monad.State
 import Control.Applicative
 
-import Data.Traversable as T
+import qualified Data.Traversable as T
 
 import qualified Data.Map as M
 import qualified Data.Set as S
