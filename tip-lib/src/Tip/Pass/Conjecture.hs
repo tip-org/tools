@@ -86,10 +86,11 @@ typeSkolemConjecture thy =
   isProve _ = False
 
   ty_skolem1 thy (Formula Prove i tvs form) = do
-    tvs' <- mapM (refreshNamed "sk_") tvs
+    tv <- freshNamed "sk"
+    let tvs' = replicate (length tvs) tv
     return thy {
       thy_asserts = Formula Prove i [] (makeTyCons (zip tvs tvs') form):thy_asserts thy,
-      thy_sorts = [ Sort tv [] | tv <- tvs' ] ++ thy_sorts thy }
+      thy_sorts = [ Sort tv [] ] ++ thy_sorts thy }
 
   makeTyCons tvs =
     transformTypeInExpr $ \ty ->
