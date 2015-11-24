@@ -24,6 +24,7 @@ import Control.Monad.Writer
 import Data.Generics.Geniplate
 
 import Data.List (union)
+import Data.Maybe (catMaybes)
 
 import Debug.Trace
 
@@ -102,7 +103,8 @@ typeRecords t = usort $
     ] ++
     [ Con TyArr (map trType (args ++ [res]))
     | args :=>: res :: Type a <- universeBi t
-    ]
+    ] ++
+    [ Var x | TyVar x :: Type a <- universeBi t ]
 
 exprRecords :: forall a . Ord a => Tip.Expr a -> [Expr (Con a) a]
 exprRecords e = usort $ exprGlobalRecords e ++ exprTypeRecords e
@@ -227,8 +229,9 @@ declToRule enthusiastic_function_inst d = usort $ case d of
                ]
 
     FuncDecl (Function f tvs args res body) ->
-        [ Rule (exprGlobalRecords body) (Con (Pred f) (map Var tvs))
-        | enthusiastic_function_inst ] ++
+        catMaybes
+          [ safeRule (Rule (exprGlobalRecords body) (Con (Pred f) (map Var tvs)))
+          | enthusiastic_function_inst ] ++
         sigRule f tvs (map lcl_type args) res ++
         map (Rule [Con (Pred f) (map Var tvs)]) (exprGlobalRecords body)
 

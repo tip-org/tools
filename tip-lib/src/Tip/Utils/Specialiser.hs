@@ -7,7 +7,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
 module Tip.Utils.Specialiser
-    (specialise, Rule(..), Expr(..),
+    (specialise, safeRule, Rule(..), Expr(..),
      Void, absurd,
      Closed, subtermRules, subterms, Subst, Inst) where
 
@@ -20,6 +20,7 @@ import Control.Applicative
 import Control.Monad
 import Data.Maybe
 import Data.Foldable (Foldable)
+import qualified Data.Foldable as F
 import Data.Traversable (Traversable)
 
 import Data.Set (Set)
@@ -28,6 +29,8 @@ import qualified Data.Set as S
 import Data.Generics.Genifunctors
 
 import Text.PrettyPrint
+
+import Debug.Trace
 
 data Expr c a = Var a | Con c [Expr c a]
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
@@ -48,12 +51,23 @@ bimapRule = $(genFmap ''Rule)
 mapRuleOrd :: (c -> c') -> Rule c a -> Rule c' a
 mapRuleOrd c = bimapRule c id
 
-instance (Pretty c,Pretty a) => Pretty (Expr c a) where
+instance (Pretty a,Pretty c) => Pretty (Expr c a) where
   pp (Var x)    = pp x
   pp (Con k es) = pp k <+> parens (fsep (punctuate "," (map pp es)))
 
-instance (Pretty c,Pretty a) => Pretty (Rule c a) where
-  pp (Rule ps q) = parens (fsep (punctuate "," (map pp ps))) <+> "=>" $\ pp q
+instance (Eq a, Pretty a,Pretty c) => Pretty (Rule c a) where
+  pp r@(Rule ps q) = parens (fsep (punctuate "," (map pp ps))) <+> "=>" $\ pp q
+                    $\ (if badRule r then " (bad rule!!)" else Text.PrettyPrint.empty)
+
+-- ok : a b c -> b c
+-- bad: b c -> a b c
+badRule :: Eq a => Rule c a -> Bool
+badRule (Rule ps q) = or [ qv `notElem` concatMap F.toList ps | qv <- F.toList q ]
+
+safeRule :: Eq a => Rule c a -> Maybe (Rule c a)
+safeRule r
+  | badRule r = Nothing
+  | otherwise = Just r
 
 subtermRules :: Rule c a -> [Rule c a]
 subtermRules (Rule p q) = map (Rule p) (subterms q)
@@ -104,7 +118,14 @@ specialise decl_rules = (which (usort (go [close [] s | (_,Rule [] s) <- named_r
 
   go :: [Closed c] -> [Closed c]
   go insts
-    | null (new_insts \\ insts) = []
+    {-
+    | traceShow ("go" $\ sep ["insts:" $\ pp insts
+                             ,"new_insts:" $\ pp new_insts
+                             ,"new:" $\ pp new
+                             ])
+                False = undefined
+    -}
+    | null (new_insts \\ insts) = new_insts
     | otherwise                 = new_insts `union` go (new_insts `union` insts)
     where
     new_insts = usort $ map (snd . snd) new
@@ -114,7 +135,7 @@ specialise decl_rules = (which (usort (go [close [] s | (_,Rule [] s) <- named_r
   which cls = usort [ (d,i) | (d,(i,_)) <- step named_rules cls ]
 
 -- Return the safe rules, and the scary rules
-separate :: (Ord a,Ord c) => [(name,Rule c a)] -> ([name],[name])
+separate :: (Ord c,Ord a) => [(name,Rule c a)] -> ([name],[name])
 separate = go []
   where
   go rs ((n,r):xs)
@@ -122,7 +143,7 @@ separate = go []
     | otherwise          = let (a,b) = go rs     xs in (  a,n:b)
   go _ _ = ([],[])
 
-terminating :: forall a c . (Ord a,Ord c) => [Rule c a] -> Bool
+terminating :: forall a c . (Ord c,Ord a) => [Rule c a] -> Bool
 terminating (map (mapRuleOrd Old) -> rs) = go 10 S.empty (usort (inst rs))
   where
   go :: Int -> Set (Closed (Sk c)) -> [Closed (Sk c)] -> Bool

@@ -23,4 +23,5 @@ script:
     - tip <(tip-ghc examples/Case.hs)
     - tip-ghc examples/Props.hs
     - tip <(tip-ghc examples/Props.hs)
+    - tip examples/simple-monomorphisation.smt2 --monomorphise
 
