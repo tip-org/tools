@@ -2,13 +2,14 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
-module Tip.Pass.Lift (lambdaLift, letLift, axiomatizeLambdas) where
+module Tip.Pass.Lift (lambdaLift, letLift, axiomatizeLambdas, boolOpLift) where
 
 #include "errors.h"
 import Tip.Core
 import Tip.Fresh
 import Tip.Utils
 
+import Data.Char (toLower)
 import Data.Either
 import Data.List
 import Data.Generics.Geniplate
@@ -96,6 +97,7 @@ axLamFunc Function{..} =
       in  Just (abs,fm)
     _ -> Nothing
 
+
 -- | Axiomatize lambdas.
 --
 -- > f x = \ y -> E[x,y]
@@ -161,4 +163,30 @@ axiomatizeLambdas thy0 = do
 mkTyVarName :: Int -> String
 mkTyVarName x = vars !! x
   where vars = ["a","b","c","d"] ++ ["t" ++ show i | i <- [0..]]
+
+
+boolOpTop :: Name a => TopLift a
+boolOpTop e0 =
+  case e0 of
+    Builtin x :@: es | x `elem` [And,Or,Implies] ->
+      do f <- lift (freshNamed (map toLower (show x)))
+         as <- lift (sequence [ (`Local` boolType) <$> fresh | _ <- es ])
+         let fn = Function f [] as boolType (Builtin x :@: map Lcl as)
+         tell [fn]
+         return (applyFunction fn [] es)
+    _ -> return e0
+
+
+-- | Lifts boolean operators to the top level
+--
+-- replaces
+--   (and r s t)
+-- with
+--   f r s t
+-- and
+--   f x y z = and x y z
+--
+-- Run  CollapseEqual and BoolOpToIf afterwards
+boolOpLift :: Name a => Theory a -> Fresh (Theory a)
+boolOpLift = liftTheory boolOpTop
 
