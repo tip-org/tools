@@ -1,3 +1,10 @@
+tip-lib 0.2.2 (released 2015-12-15):
+* New passes: --bool-op-lift, --uniq-locals
+* New output mode: Waldmeister
+* Type skolemise conjectures more economoically
+* Allow induction in presence of nested quantifiers
+* Small bug fixes
+
 tip-lib 0.2.1 (released 2015-11-16):
 * Make haddock documentation build
 
