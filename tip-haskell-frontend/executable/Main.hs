@@ -43,7 +43,7 @@ main = do
         let pipeline =
               freshPass $
                 runPasses
-                  [ SimplifyAggressively
+                  [ SimplifyGently
                   , RemoveNewtype
                   , UncurryTheory
                   , CommuteMatch

@@ -37,6 +37,10 @@ import TyCon hiding (data_cons)
 import Type as C
 import GHC (dataConType)
 
+-- void# described in mkFailurePart in compiler/deSugar/DsUtils.hs
+import TysPrim (voidPrimTy)
+import MkId (voidPrimId)
+
 import TysWiredIn
 import PrelNames (gHC_REAL)
 
@@ -252,12 +256,17 @@ trExpr e0 = case collectTypeArgs e0 of
     (_, _:_) -> throw (msgTypeApplicationToExpr e0)
     (C.Lit l, _) -> literal <$> trLit l
 
-    (C.App e1 e2, _) -> (\ x y -> Builtin At :@: [x,y]) <$> trExpr e1 <*> trExpr e2
+    (C.App e1 e2, _)
+      | C.Var x <- e2, x == voidPrimId -> trExpr e1 -- (\ x -> Builtin At :@: [x]) <$> trExpr e1
+      | otherwise -> (\ x y -> Builtin At :@: [x,y]) <$> trExpr e1 <*> trExpr e2
 
-    (C.Lam x e, _) -> do
-        t <- ll (trType (varType x))
-        e' <- local (x:) (trExpr e)
-        return (Tip.Lam [Local (idFromVar x) t] e')
+
+    (C.Lam x e, _)
+       | varType x `eqType` voidPrimTy -> {- Tip.Lam [] <$> -} trExpr e
+       | otherwise -> do
+           t <- ll (trType (varType x))
+           e' <- local (x:) (trExpr e)
+           return (Tip.Lam [Local (idFromVar x) t] e')
 
     (C.Let (C.NonRec v b) e, _) -> do
         vt <- ll (trType (varType v))
@@ -384,7 +393,10 @@ trType :: C.Type -> Either String (Tip.Type Id)
 trType = go . expandTypeSynonyms
   where
     go t0
-        | Just (t1,t2) <- splitFunTy_maybe t0    = (\ x y -> [x] :=>: y) <$> go t1 <*> go t2
+        | Just (t1,t2) <- splitFunTy_maybe t0    =
+            if t1 `eqType` voidPrimTy
+               then go t2 -- ([] :=>:) <$> go t2
+               else (\ x y -> [x] :=>: y) <$> go t1 <*> go t2
         | Just (tc,[]) <- splitTyConApp_maybe t0, essentiallyInteger tc = return intType
         | Just (tc,[]) <- splitTyConApp_maybe t0, tc == boolTyCon       = return boolType
         | Just (tc,ts) <- splitTyConApp_maybe t0 = TyCon (idFromTyCon tc) <$> mapM go ts
