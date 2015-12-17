@@ -12,6 +12,7 @@ import Control.Applicative
 import Control.Monad
 import qualified Data.Map as Map
 import Tip.Writer
+import Tip.Utils
 
 -- | Options for the simplifier
 data SimplifyOpts a =
@@ -84,6 +85,35 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
              if simplified then hooray $ return e2 else return e0
 
         Match _ [Case Default body] -> hooray $ return body
+
+        -- eta for match
+        Match e brs
+          | and [ case br of
+                    Case (ConPat g as) (Gbl k :@: es) ->
+                      g == k && and [ Lcl a == e | (a,e) <- zip as es ]
+                    Case _ e' -> e == e'
+                | br <- brs
+                ]
+          -> hooray $ return e
+
+        -- let x = case e of pi -> ai
+        -- in  case e of
+        --       pi -> bi
+        --
+        -- => case e of pi -> let xi = ai in bi[xi/x]
+        Let x (Match e as) rest
+          | (Match e' bs,ctx):_ <-
+              [ (Match e' bs,ctx)
+              | (Match e' bs,ctx) <- usePoints (lcl_name x) rest
+              , e == e'
+              ]
+          -> do brs <-
+                  sequence
+                    [ do xi <- lift (refreshLocal x)
+                         return (Case p (Let xi a (unsafeSubst (Lcl xi) x b)))
+                    | (p,a,b) <- align as bs
+                    ]
+                return (ctx (Match e brs))
 
         Match e (Case Default (Match e' cases'):cases) | e == e' ->
           hooray $ aux $
@@ -244,3 +274,56 @@ tryMatch mscp (hd :@: args) alts | isConstructor mscp hd =
     matches _ Default = True
     matches _ _ = False
 tryMatch _ _ _ = Nothing
+
+align :: Ord a => [Case a] -> [Case a] -> [(Pattern a,Expr a,Expr a)]
+align ls rs =
+  [ (Default,l,r)
+  | (Just l,Just r) <- [(mdl,mdr)]
+  ] ++
+  [ case (find (lk p . case_pat) ls,find (lk p . case_pat) rs) of
+      (Just (Case pl el), Just (Case pr er)) -> (pr,su pl pr el,er)
+      (Just (Case p e),   Nothing)           -> (p,e,dr)
+      (Nothing,           Just (Case p e))   -> (p,dl,e)
+  | p <- pats
+  ]
+  where
+  pats = usort (mapMaybe (tr . case_pat) (ls ++ rs))
+
+  mdl@(~(Just dl)) = case ls of Case Default e:_ -> Just e
+                                _                -> Nothing
+  mdr@(~(Just dr)) = case ls of Case Default e:_ -> Just e
+                                _                -> Nothing
+
+  tr (ConPat g _as) = Just (Left g)
+  tr (LitPat l)     = Just (Right l)
+  tr Default        = Nothing
+
+  lk (Left g')  (ConPat g _as) = g == g'
+  lk (Right l') (LitPat l)     = l == l'
+  lk _          _              = False
+
+  su (ConPat _ as) (ConPat _ bs) e = foldr (uncurry unsafeSubst) e (map Lcl bs `zip` as)
+  su _ _ e = e
+
+usePoints :: Eq a => a -> Expr a -> [(Expr a,Expr a -> Expr a)]
+usePoints x e =
+  case e of
+    Let y l r
+      | x `notElem` l -> rebuild (\ r' -> Let y l  r') (usePoints x r)
+      | x `notElem` r -> rebuild (\ l' -> Let y l' r)  (usePoints x l)
+
+    Match e brs
+      | all (x `notElem`) brs -> rebuild (\ e' -> Match e' brs) (usePoints x e)
+      | x `notElem` e
+      , [res] <-
+          [ rebuild (\ rhs' -> Match e (l ++ [Case p rhs'] ++ r))
+                    (usePoints x rhs)
+          | (l,Case p rhs,r) <- cursor brs
+          , and [ x `notElem` b | b <- l ++ r ]
+          ]
+      -> res
+
+    _ -> [(e,id)]
+  where
+  rebuild f rks = [ (r,f . k) | (r,k) <- rks ] ++ [(e,id)]
+
