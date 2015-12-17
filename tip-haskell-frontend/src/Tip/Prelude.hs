@@ -46,10 +46,10 @@ half Z = Z
 half (S Z) = Z
 half (S (S n)) = S (half n)
 
-infixl 6 +
+infixr 6 +
 infixl 6 -
 
-infixl 7 *
+infixr 7 *
 
 infixr 8 ^
 
@@ -346,6 +346,8 @@ zlookup x [] = Nothing
 null :: [a] -> Bool
 null [] = True
 null _  = False
+
+infixr 5 ++
 
 (++) :: [a] -> [a] -> [a]
 []     ++ ys = ys
