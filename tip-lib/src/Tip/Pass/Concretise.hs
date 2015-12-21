@@ -22,8 +22,7 @@ import Tip.Utils
 nat_theory :: Theory Id
 Right nat_theory =
   parse
-    $  "(declare-datatypes () ((Nat (Z) (S (p Nat))))) (define-fun-rec lt ((x Nat) (y Nat)) Bool (match y (case Z false) (case (S z) (match x (case Z true) (case (S n) (lt n z)))))) (define-fun-rec le ((x Nat) (y Nat)) Bool (match x (case Z true) (case (S z) (match y (case Z false) (case (S x2) (le z x2)))))) (define-fun-rec gt ((x Nat) (y Nat)) Bool (match x (case Z false) (case (S z) (match y (case Z true) (case (S x2) (gt z x2)))))) (define-fun-rec ge ((x Nat) (y Nat)) Bool (match y (case Z true) (case (S z) (match x (case Z false) (case (S x2) (ge x2 z)))))) (define-fun-rec equal ((x Nat) (y Nat)) Bool (match x (case Z (match y (case Z true) (case (S z) false))) (case (S x2) (match y (case Z false) (case (S y2) (equal x2 y2)))))) (define-fun unequal ((x Nat) (y Nat)) Bool (not (equal x y)))"
-    ++ "(check-sat)"
+    "(declare-datatypes () ((Nat (Z) (S (p Nat))))) (define-fun-rec lt ((x Nat) (y Nat)) Bool (match y (case Z false) (case (S z) (match x (case Z true) (case (S n) (lt n z)))))) (define-fun-rec le ((x Nat) (y Nat)) Bool (match x (case Z true) (case (S z) (match y (case Z false) (case (S x2) (le z x2)))))) (define-fun-rec gt ((x Nat) (y Nat)) Bool (match x (case Z false) (case (S z) (match y (case Z true) (case (S x2) (gt z x2)))))) (define-fun-rec ge ((x Nat) (y Nat)) Bool (match y (case Z true) (case (S z) (match x (case Z false) (case (S x2) (ge x2 z)))))) (define-fun-rec equal ((x Nat) (y Nat)) Bool (match x (case Z (match y (case Z true) (case (S z) false))) (case (S x2) (match y (case Z false) (case (S y2) (equal x2 y2)))))) (define-fun unequal ((x Nat) (y Nat)) Bool (not (equal x y)))(check-sat)"
 
 renameWrt :: (Ord a,PrettyVar a,Name b) => Theory a -> f b -> Fresh (Theory b)
 renameWrt thy _wrt =
@@ -38,10 +37,13 @@ renameWrt thy _wrt =
 
 -- | Replaces abstract sorts with natural numbers
 sortsToNat :: forall a . Name a => Theory a -> Fresh (Theory a)
-sortsToNat thy
+sortsToNat = replaceSorts nat_theory
+
+replaceSorts :: forall a . Name a => Theory Id -> Theory a -> Fresh (Theory a)
+replaceSorts replacement_thy thy
   | null (thy_sorts thy) = return thy
   | otherwise =
-      do nat_thy <- nat_theory `renameWrt` thy
+      do nat_thy <- replacement_thy `renameWrt` thy
          let [nat] = thy_datatypes nat_thy
          let thy' =
                thy { thy_sorts = []
@@ -55,10 +57,13 @@ sortsToNat thy
 -- | Replaces the builtin Int to natural numbers,
 --   if the only operations performed on are related to int ordering
 intToNat :: forall a . Name a => Theory a -> Fresh (Theory a)
-intToNat thy
+intToNat = replaceInt nat_theory
+
+replaceInt :: forall a . Name a => Theory Id -> Theory a -> Fresh (Theory a)
+replaceInt replacement_thy thy
   | any bad bs = return thy
   | otherwise =
-     do nat_thy <- nat_theory `renameWrt` thy
+     do nat_thy <- replacement_thy `renameWrt` thy
 
         let [nat] = thy_datatypes nat_thy
 
