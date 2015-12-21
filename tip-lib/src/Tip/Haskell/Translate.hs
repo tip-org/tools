@@ -128,7 +128,12 @@ ufInfo Theory{thy_sigs} = (not (null imps),imps)
   where
   imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ <- thy_sigs]
 
-data Mode = Feat | QuickCheck | LazySmallCheck Bool | Smten | QuickSpec | Plain
+data Mode = Feat | QuickCheck
+  | LazySmallCheck
+     { with_depth_as_argument  :: Bool
+     , with_parallel_functions :: Bool
+     }
+  | Smten | QuickSpec | Plain
   deriving (Eq,Ord,Show)
 
 isLazySmallCheck LazySmallCheck{} = True
@@ -298,7 +303,9 @@ trTheory' mode thy@Theory{..} =
         [ (map tr_deepPattern dps,tr_expr Formula rhs)
         | (dps,rhs) <- patternMatchingView func_args func_body
         ]
-    | isLazySmallCheck mode && func_res == boolType
+    | isLazySmallCheck mode
+       && with_parallel_functions mode
+       && func_res == boolType
     ]
 
   prop_version f = Derived f "property"
@@ -316,14 +323,14 @@ trTheory' mode thy@Theory{..} =
                         | (name,_) <- info ]
                         Noop)
               ]
-            LazySmallCheck md ->
+            LazySmallCheck{..} ->
               [ funDecl (Exact "main") []
                   ((`mkDo` Noop)
                      $  [Bind (Exact "args") (Apply (sysEnv "getArgs") [])]
                      ++ [Stmt (fn name) | (name,_) <- info])
               ]
               where
-              fn name = case md of
+              fn name = case with_depth_as_argument of
                          False   -> Apply (lsc "test") [var name]
                          True    -> Apply (lsc "depthCheck")
                                       [read_head (var (Exact "args"))
@@ -436,10 +443,11 @@ trTheory' mode thy@Theory{..} =
   tr_head ts k (Builtin b)      = tr_builtin ts k b
   tr_head ts k (Gbl Global{..})
     | stay_prop = ((prop_version gbl_name,Expr),False)
-    | otherwise = ((gbl_name             ,Expr),False)
+    | otherwise = ((gbl_name             ,Expr),k == Formula)
     where
     stay_prop = k == Formula
              && isLazySmallCheck mode
+             && with_parallel_functions mode
              && polytype_res gbl_type == boolType
 
   tr_builtin :: [T.Type a] -> Kind -> T.Builtin -> ((a,Kind),Bool)
