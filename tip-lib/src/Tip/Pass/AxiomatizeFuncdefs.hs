@@ -8,9 +8,11 @@ import Tip.Core
 import Tip.Fresh
 import Tip.Scope
 
-import Data.List (delete)
+import Data.List (delete, nub, (\\))
 import Data.Generics.Geniplate
 import Control.Applicative
+
+import Tip.Pass.Conjecture
 
 -- | Transforms define-fun to declare-fun in the most straightforward way.
 --   All parts of the right hand side is preserved, including match and if-then-else.
@@ -49,24 +51,65 @@ axiomatizeFuncdefs2 thy@Theory{..} =
 axiomatize2 :: forall a . Ord a => Scope a -> Function a -> (Signature a, [Formula a])
 axiomatize2 scp fn@Function{..} =
   ( Signature func_name (funcType fn)
-  , map (Formula Assert (Definition func_name) func_tvs)
-     (ax func_args [] (map Lcl func_args) func_body)
+  , [ Formula Assert (Definition func_name) func_tvs $
+        mkQuant Forall vars
+          (pre ===> applyFunction fn (map TyVar func_tvs) args === body)
+    | (vars, pre, args, body) <- functionContexts scp fn
+    ]
   )
-  where
 
-  -- ax vars pre args body
-  --   ~=
-  -- forall vars . pre => f(args) = body
-  ax :: [Local a] -> [Expr a] -> [Expr a] -> Expr a -> [Expr a]
-  ax vars pre args e0 = case e0 of
-    Match s (Case Default def_rhs:alts) -> ax vars (pre ++ map (invert_pat s . case_pat) alts) args def_rhs ++ ax_alts s alts
-    Match s alts -> ax_alts s alts
-    Let x b e    -> ax (vars ++ [x]) (pre ++ [Lcl x === b]) args e
+recursionInduction :: forall a . Name a => Int -> [Int] -> Theory a -> Fresh [Theory a]
+recursionInduction f_num xs_nums thy =
+  case theoryGoals thy of
+    ([],_) -> return [thy]
+    (Formula Prove i tvs body:gs,assums) ->
+      do let (vars,e) = forallView body
+         let f = nub [ g | g@Global{..} <- universeBi e ] !! f_num
+         let fn:_ = [ h | h@Function{..} <- thy_funcs thy
+                        , func_name == gbl_name f ]
+         let ctxts = functionContexts (scope thy) fn
+         let xs = map (vars !!) xs_nums
+         let vars' = vars \\ xs
+         fms <-
+           sequence
+             [ do ihs <-
+                    sequence
+                      [ do vars'' <- mapM refreshLocal vars'
+                           mkQuant Forall vars'' <$>
+                             substMany (zip vars' (map Lcl vars'') ++ zip xs f_args) e
+                      | Gbl (Global f' _ _) :@: f_args <- universeBi body
+                      , f' == gbl_name f
+                      ]
+                  e' <- substMany (zip xs p_args) e
+                  return $
+                    mkQuant Forall (vars' ++ qs) ((pre ++ ihs) ===> e')
+             | (qs, pre, p_args, body) <- ctxts
+             ]
+         return
+           [ thy { thy_asserts = Formula Prove i tvs fm:gs ++ assums }
+           | fm <- fms
+           ]
+
+type Contexts a = [([Local a], [Expr a], [Expr a], Expr a)]
+
+-- functionContexts vars pre args body
+--   ~=
+--    [(vars, pre, args, body)]
+-- where each is
+--    forall vars . pre => f(args) = body
+-- or for rec ind
+--    forall vars . pre & P( ... body ...) => P(args)
+functionContexts :: forall a . Ord a => Scope a -> Function a -> Contexts a
+functionContexts scp Function{..} = go func_args [] (map Lcl func_args) func_body
+  where
+  go :: [Local a] -> [Expr a] -> [Expr a] -> Expr a -> Contexts a
+  go vars pre args e0 = case e0 of
+    Match s (Case Default def_rhs:alts) -> go vars (pre ++ map (invert_pat s . case_pat) alts) args def_rhs ++ go_alts s alts
+    Match s alts -> go_alts s alts
+    Let x b e    -> go (vars ++ [x]) (pre ++ [Lcl x === b]) args e
     Lam{}        -> __
     Quant{}      -> __
-    _            ->
-      -- e0 should now only be (:@:) and Lcl
-      [mkQuant Forall vars (pre ===> applyFunction fn (map TyVar func_tvs) args === e0)]
+    _            -> [(vars, pre, args, e0)]
     where
     invert_pat :: Expr a -> Pattern a -> Expr a
     invert_pat _ Default      = __
@@ -75,18 +118,18 @@ axiomatize2 scp fn@Function{..} =
       where
       Just (dt,c@(Constructor _ _ cargs)) = lookupConstructor (gbl_name k) scp
 
-    ax_alts :: Expr a -> [Case a] -> [Expr a]
-    ax_alts s alts = concat [ ax_pat s pat rhs | Case pat rhs <- alts ]
+    go_alts :: Expr a -> [Case a] -> Contexts a
+    go_alts s alts = concat [ go_pat s pat rhs | Case pat rhs <- alts ]
       where
-      ax_pat :: Expr a -> Pattern a -> Expr a -> [Expr a]
-      ax_pat _ Default       _   = __
-      ax_pat s (LitPat lit)  rhs = rec [] rhs s (literal lit)
-      ax_pat s (ConPat k bs) rhs = rec bs rhs s (Gbl k :@: map Lcl bs)
+      go_pat :: Expr a -> Pattern a -> Expr a -> Contexts a
+      go_pat _ Default       _   = __
+      go_pat s (LitPat lit)  rhs = rec [] rhs s (literal lit)
+      go_pat s (ConPat k bs) rhs = rec bs rhs s (Gbl k :@: map Lcl bs)
 
-      rec :: [Local a] -> Expr a -> Expr a -> Expr a -> [Expr a]
+      rec :: [Local a] -> Expr a -> Expr a -> Expr a -> Contexts a
       rec new e (Lcl x) pat_expr =
         let su = unsafeSubst pat_expr x
-        in  ax (delete x vars ++ new) (map su pre) (map su args) (su e)
+        in  go (delete x vars ++ new) (map su pre) (map su args) (su e)
 
-      rec new e scrut   pat_expr = ax (vars ++ new) (pre ++ [scrut === pat_expr]) args e
+      rec new e scrut   pat_expr = go (vars ++ new) (pre ++ [scrut === pat_expr]) args e
 

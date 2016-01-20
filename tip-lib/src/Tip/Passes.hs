@@ -56,6 +56,7 @@ module Tip.Passes
 
   -- * Induction
   , induction
+  , recursionInduction
 
   -- * Miscellaneous
   , uniqLocals
@@ -134,6 +135,7 @@ data StandardPass
   | DropSuffix String
   | UniqLocals
   | Induction [Int]
+  | RecursionInduction Int [Int]
  deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
@@ -176,6 +178,7 @@ instance Pass StandardPass where
     DropSuffix cs        -> single $ dropSuffix cs
     UniqLocals           -> single $ uniqLocals
     Induction coords     -> induction coords
+    RecursionInduction fn xsns -> recursionInduction fn xsns
     where single m thy = do x <- m thy; return [x]
   parsePass =
     foldr (<|>) empty [
@@ -270,5 +273,10 @@ instance Pass StandardPass where
         option auto $
           long "induction" <>
           metavar "VAR-COORD" <>
-          help "Perform induction on the variable coordinates"
+          help "Perform induction on the variable coordinates",
+      fmap (uncurry RecursionInduction) $
+        option auto $
+          long "ri" <>
+          metavar "COORDS" <>
+          help "Perform recursion induction"
       ]
