@@ -19,6 +19,7 @@ import FastString (unpackFS)
 #endif
 
 import Tip.Core as Tip
+import Tip.Dicts (varFromRealModule)
 
 import CoreUtils as C
 import CoreSyn as C
@@ -175,6 +176,7 @@ trVar x []
   , Just bu <- case getOccString x of
                 "div" -> Just IntDiv
                 "mod" -> Just IntMod
+                _     -> Nothing
   = return
       $ Tip.Lam [ghcInt 0]
       $ Tip.Lam [ghcInt 1]
@@ -247,6 +249,7 @@ errorCall ty = Gbl (Global Error errorType [ty]) :@: []
 -- The type variables applied to constructors in case patterns is
 -- not immediately available in GHC Core, so this has to be reconstructed.
 trExpr :: CoreExpr -> TMW (Tip.Expr Id)
+trExpr (App (App (Var f) (Type t)) (Var d)) | any (varFromRealModule f) ["mod","div"] = trVar f []
 trExpr e0 = case collectTypeArgs e0 of
     (C.App (C.App (C.Var patError) (C.Type ty)) (C.Lit _), _)
       | varUnique patError == PrelNames.patErrorIdKey -> do
