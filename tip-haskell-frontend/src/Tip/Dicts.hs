@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell, MultiParamTypeClasses, FlexibleContexts, NamedFieldPuns #-}
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Tip.Dicts (inlineDicts,maybeUnfolding) where
+module Tip.Dicts (inlineDicts,maybeUnfolding,varFromRealModule) where
 
 import Tip.GHCUtils (showOutputable)
 #if __GLASGOW_HASKELL__ >= 708
