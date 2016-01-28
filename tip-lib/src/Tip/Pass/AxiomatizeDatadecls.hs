@@ -5,7 +5,7 @@ module Tip.Pass.AxiomatizeDatadecls where
 #include "errors.h"
 import Tip.Core
 import Tip.Fresh
-import Tip.Scope
+import Tip.Scope (dataTypeGlobals, GlobalInfo(..), globalType)
 
 import Data.List (tails)
 import Data.Monoid
@@ -68,8 +68,7 @@ trDatatype ueq dt@Datatype{..} =
        declsToTheory $
            [ SortDecl (Sort data_name data_tvs) ]
         ++ [ SigDecl (Signature gbl (globalType gbl_info))
-           | let scp = scope emptyTheory { thy_datatypes = [dt] }
-           , (gbl,gbl_info) <- M.toList (Tip.Scope.globals scp)
+           | (gbl,gbl_info) <- dataTypeGlobals dt
            , case gbl_info of
                DiscriminatorInfo{} -> False
                _ -> True

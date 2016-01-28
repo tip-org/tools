@@ -48,7 +48,8 @@ library
     Tip.Haskell.Translate
     Tip.Haskell.Rename
     Tip.CallGraph
-    Tip.Utils.Specialiser
+    Tip.Utils.Horn
+    Tip.Utils.SetCover
 
     Tip.Pass.Booleans
   other-modules:
@@ -92,6 +93,8 @@ library
                        pretty,
                        array,
                        optparse-applicative,
+                       twee,
+                       minisat,
                        structural-induction >= 0.3 && < 0.4
   build-tools:         alex, happy
 

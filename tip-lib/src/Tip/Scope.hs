@@ -49,6 +49,8 @@ globalType (ConstructorInfo dt con) = constructorType dt con
 globalType (ProjectorInfo dt _ _ ty) = destructorType dt ty
 globalType (DiscriminatorInfo dt _) = destructorType dt (BuiltinType Boolean)
 
+dataTypeGlobals :: (PrettyVar a,Ord a) => Datatype a -> [(a,GlobalInfo a)]
+dataTypeGlobals dt = M.toList (globals (scope emptyTheory { thy_datatypes = [dt] }))
 
 isType, isTyVar, isSort, isLocal, isGlobal :: Ord a => a -> Scope a -> Bool
 isType x s = M.member x (types s)
