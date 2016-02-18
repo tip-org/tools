@@ -387,7 +387,7 @@ trTheory' mode thy@Theory{..} =
     assume e =
       case r of
         Prove  -> e
-        Assert -> Apply (tipDSL "assume") [e]
+        Assert -> e -- Apply (tipDSL "assume") [e]
 
   tr_deepPattern :: DeepPattern a -> H.Pat a
   tr_deepPattern (DeepConPat Global{..} dps) = H.ConPat gbl_name (map tr_deepPattern dps)

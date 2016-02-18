@@ -48,7 +48,7 @@ instance (PrettyVar a,Pretty a) => Pretty (Head a) where
   pp (Con x)  = pp x
   pp Arrow{}  = "=>"
   pp (Bun bu) = ppBuiltinType bu
-  pp (Decl d) = text ("Decl" ++ declName d)
+  pp (Decl d) = text ("Decl_" ++ declName d)
   pp S        = "S"
   pp Z        = "Z"
   pp N        = "n"
@@ -57,7 +57,7 @@ declName (SortDecl (Sort t _)) = varStr t
 declName (SigDecl (Signature t _)) = varStr t
 declName (DataDecl (Datatype t _ _)) = varStr t
 declName (FuncDecl (Function t _ _ _ _)) = varStr t
-declName (AssertDecl (Formula r _ _ _)) = show r
+declName (AssertDecl (Formula r i _ _)) = show r ++ "_" ++ show (fmap (const ()) i)
 
 trType :: Type a -> Expr' a
 trType (TyCon tc ts)     = App (Con tc) (map trType ts)
@@ -66,10 +66,10 @@ trType (BuiltinType bun) = App (Bun bun) []
 trType (TyVar x)         = Var x
 
 toType :: Expr (Head a) x -> Type a
-toType (App (Con tc) (_:ts))  = TyCon tc (map toType ts)
-toType (App (Arrow _) (_:ts)) = map toType (init ts) :=>: toType (last ts)
-toType (App (Bun bun) [_])    = BuiltinType bun
-toType (Var _)                = error "Tip.Pass.Monomorphise.toType: variable!"
+toType (App (Con tc) ts)  = TyCon tc (map toType ts)
+toType (App (Arrow _) ts) = map toType (init ts) :=>: toType (last ts)
+toType (App (Bun bun) []) = BuiltinType bun
+toType (Var _)            = error "Tip.Pass.Monomorphise.toType: variable!"
 
 --------------------------------------------------------------------------------
 -- Records
@@ -104,14 +104,20 @@ fuelSucc e = App S [e]
 fuelN :: Expr' a
 fuelN = App N []
 
-transExpr :: (Expr' a -> Expr' a) -> Expr' a -> Expr' a
+transExpr :: (Expr c a -> Expr c a) -> Expr c a -> Expr c a
 transExpr = transformBi
 
 transRule :: (Expr' a -> Expr' a) -> Rule' a -> Rule' a
 transRule = transformBi
 
-transRules :: (Expr' a -> Expr' a) -> [Rule' a] -> [Rule' a]
+transRules :: (Expr c a -> Expr c a) -> [Rule c a] -> [Rule c a]
 transRules = transformBi
+
+removeFuels :: Expr c a -> Expr c a
+removeFuels = transExpr k
+  where
+  k (App h es) = App h (drop 1 es)
+  k (Var x)    = Var x
 
 naked :: Expr c a -> Bool
 naked Var{}      = False
@@ -130,17 +136,21 @@ nakedFuel nfuel ofuel (App h es) | any naked es = App h (nfuel:es)
                                  | otherwise    = App h (ofuel:es)
 nakedFuel _ _         (Var x) = Var x
 
+
 retainFuel :: [Rule' a] -> [Rule' a]
 retainFuel rs = transRules (constFuel fuelN) rs
 
 guardFuel :: [Rule' a] -> [Rule' a]
 guardFuel rs = transRules (nakedFuel fuelN (fuelSucc fuelN)) rs
 
+lowerFuel :: [Rule' a] -> [Rule' a]
+lowerFuel = map go
+  where
+  go (l :=> r) = transExpr (constFuel (fuelSucc fuelN)) l :=> go r
+  go (Fin e)   = Fin (transExpr (constFuel fuelN) e)
+
 debumpFuel :: Expr' a -> [Rule' a]
-debumpFuel e =
-  [          transExpr (constFuel (fuelSucc fuelN)) e
-    :=> Fin (transExpr (constFuel fuelN) e)
-  ]
+debumpFuel e = lowerFuel [e :=> Fin e]
 
 groundFuel :: Int -> [Rule' a] -> [Rule' a]
 groundFuel n = transRules (constFuel (fuelExpr n))
@@ -198,11 +208,11 @@ declRules fuel d =
       ++ groundFuel fuel [ Fin r | r <- exprRecords b ]
 
     AssertDecl (Formula Assert _ tvs b) ->
-      let recs = exprRecords b
-      in     guardFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) pre
-                       | pre <- covers [ (r,F.toList r) | r <- recs ]
-                       ]
-          ++ retainFuel [ App (Decl d) (map Var tvs) :=> Fin r | r <- recs ]
+         retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) (exprGlobalRecords b) ]
+      ++  lowerFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) pre
+                    | pre <- covers [ (r,F.toList r) | r <- exprGlobalRecords b ]
+                    ]
+      ++ retainFuel [ App (Decl d) (map Var tvs) :=> Fin r | r <- exprRecords b ]
 
 --------------------------------------------------------------------------------
 -- Renaming
@@ -294,9 +304,9 @@ monomorphicDecl d =
     AssertDecl Formula{..} -> null fm_tvs
 
 specialise :: Ord a => [Rule (Head a) Int] -> [(Decl a,[Expr (Head a) Int])]
-specialise = usort . decls . specialiseRules
+specialise = usort . decls . map removeFuels . specialiseRules
   where
-  decls es = [ (d,xs) | App (Decl d) (App _ _:xs) <- es ]
+  decls es = [ (d,xs) | App (Decl d) xs <- es ]
 
 monomorphise' :: forall a . (Name a,Pretty a) => Bool -> Theory a -> Fresh (Theory a)
 monomorphise' _verbose thy | monomorphicThy thy = return thy
