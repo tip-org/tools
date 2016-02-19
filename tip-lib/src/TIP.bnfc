@@ -17,9 +17,13 @@ DefineFunRecPar.  Decl ::= "define-fun-rec" "(" Par "(" FunDef ")" ")";
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
 Assert.           Decl ::= Assertion Expr;
 AssertPar.        Decl ::= Assertion "(" Par Expr ")";
+AttribDecl.       Decl ::= "!" "(" Decl ")" [Attribute];
 
 AssertIt.  Assertion ::= "assert";
 AssertNot. Assertion ::= "assert-not";
+
+AttribExpr.     Attribute ::= Keyword Expr;
+AttribPlain.    Attribute ::= Keyword;
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
@@ -56,6 +60,7 @@ LitInt.    Expr ::= Integer;
 LitNegInt. Expr ::= "-" Integer;
 LitTrue.   Expr ::= "true";
 LitFalse.  Expr ::= "false";
+AttribExp. Expr ::= "!" "(" Expr ")" [Attribute];
 
 Lambda. Binder ::= "lambda";
 Forall. Binder ::= "forall";
@@ -97,6 +102,7 @@ terminator Type "";
 terminator FunDecl "";
 terminator FunDef "";
 terminator FunDec "";
+terminator nonempty Attribute "";
 
 position token Symbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
-
+position token Keyword [":"](letter|digit|["~!@$%^&*_-+=<>.?/"])+;

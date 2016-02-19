@@ -152,6 +152,7 @@ trDecl x =
                toRole AssertNot = Prove
            fm <- Formula (toRole role) UserAsserted tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
+      AttribDecl decl attributes -> trDecl decl
 
 emptyPar :: Par
 emptyPar = Par []
@@ -258,6 +259,7 @@ trExpr e0 = case e0 of
   A.LitNegInt n -> return $ intLit (negate n)
   A.LitTrue     -> return $ bool True
   A.LitFalse    -> return $ bool False
+  A.AttribExp expr attributes  -> trExpr expr 
 
 trHead :: Maybe (T.Type Id) -> A.Head -> [T.Expr Id] -> CM (T.Expr Id)
 trHead mgt A.IfThenElse  [c,t,f] = return (makeIf c t f)
@@ -338,4 +340,3 @@ trType t0 = case t0 of
   A.ArrowTy ts -> (:=>:) <$> mapM trType (init ts) <*> trType (last ts)
   A.IntTy      -> return intType
   A.BoolTy     -> return boolType
-
