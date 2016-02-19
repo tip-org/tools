@@ -105,4 +105,4 @@ terminator FunDec "";
 terminator nonempty Attribute "";
 
 position token Symbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
-position token Keyword [":"](letter|digit|["~!@$%^&*_-+=<>.?/"])+;
+position token Keyword [":"](letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
