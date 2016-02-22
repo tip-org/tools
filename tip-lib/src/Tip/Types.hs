@@ -180,6 +180,7 @@ instance Monoid (Theory a) where
 
 data Formula a = Formula
   { fm_role :: Role
+  --, fm_name :: Maybe a -- force all formulas to have a name?
   , fm_info :: Info a
   , fm_tvs  :: [a]
   -- ^ top-level quantified type variables
@@ -202,6 +203,19 @@ data Info a
 
 data Role = Assert | Prove
   deriving (Eq,Ord,Show)
+
+data IndScheme a =
+    Structural (Datatype a)
+  | Recursion (Function a)
+  | OtherScheme a
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+
+data ProofPlan a =
+    Direct [Formula a] -- proof without induction by e.g. FO prover, using listed lemmas.
+  | Induction (IndScheme a)
+              [Local a] -- vars to do ind on
+              [Formula a] -- lemmas used
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 -- * Other views of theories
 
@@ -318,5 +332,3 @@ transformTypeInExpr =
 transformTypeInDecl :: (Type a -> Type a) -> Decl a -> Decl a
 transformTypeInDecl =
   $(genTransformBiT' [[t|PolyType|]] [t|forall a. (Type a -> Type a) -> Decl a -> Decl a|])
-
-

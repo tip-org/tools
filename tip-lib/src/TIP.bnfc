@@ -24,6 +24,7 @@ AssertNot. Assertion ::= "assert-not";
 
 AttribExpr.     Attribute ::= Keyword Expr;
 AttribPlain.    Attribute ::= Keyword;
+AttribName.     Attribute ::= ":named" Symbol;
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
@@ -60,7 +61,7 @@ LitInt.    Expr ::= Integer;
 LitNegInt. Expr ::= "-" Integer;
 LitTrue.   Expr ::= "true";
 LitFalse.  Expr ::= "false";
-AttribExp. Expr ::= "!" "(" Expr ")" [Attribute];
+AttribExp. Expr ::= "(" "!" Expr [Attribute] ")";
 
 Lambda. Binder ::= "lambda";
 Forall. Binder ::= "forall";
