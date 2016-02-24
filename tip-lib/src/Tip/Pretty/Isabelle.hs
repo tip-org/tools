@@ -138,7 +138,7 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
-ppFormula (Formula role _ _tvs term) i =
+ppFormula (Formula role name _ _tvs term) i =
   (ppRole role <+> ("x" <> int i) <+> ":") $\ quote (ppExpr 0 term) $$ "oops"
   -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
 
@@ -283,4 +283,3 @@ isabelleKeywords = (words . unlines)
     , "Cons"
     , "EX ALL"
     ]
-

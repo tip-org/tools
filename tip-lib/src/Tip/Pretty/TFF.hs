@@ -46,9 +46,9 @@ ppUninterp (Signature f (PolyType [] arg_types result_type)) =
       _  -> sep (punctuate " *" (map ppType arg_types)) <+> ">" <+> ppType result_type
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove _ [] term)  =
+ppFormula (Formula Prove _ _ [] term)  =
   clause "goal" "conjecture" (ppExpr 0 (tffify term))
-ppFormula (Formula Assert _ [] term) =
+ppFormula (Formula Assert _ _ [] term) =
   clause "axiom" "axiom" (ppExpr 0 (tffify term))
 
 tffify :: Ord a => Expr a -> Expr a

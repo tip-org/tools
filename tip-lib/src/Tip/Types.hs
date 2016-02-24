@@ -180,7 +180,7 @@ instance Monoid (Theory a) where
 
 data Formula a = Formula
   { fm_role :: Role
-  --, fm_name :: Maybe a -- force all formulas to have a name?
+  , fm_name :: Maybe a -- force all formulas to have a name?
   , fm_info :: Info a
   , fm_tvs  :: [a]
   -- ^ top-level quantified type variables

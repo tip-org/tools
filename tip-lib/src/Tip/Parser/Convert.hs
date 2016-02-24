@@ -146,13 +146,42 @@ trDecl x =
 
       A.Assert  role           expr -> trDecl (AssertPar role emptyPar expr)
       AssertPar role (Par tvs) expr ->
-        do tvi <- mapM (addSym LocalId) tvs
-           mapM newTyVar tvi
-           let toRole AssertIt  = T.Assert
-               toRole AssertNot = Prove
-           fm <- Formula (toRole role) UserAsserted tvi <$> trExpr expr
+        --do tvi <- mapM (addSym LocalId) tvs
+        --   mapM newTyVar tvi
+        --   let toRole AssertIt  = T.Assert
+        --       toRole AssertNot = Prove
+          -- fm <- Formula (toRole role) Nothing UserAsserted tvi <$> trExpr expr
+          do fm <- trAssertedFormula role (Par tvs) expr
+             return emptyTheory{ thy_asserts = [fm] }
+      AttribDecl decl attributes -> trDeclAttribs decl attributes
+       -- TODO: If the declaration is an assert-formula, it should be able to have a name.
+
+trAssertedFormula role (Par tvs) expr =
+  do tvi <- mapM (addSym LocalId) tvs
+     mapM newTyVar tvi
+     let toRole AssertIt  = T.Assert
+         toRole AssertNot = Prove
+     return (Formula (toRole role) Nothing UserAsserted tvi <$> trExpr expr)
+
+--trDeclAttribs :: A.Decl -> [A.Attribute] -> CM (Theory Id)
+--trDeclAttribs decl [] = trDecl decl
+trDeclAttribs decl attribs =
+  case decl of
+    A.Assert role expr ->
+      do fm <- trAssertedFormula role emptyPar expr
+         return emptyTheory{ thy_asserts = [fm] }
+    AssertPar role expr par ->
+        do fm1 <- trAssertedFormula role expr par
+           let fm = foldr trFormulaAttrib fm1 attribs
            return emptyTheory{ thy_asserts = [fm] }
-      AttribDecl decl attributes -> trDecl decl
+    otherwise -> trDecl decl
+
+--trFormulaAttrib :: A.Attribute -> Formula a -> Formula a
+trFormulaAttrib a (Formula r n i tvs expr) =
+  -- TODO: Register name to avoid conflicts, check if already named and flag.
+  case a of
+    AttribName name -> Formula r (Just name) i tvs expr
+    otherwise -> (Formula r n i tvs expr) -- Currently only deal with attributes about names.
 
 emptyPar :: Par
 emptyPar = Par []
@@ -259,7 +288,7 @@ trExpr e0 = case e0 of
   A.LitNegInt n -> return $ intLit (negate n)
   A.LitTrue     -> return $ bool True
   A.LitFalse    -> return $ bool False
-  A.AttribExp expr attributes  -> trExpr expr 
+  A.AttribExp expr attributes  -> trExpr expr
 
 trHead :: Maybe (T.Type Id) -> A.Head -> [T.Expr Id] -> CM (T.Expr Id)
 trHead mgt A.IfThenElse  [c,t,f] = return (makeIf c t f)

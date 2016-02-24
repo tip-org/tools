@@ -356,7 +356,7 @@ trTheory' mode thy@Theory{..} =
     read_head e = Apply (prelude "read") [Apply (prelude "head") [e]]
 
   tr_assert :: Int -> T.Formula a -> ((a,[a]),[Decl a])
-  tr_assert i (T.Formula r _ tvs b) =
+  tr_assert i (T.Formula r _ _ tvs b) =
     ((prop_name,args),
       [ TySig prop_name []
           (foldr TyArr
@@ -707,4 +707,3 @@ makeSig thy@Theory{..} =
 
 theoryBuiltins :: Ord a => Theory a -> [T.Builtin]
 theoryBuiltins = usort . universeBi
-

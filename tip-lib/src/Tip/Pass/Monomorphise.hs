@@ -135,8 +135,8 @@ renameDecl d su = case d of
         f' <- rename tvs f
         let (args',res) = applyPolyType pt (ty_args tvs)
         return (SigDecl (Signature f' (PolyType [] args' res)))
-    AssertDecl (Formula r i tvs b) ->
-        return (ty_inst tvs (AssertDecl (Formula r i [] b)))
+    AssertDecl (Formula r n i tvs b) ->
+        return (ty_inst tvs (AssertDecl (Formula r n i [] b)))
 
     DataDecl (Datatype tc tvs cons) -> do
         tc' <- rename tvs tc
@@ -206,10 +206,10 @@ declToRule enthusiastic_function_inst d = usort $ case d of
     SigDecl (Signature f (PolyType tvs args res)) ->
         sigRule f tvs args res
 
-    AssertDecl (Formula Prove _ tvs b) ->
+    AssertDecl (Formula Prove _ _ tvs b) ->
         map (Rule []) (Con Dummy []:exprRecords b)
 
-    AssertDecl (Formula Assert _ tvs b) ->
+    AssertDecl (Formula Assert _ _ tvs b) ->
         -- careful instantiation
         [ Rule (exprGlobalRecords b) e
         | e <- Con Dummy []:exprTypeRecords b
@@ -231,4 +231,3 @@ declToRule enthusiastic_function_inst d = usort $ case d of
         | enthusiastic_function_inst ] ++
         sigRule f tvs (map lcl_type args) res ++
         map (Rule [Con (Pred f) (map Var tvs)]) (exprGlobalRecords body)
-

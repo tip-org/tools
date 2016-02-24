@@ -121,7 +121,7 @@ removeBuiltinBoolWith names@BoolNames{..} Theory{..}
   $ removeBuiltinBoolFrom names Theory{thy_datatypes=bool_decl:thy_datatypes,..}
   where
     fixup_asserts Theory{..} = Theory{thy_asserts=map fixup_assert thy_asserts,..}
-    fixup_assert (Formula r i tvs b) = Formula r i tvs (fixup_expr b)
+    fixup_assert (Formula r n i tvs b) = Formula r n i tvs (fixup_expr b)
     fixup_expr (Quant qi q vs e) = Quant qi q vs (fixup_expr e)
     fixup_expr e
       | TyCon tc [] <- exprType e
@@ -135,4 +135,3 @@ removeBuiltinBoolWith names@BoolNames{..} Theory{..}
 removeBuiltinBool :: Name a => Theory a -> Fresh (Theory a)
 removeBuiltinBool thy = do names <- freshBoolNames
                            return (removeBuiltinBoolWith names thy)
-
