@@ -17,8 +17,6 @@ import Data.List (find)
 
 import Control.Arrow
 
-import Unsafe.Coerce
-
 type RenameM a b = ReaderT (Suggestor a b) (State (Map a b,Set b))
 
 type Suggestor a b = a -> [b]
@@ -49,10 +47,10 @@ disambig2 :: (a -> String) -> (b -> String) -> Suggestor (Either a b) String
 disambig2 f _ (Left a)  = disambig f a
 disambig2 _ g (Right b) = disambig g b
 
-evalRenameM :: (Ord b) => Suggestor a b -> [b] -> RenameM a b r -> r
+evalRenameM :: Ord b => Suggestor a b -> [b] -> RenameM a b r -> r
 evalRenameM f block m = fst (runRenameM f block M.empty m)
 
-runRenameM :: (Ord b) => Suggestor a b -> [b] -> Map a b -> RenameM a b r -> (r,Map a b)
+runRenameM :: Ord b => Suggestor a b -> [b] -> Map a b -> RenameM a b r -> (r,Map a b)
 runRenameM f block alloc m = second fst (runState (runReaderT m f) s0)
   where s0 = (alloc,S.fromList (block ++ M.elems alloc))
 
