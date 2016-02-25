@@ -529,11 +529,7 @@ hsBuiltinTys =
 
 hsBuiltins :: [(T.Builtin,String)]
 hsBuiltins =
-  [ (And      , "&&" )
-  , (Or       , "||" )
-  , (Not      , "not")
-  , (Implies  , "<=" )
-  , (Equal    , "==" )
+  [ (Equal    , "==" )
   , (Distinct , "/=" )
   , (NumAdd   , "+"  )
   , (NumSub   , "-"  )
@@ -546,6 +542,10 @@ hsBuiltins =
   , (NumLt    , "<"  )
   , (NumLe    , "<=" )
   , (NumWiden , "fromIntegral")
+  , (And      , "&&" )
+  , (Or       , "||" )
+  , (Not      , "not")
+  , (Implies  , "<=" )
   ]
 
 typesOfBuiltin :: Builtin -> [T.Type a]
@@ -700,17 +700,18 @@ makeSig thy@Theory{..} =
 
   builtin_decls
     =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
-    ++ [ int_lit_decl x  | num_used,  x <- [0,1] ++
+    ++ [ int_lit_decl x  | num_used,  x <- nub $
+                                           [0,1] ++
                                            [ x
                                            | Lit (T.Int x) <- builtin_lits ]]
 
   builtin_constants
     =  [ (prelude s, ty)
        | b <- nub $
-              [ b      | bool_used, b <- [And,Or,Not] ]
+           -- [ b      | bool_used, b <- [And,Or,Not] ]
            -- [ IntAdd | int_used ]
            -- [ Equal  | bool_used && int_used ]
-           ++ [ b | b <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
+              [ b | b <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
        , Just s <- [lookup b hsBuiltins]
        , ty <- typesOfBuiltin b
        ]

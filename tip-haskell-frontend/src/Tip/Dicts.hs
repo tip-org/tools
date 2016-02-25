@@ -34,14 +34,13 @@ maybeUnfolding v = case ri of
   where
     ri = realIdUnfolding v
 
-
 varFromRealModule :: Var -> String -> Bool
 varFromRealModule x s = getOccString x == s && nameModule_maybe (varName x) == Just gHC_REAL
 
 inlineDicts :: TransformBi (Expr Id) t => t -> t
 inlineDicts = transformBi $ \ e0 -> case e0 of
     App (App (Var f) (Type t)) (Var d)
-        | any (varFromRealModule f) ["mod","div"] -> Var f
+        | any (varFromRealModule f) ["mod","div"] -> e0
 #if __GLASGOW_HASKELL__ >= 708
         | [try] <- [ try | BuiltinRule _ _ 2 try <- idCoreRules f ]
         , Just e <- try unsafeGlobalDynFlags (emptyInScopeSet,realIdUnfolding) f [Type t,Var d]
