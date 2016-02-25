@@ -74,10 +74,16 @@ tffvarify = uppercase . fmap (Why3Var False)
       Local (Why3Var True lcl_name) lcl_type
 
 ppExpr :: (Ord a, PrettyVar a) => Int -> Expr a -> Doc
-ppExpr _ (Builtin Equal :@: [t, u]) =
-  hang (ppExpr 2 t <+> "=") 2 (ppExpr 2 u)
-ppExpr p (Builtin Distinct :@: [t, u]) =
-  hang (ppExpr 2 t <+> "!=") 2 (ppExpr 2 u)
+ppExpr _ (Builtin Equal :@: [t, u])
+  | exprType t == BuiltinType Boolean =
+    hang (ppExpr 2 t <+> "<=>") 2 (ppExpr 2 u)
+  | otherwise =
+    hang (ppExpr 2 t <+> "=") 2 (ppExpr 2 u)
+ppExpr p (Builtin Distinct :@: [t, u])
+  | exprType t == BuiltinType Boolean =
+    hang (ppExpr 2 t <+> "<~>") 2 (ppExpr 2 u)
+  | otherwise =
+    hang (ppExpr 2 t <+> "!=") 2 (ppExpr 2 u)
 ppExpr p (Builtin And :@: ts) =
   parIf (p > 0) $
     let u:us = punctuate " &" (map (ppExpr 1) ts) in
