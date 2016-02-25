@@ -35,6 +35,9 @@ import Data.List (nub,partition)
 prelude :: String -> HsId a
 prelude = Qualified "Prelude" (Just "P")
 
+ratio :: String -> HsId a
+ratio = Qualified "Data.Ratio" (Just "R")
+
 tipDSL :: String -> HsId a
 tipDSL = Qualified "Tip" Nothing
 
@@ -116,6 +119,7 @@ trTheory mode = fixup_prel . trTheory' mode . fmap Other
       _     -> id
     where
     fx (Qualified "Prelude" u v) = Qualified "Smten.Prelude" (Just "S") v
+    fx (Qualified "Data.Ratio" u v) = Qualified "Smten.Data.Ratio" (Just "S") v
     fx u = u
 
 data Kind = Expr | Formula deriving Eq
@@ -509,17 +513,18 @@ trType (ts :=>: t)     = foldr TyArr (trType t) (map trType ts)
 trType (BuiltinType b) = trBuiltinType b
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
-trBuiltinType t | Just s <- lookup t hsBuiltinTys = H.TyCon (prelude s) []
+trBuiltinType t | Just ty <- lookup t hsBuiltinTys = H.TyCon ty []
 
 withBool :: (a ~ HsId b) => (a -> [c] -> d) -> Bool -> d
 withBool k b = k (prelude (show b)) []
 
 -- * Builtins
 
-hsBuiltinTys :: [(T.BuiltinType,String)]
+hsBuiltinTys :: [(T.BuiltinType, HsId a)]
 hsBuiltinTys =
-  [ (Integer, "Int")
-  , (Boolean, "Bool")
+  [ (Integer, prelude "Int")
+  , (Real,    ratio   "Rational")
+  , (Boolean, prelude "Bool")
   ]
 
 hsBuiltins :: [(T.Builtin,String)]
@@ -530,41 +535,47 @@ hsBuiltins =
   , (Implies  , "<=" )
   , (Equal    , "==" )
   , (Distinct , "/=" )
-  , (IntAdd   , "+"  )
-  , (IntSub   , "-"  )
-  , (IntMul   , "*"  )
+  , (NumAdd   , "+"  )
+  , (NumSub   , "-"  )
+  , (NumMul   , "*"  )
+  , (NumDiv   , "/"  )
   , (IntDiv   , "div")
   , (IntMod   , "mod")
-  , (IntGt    , ">"  )
-  , (IntGe    , ">=" )
-  , (IntLt    , "<"  )
-  , (IntLe    , "<=" )
+  , (NumGt    , ">"  )
+  , (NumGe    , ">=" )
+  , (NumLt    , "<"  )
+  , (NumLe    , "<=" )
+  , (NumWiden , "fromIntegral")
   ]
 
-typeOfBuiltin :: Builtin -> T.Type a
-typeOfBuiltin b = case b of
-  And      -> bbb
-  Or       -> bbb
-  Not      -> bb
-  Implies  -> bbb
-  Equal    -> iib -- TODO: equality could be used on other types than int
-  Distinct -> iib -- ditto
-  IntAdd   -> iii
-  IntSub   -> iii
-  IntMul   -> iii
-  IntDiv   -> iii
-  IntMod   -> iii
-  IntGt    -> iib
-  IntGe    -> iib
-  IntLt    -> iib
-  IntLe    -> iib
+typesOfBuiltin :: Builtin -> [T.Type a]
+typesOfBuiltin b = case b of
+  And      -> [bbb]
+  Or       -> [bbb]
+  Not      -> [bb]
+  Implies  -> [bbb]
+  Equal    -> [iib] -- TODO: equality could be used on other types than int
+  Distinct -> [iib] -- ditto
+  NumAdd   -> [iii, rrr]
+  NumSub   -> [iii, rrr]
+  NumMul   -> [iii, rrr]
+  NumDiv   -> [rrr]
+  IntDiv   -> [iii]
+  IntMod   -> [iii, rrr]
+  NumGt    -> [iib, rrb]
+  NumGe    -> [iib, rrb]
+  NumLt    -> [iib, rrb]
+  NumLe    -> [iib, rrb]
+  NumWiden -> [ir]
   _        -> __
   where
   bb  = [boolType] :=>: boolType
   bbb = [boolType,boolType] :=>: boolType
   iii = [intType,intType] :=>: intType
   iib = [intType,intType] :=>: boolType
-
+  rrr = [realType,realType] :=>: realType
+  rrb = [realType,realType] :=>: boolType
+  ir  = [intType] :=>: realType
 
 -- * QuickSpec signatures
 
@@ -595,6 +606,7 @@ makeSig thy@Theory{..} =
                  map constant_decl
                    (ctor_constants ++ builtin_constants))
           , (quickSpec "instances", List $
+               [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
@@ -682,23 +694,25 @@ makeSig thy@Theory{..} =
     usort [ t | BuiltinType t :: T.Type (HsId a) <- universeBi thy ]
 
   bool_used = Boolean `elem` used_builtin_types
-  int_used  = -- Integer `elem` used_builtin_types
-              or [ op `elem` builtin_funs | op <- [IntAdd,IntSub,IntMul,IntDiv,IntMod] ]
+  num_used  = -- Integer `elem` used_builtin_types
+              or [ op `elem` builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
+  real_used = Real `elem` used_builtin_types
 
   builtin_decls
     =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
-    ++ [ int_lit_decl x  | int_used,  x <- [0,1] ++
+    ++ [ int_lit_decl x  | num_used,  x <- [0,1] ++
                                            [ x
                                            | Lit (T.Int x) <- builtin_lits ]]
 
   builtin_constants
-    =  [ (prelude s,typeOfBuiltin b)
+    =  [ (prelude s, ty)
        | b <- nub $
               [ b      | bool_used, b <- [And,Or,Not] ]
            -- [ IntAdd | int_used ]
            -- [ Equal  | bool_used && int_used ]
-           ++ [ b | b <- builtin_funs, intBuiltin b || eqRelatedBuiltin b ]
+           ++ [ b | b <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
        , Just s <- [lookup b hsBuiltins]
+       , ty <- typesOfBuiltin b
        ]
 
   qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))

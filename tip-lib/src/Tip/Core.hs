@@ -125,6 +125,9 @@ literal lit = Builtin (Lit lit) :@: []
 intType :: Type a
 intType = BuiltinType Integer
 
+realType :: Type a
+realType = BuiltinType Real
+
 boolType :: Type a
 boolType = BuiltinType Boolean
 
@@ -316,15 +319,17 @@ builtinType Not _ = boolType
 builtinType Implies _ = boolType
 builtinType Equal _ = boolType
 builtinType Distinct _ = boolType
-builtinType IntAdd _ = intType
-builtinType IntSub _ = intType
-builtinType IntMul _ = intType
+builtinType NumAdd (ty:_) = ty
+builtinType NumSub (ty:_) = ty
+builtinType NumMul (ty:_) = ty
+builtinType NumDiv (ty:_) = ty
 builtinType IntDiv _ = intType
 builtinType IntMod _ = intType
-builtinType IntGt _ = boolType
-builtinType IntGe _ = boolType
-builtinType IntLt _ = boolType
-builtinType IntLe _ = boolType
+builtinType NumGt _ = boolType
+builtinType NumGe _ = boolType
+builtinType NumLt _ = boolType
+builtinType NumLe _ = boolType
+builtinType NumWiden _ = realType
 builtinType At ((_  :=>: res):_) = res
 builtinType At _ = ERROR("ill-typed lambda application")
 

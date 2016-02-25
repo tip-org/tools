@@ -121,15 +121,17 @@ ppHead (Gbl Global{..}) = ppVar gbl_name
 ppBuiltin :: Builtin -> Doc
 ppBuiltin (Lit lit) = ppLit lit
 ppBuiltin Distinct  = "$distinct"
-ppBuiltin IntAdd    = "$plus_int"
-ppBuiltin IntSub    = "$minus_int"
-ppBuiltin IntMul    = "$times_int"
-ppBuiltin IntDiv    = "$div_int"
-ppBuiltin IntMod    = "$mod_int"
-ppBuiltin IntGt     = "$greater_int"
-ppBuiltin IntGe     = "$greatereq_int"
-ppBuiltin IntLt     = "$less_int"
-ppBuiltin IntLe     = "$lesseq_int"
+ppBuiltin NumAdd    = "$sum"
+ppBuiltin NumSub    = "$difference"
+ppBuiltin NumMul    = "$product"
+ppBuiltin NumDiv    = "$quotient"
+ppBuiltin IntDiv    = "$quotient_e"
+ppBuiltin IntMod    = "$remainder_e"
+ppBuiltin NumGt     = "$greater"
+ppBuiltin NumGe     = "$greatereq"
+ppBuiltin NumLt     = "$less"
+ppBuiltin NumLe     = "$lesseq"
+ppBuiltin NumWiden  = "$to_real"
 
 ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
@@ -144,4 +146,5 @@ ppType (BuiltinType bu) = ppBuiltinType bu
 
 ppBuiltinType :: BuiltinType -> Doc
 ppBuiltinType Integer = "$int"
+ppBuiltinType Real    = "$real"
 ppBuiltinType Boolean = "$o"

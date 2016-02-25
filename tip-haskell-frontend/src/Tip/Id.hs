@@ -130,9 +130,9 @@ primops :: [(PrimOp,Expr Id)]
 primops =
   [ (ghc_op,Lam [int 0] (Lam [int 1] (Builtin tip_id :@: [Lcl (int 0),Lcl (int 1)])))
   | (ghc_op,tip_id) <-
-    [ (IntAddOp, IntAdd)
-    , (IntSubOp, IntSub)
-    , (IntMulOp, IntMul)
+    [ (IntAddOp, NumAdd)
+    , (IntSubOp, NumSub)
+    , (IntMulOp, NumMul)
     ]
   ] ++
 #if __GLASGOW_HASKELL__ <= 706
@@ -140,10 +140,10 @@ primops =
   | (ghc_op,tip_id) <-
     [ (IntEqOp, Equal)
     , (IntNeOp, Distinct)
-    , (IntGtOp, IntGt)
-    , (IntGeOp, IntGe)
-    , (IntLtOp, IntLt)
-    , (IntLeOp, IntLe)
+    , (IntGtOp, NumGt)
+    , (IntGeOp, NumGe)
+    , (IntLtOp, NumLt)
+    , (IntLeOp, NumLe)
     ]
   ]
 #else
@@ -153,10 +153,10 @@ primops =
   | (ghc_op,tip_id) <-
     [ (IntEqOp, Equal)
     , (IntNeOp, Distinct)
-    , (IntGtOp, IntGt)
-    , (IntGeOp, IntGe)
-    , (IntLtOp, IntLt)
-    , (IntLeOp, IntLe)
+    , (IntGtOp, NumGt)
+    , (IntGeOp, NumGe)
+    , (IntLtOp, NumLt)
+    , (IntLeOp, NumLe)
     ]
   ] ++
   [ (TagToEnumOp,Lam [int 0] (Match (Lcl (int 0))
