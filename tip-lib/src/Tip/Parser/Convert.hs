@@ -161,7 +161,7 @@ trAssertedFormula role (Par tvs) expr =
      mapM newTyVar tvi
      let toRole AssertIt  = T.Assert
          toRole AssertNot = Prove
-     return (Formula (toRole role) Nothing UserAsserted tvi <$> trExpr expr)
+     Formula (toRole role) Nothing UserAsserted tvi <$> trExpr expr
 
 --trDeclAttribs :: A.Decl -> [A.Attribute] -> CM (Theory Id)
 --trDeclAttribs decl [] = trDecl decl
@@ -172,16 +172,19 @@ trDeclAttribs decl attribs =
          return emptyTheory{ thy_asserts = [fm] }
     AssertPar role expr par ->
         do fm1 <- trAssertedFormula role expr par
-           let fm = foldr trFormulaAttrib fm1 attribs
+           fm <- foldrM trFormulaAttrib fm1 attribs
            return emptyTheory{ thy_asserts = [fm] }
     otherwise -> trDecl decl
 
 --trFormulaAttrib :: A.Attribute -> Formula a -> Formula a
 trFormulaAttrib a (Formula r n i tvs expr) =
-  -- TODO: Register name to avoid conflicts, check if already named and flag.
-  case a of
-    AttribName name -> Formula r (Just name) i tvs expr
-    otherwise -> (Formula r n i tvs expr) -- Currently only deal with attributes about names.
+  do
+    case a of
+      AttribName nm ->
+        do name <- addSym GlobalId nm
+           return (Formula r (Just name) i tvs expr)
+      otherwise ->
+        return (Formula r n i tvs expr) -- Currently only deal with attributes about names.
 
 emptyPar :: Par
 emptyPar = Par []
