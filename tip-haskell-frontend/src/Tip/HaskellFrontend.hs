@@ -24,6 +24,7 @@ import UniqSupply
 
 import Data.List
 import Data.Either
+import Data.Maybe
 
 import Tip.Dicts
 import Tip.Uniquify
@@ -125,6 +126,15 @@ readModules params@Params{..} cms = do
         , varToString v `elem` extra_names
           || (varWithPropType v && maybe True (varToString v `elem`) prop_names)
         ]
+
+  let not_in_scope =
+        [ n
+        | n <- extra_names ++ fromMaybe [] prop_names
+        , n `notElem` map (varToString . fst) binds
+        ]
+
+  when (not (null not_in_scope)) $
+    do error $ "Not in scope: " ++ unwords not_in_scope
 
   let prop_ids = map fst the_props
 
