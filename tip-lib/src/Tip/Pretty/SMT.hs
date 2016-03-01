@@ -136,16 +136,18 @@ ppBuiltin Or        = "or"
 ppBuiltin Implies   = "=>"
 ppBuiltin Equal     = "="
 ppBuiltin Distinct  = "distinct"
-ppBuiltin IntAdd    = "+"
-ppBuiltin IntSub    = "-"
-ppBuiltin IntMul    = "*"
+ppBuiltin NumAdd    = "+"
+ppBuiltin NumSub    = "-"
+ppBuiltin NumMul    = "*"
+ppBuiltin NumDiv    = "/"
 ppBuiltin IntDiv    = "div"
 ppBuiltin IntMod    = "mod"
-ppBuiltin IntGt     = ">"
-ppBuiltin IntGe     = ">="
-ppBuiltin IntLt     = "<"
-ppBuiltin IntLe     = "<="
+ppBuiltin NumGt     = ">"
+ppBuiltin NumGe     = ">="
+ppBuiltin NumLt     = "<"
+ppBuiltin NumLe     = "<="
 ppBuiltin At{}      = "@"
+ppBuiltin NumWiden  = "to_real"
 
 ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
@@ -173,6 +175,7 @@ ppType (BuiltinType bu) = ppBuiltinType bu
 
 ppBuiltinType :: BuiltinType -> Doc
 ppBuiltinType Integer = "Int"
+ppBuiltinType Real    = "Real"
 ppBuiltinType Boolean = "Bool"
 
 -- Temporary use SMTLIB as the pretty printer:

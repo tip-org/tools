@@ -238,23 +238,25 @@ lintBuiltin Equal [] = throwError "Nullary ="
 lintBuiltin Equal tys@(ty:_) = return (replicate (length tys) ty)
 lintBuiltin Distinct [] = throwError "Nullary distinct"
 lintBuiltin Distinct tys@(ty:_) = return (replicate (length tys) ty)
-lintBuiltin IntAdd tys = return (replicate (length tys) intType)
-lintBuiltin IntSub _ = return [intType, intType]
-lintBuiltin IntMul _ = return [intType, intType]
+lintBuiltin NumAdd tys = return (replicate (length tys) (head tys))
+lintBuiltin NumSub (ty:_) = return [ty, ty]
+lintBuiltin NumMul (ty:_) = return [ty, ty]
+lintBuiltin NumDiv (ty:_) = return [ty, ty]
 lintBuiltin IntDiv _ = return [intType, intType]
 lintBuiltin IntMod _ = return [intType, intType]
-lintBuiltin IntGt _ = return [intType, intType]
-lintBuiltin IntGe _ = return [intType, intType]
-lintBuiltin IntLt _ = return [intType, intType]
-lintBuiltin IntLe _ = return [intType, intType]
+lintBuiltin NumGt (ty:_) = return [ty, ty]
+lintBuiltin NumGe (ty:_) = return [ty, ty]
+lintBuiltin NumLt (ty:_) = return [ty, ty]
+lintBuiltin NumLe (ty:_) = return [ty, ty]
+lintBuiltin NumWiden _ = return [intType]
 
 isExpression :: Builtin -> Bool
 isExpression Equal = True
 isExpression Distinct = True
-isExpression IntGt = True
-isExpression IntGe = True
-isExpression IntLt = True
-isExpression IntLe = True
+isExpression NumGt = True
+isExpression NumGe = True
+isExpression NumLt = True
+isExpression NumLe = True
 isExpression _ = False
 
 lintCase :: (PrettyVar a, Ord a) => ExprKind -> Expr a -> Case a -> ScopeM a ()

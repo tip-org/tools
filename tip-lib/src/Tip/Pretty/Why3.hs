@@ -65,6 +65,8 @@ ppTheory (renameAvoiding why3Keywords escape . why3VarTheory -> Theory{..})
       "use HighOrd" :
       "use import int.Int" :
       "use import int.EuclideanDivision" :
+      "use import real.RealInfix" :
+      "use import real.FromInt" :
       map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++
       map ppUninterp thy_sigs ++
@@ -130,8 +132,8 @@ ppExpr i e | Just (c,t,f) <- ifView e = parIf (i > 0) $ "if" $\ ppExpr 0 c $\ "t
 ppExpr i e@(hd@(Gbl Global{..}) :@: es)
   | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
     parIf (i > 0) $
-    ppHead hd (map (ppExpr 1) es) $\ ":" $\ ppType 0 (exprType e)
-ppExpr i (hd :@: es)  = parIf (i > 0 && not (null es)) $ ppHead hd (map (ppExpr 1) es)
+    ppHead hd es $\ ":" $\ ppType 0 (exprType e)
+ppExpr i (hd :@: es)  = parIf (i > 0 && not (null es)) $ ppHead hd es
 ppExpr _ (Lcl l)      = ppVar (lcl_name l)
 ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "\\" ls (ppExpr 0 e)
 ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppVar (lcl_name x) <+> "=" $\ ppExpr 0 b <+> ":" $\ ppType 0 (lcl_type x), "in" <+> ppExpr 0 e]
@@ -140,33 +142,38 @@ ppExpr i (Match e alts) =
   parIf (i > 0) $ block ("match" $\ ppExpr 0 e $\ "with")
                         (separating vcat (repeat "|") (map ppCase alts))
 
-ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
-ppHead (Gbl gbl)   args = ppVar (gbl_name gbl) $\ fsep args
-ppHead (Builtin b) [u,v] | Just d <- ppBinOp b = u <+> d $\ v
-ppHead (Builtin At{}) args = fsep args
-ppHead (Builtin b) args = ppBuiltin b $\ fsep args
+ppHead :: (PrettyVar a, Ord a) => Head a -> [Expr a] -> Doc
+ppHead (Gbl gbl)   args = ppVar (gbl_name gbl) $\ fsep (map (ppExpr 1) args)
+ppHead (Builtin b) [u,v] | Just d <- ppBinOp b (exprType u) = ppExpr 1 u <+> d $\ ppExpr 1 v
+ppHead (Builtin At{}) args = fsep (map (ppExpr 1) args)
+ppHead (Builtin b) args = ppBuiltin b $\ fsep (map (ppExpr 1) args)
 
 ppBuiltin :: Builtin -> Doc
 ppBuiltin (Lit lit) = ppLit lit
 ppBuiltin IntDiv    = "div"
 ppBuiltin IntMod    = "mod"
 ppBuiltin Not       = "not"
+ppBuiltin NumWiden  = "from_int"
 ppBuiltin b         = error $ "Why3.ppBuiltin: " ++ show b
 
-ppBinOp :: Builtin -> Maybe Doc
-ppBinOp And       = Just "&&"
-ppBinOp Or        = Just "||"
-ppBinOp Implies   = Just "->"
-ppBinOp Equal     = Just "="
-ppBinOp Distinct  = Just "<>"
-ppBinOp IntAdd    = Just "+"
-ppBinOp IntSub    = Just "-"
-ppBinOp IntMul    = Just "*"
-ppBinOp IntGt     = Just ">"
-ppBinOp IntGe     = Just ">="
-ppBinOp IntLt     = Just "<"
-ppBinOp IntLe     = Just "<="
-ppBinOp _         = Nothing
+ppBinOp :: Builtin -> Type a -> Maybe Doc
+ppBinOp And _     = Just "&&"
+ppBinOp Or _      = Just "||"
+ppBinOp Implies _ = Just "->"
+ppBinOp Equal _   = Just "="
+ppBinOp Distinct _= Just "<>"
+ppBinOp NumAdd ty = Just (ppDotIfReal ty "+")
+ppBinOp NumSub ty = Just (ppDotIfReal ty "-")
+ppBinOp NumMul ty = Just (ppDotIfReal ty "*")
+ppBinOp NumGt ty  = Just (ppDotIfReal ty ">")
+ppBinOp NumGe ty  = Just (ppDotIfReal ty ">=")
+ppBinOp NumLt ty  = Just (ppDotIfReal ty "<")
+ppBinOp NumLe ty  = Just (ppDotIfReal ty "<=")
+ppBinOp _ _       = Nothing
+
+ppDotIfReal :: Type a -> Doc -> Doc
+ppDotIfReal (BuiltinType Real) xs = xs <> "."
+ppDotIfReal _ xs = xs
 
 ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
@@ -192,6 +199,7 @@ ppType _ (TyVar x)     = ppTyVar x
 ppType i (TyCon tc ts) = parIf (i > 0) $ ppVar tc $\ fsep (map (ppType 1) ts)
 ppType i (ts :=>: r)   = parIf (i > 0) $ fsep (punctuate " ->" (map (ppType 1) (ts ++ [r])))
 ppType _ (BuiltinType Integer) = "int"
+ppType _ (BuiltinType Real)    = "real"
 ppType _ (BuiltinType Boolean) = "bool"
 
 ppTyVar :: (PrettyVar a, Ord a) => a -> Doc
