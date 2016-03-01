@@ -8,6 +8,7 @@ import Data.Generics.Geniplate
 import Data.List
 import Data.Maybe
 import Data.Monoid
+import qualified Data.Foldable as F
 import Control.Applicative
 import Control.Monad
 import qualified Data.Map as Map
@@ -309,17 +310,17 @@ usePoints :: Eq a => a -> Expr a -> [(Expr a,Expr a -> Expr a)]
 usePoints x e =
   case e of
     Let y l r
-      | x `notElem` l -> rebuild (\ r' -> Let y l  r') (usePoints x r)
-      | x `notElem` r -> rebuild (\ l' -> Let y l' r)  (usePoints x l)
+      | x `F.notElem` l -> rebuild (\ r' -> Let y l  r') (usePoints x r)
+      | x `F.notElem` r -> rebuild (\ l' -> Let y l' r)  (usePoints x l)
 
     Match e brs
-      | all (x `notElem`) brs -> rebuild (\ e' -> Match e' brs) (usePoints x e)
-      | x `notElem` e
+      | all (x `F.notElem`) brs -> rebuild (\ e' -> Match e' brs) (usePoints x e)
+      | x `F.notElem` e
       , [res] <-
           [ rebuild (\ rhs' -> Match e (l ++ [Case p rhs'] ++ r))
                     (usePoints x rhs)
           | (l,Case p rhs,r) <- cursor brs
-          , and [ x `notElem` b | b <- l ++ r ]
+          , and [ x `F.notElem` b | b <- l ++ r ]
           ]
       -> res
 
