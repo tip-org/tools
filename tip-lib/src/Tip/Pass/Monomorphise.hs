@@ -167,8 +167,7 @@ realFuel e =
 
 sigRules :: Name a => Signature a -> [Rule' a]
 sigRules (Signature f (PolyType tvs args res)) =
-     -- retainFuel
-     guardFuel
+     retainFuel
        (usort [ App (Fun f) (map Var tvs) :=> Fin (trType t)
               | t <- res : args
               ])
