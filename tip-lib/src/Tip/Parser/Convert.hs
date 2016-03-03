@@ -286,15 +286,17 @@ trHead _ x args = return (Builtin b :@: args)
     A.Implies  -> T.Implies
     A.Equal    -> T.Equal
     A.Distinct -> T.Distinct
-    A.IntAdd   -> T.IntAdd
-    A.IntSub   -> T.IntSub
-    A.IntMul   -> T.IntMul
+    A.NumAdd   -> T.NumAdd
+    A.NumSub   -> T.NumSub
+    A.NumMul   -> T.NumMul
+    A.NumDiv   -> T.NumDiv
     A.IntDiv   -> T.IntDiv
     A.IntMod   -> T.IntMod
-    A.IntGt    -> T.IntGt
-    A.IntGe    -> T.IntGe
-    A.IntLt    -> T.IntLt
-    A.IntLe    -> T.IntLe
+    A.NumGt    -> T.NumGt
+    A.NumGe    -> T.NumGe
+    A.NumLt    -> T.NumLt
+    A.NumLe    -> T.NumLe
+    A.NumWiden -> T.NumWiden
 
 
 trBinder :: A.Binder -> [Local Id] -> T.Expr Id -> T.Expr Id
@@ -337,5 +339,6 @@ trType t0 = case t0 of
   A.TyApp s ts -> T.TyCon <$> lkSym s <*> mapM trType ts
   A.ArrowTy ts -> (:=>:) <$> mapM trType (init ts) <*> trType (last ts)
   A.IntTy      -> return intType
+  A.RealTy     -> return realType
   A.BoolTy     -> return boolType
 

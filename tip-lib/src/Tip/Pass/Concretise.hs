@@ -72,10 +72,10 @@ replaceInt replacement_thy thy
         let replaceE :: Expr a -> Writer [Function a] (Expr a)
             replaceE e0@(Builtin b :@: (es@(e1:_))) =
               case b of
-                IntLt -> ret lt
-                IntLe -> ret le
-                IntGt -> ret gt
-                IntGe -> ret ge
+                NumLt -> ret lt
+                NumLe -> ret le
+                NumGt -> ret gt
+                NumGe -> ret ge
                 Equal    | exprType e1 == intType -> ret eq
                 Distinct | exprType e1 == intType -> ret ne
                 _ -> return e0
@@ -101,10 +101,12 @@ replaceInt replacement_thy thy
   bs = usort (universeBi thy)
 
   bad (Lit Int{}) = True
-  bad IntAdd = True
-  bad IntSub = True
-  bad IntMul = True
-  bad IntDiv = True
-  bad IntMod = True
-  bad _      = False
+  bad NumAdd   = True
+  bad NumSub   = True
+  bad NumMul   = True
+  bad NumDiv   = True
+  bad IntDiv   = True
+  bad IntMod   = True
+  bad NumWiden = True
+  bad _        = False
 

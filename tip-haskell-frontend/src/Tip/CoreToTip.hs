@@ -284,15 +284,21 @@ trExpr e0 = case collectTypeArgs e0 of
         let free_tvs  = usort $ concatMap fn_free_tvs fns
 
         -- now each function in fns gets these fvs and vars and prepended
-        let map_body = su_globals
-                [ (func_name,\ ts es -> Gbl (Global func_name new_type (map TyVar free_tvs ++ ts)) :@: (map Lcl free_vars ++ es))
-                | fn@Function{func_name} <- fns
+        -- (unless they already have it, in case of nested letrecs)
+        let map_body =
+              su_globals
+                [ (func_name,\ ts es -> Gbl (Global func_name new_type (map TyVar new_tvs ++ ts)) :@: (map Lcl new_vars ++ es))
+                | fn@Function{func_tvs,func_args,func_name} <- fns
+                , let new_tvs  = free_tvs  \\ func_tvs
+                , let new_vars = free_vars \\ func_args
                 , let PolyType tvs args res = funcType fn
-                      new_type = PolyType (free_tvs ++ tvs) (map lcl_type free_vars ++ args) res
+                      new_type = PolyType (new_tvs ++ tvs) (map lcl_type new_vars ++ args) res
                 ]
 
-        tell [ Function func_name (free_tvs ++ func_tvs) (free_vars ++ func_args) func_res (map_body func_body)
+        tell [ Function func_name (new_tvs ++ func_tvs) (new_vars ++ func_args) func_res (map_body func_body)
              | Function{..} <- fns
+             , let new_tvs  = free_tvs  \\ func_tvs
+             , let new_vars = free_vars \\ func_args
              ]
 
         return (map_body body)

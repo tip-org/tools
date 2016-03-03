@@ -176,6 +176,7 @@ ppBuiltin (Lit lit) = ppLit lit
 ppBuiltin IntDiv    = "(op div)"
 ppBuiltin IntMod    = "mod"
 ppBuiltin Not       = "~"
+ppBuiltin NumWiden  = "of_int"
 ppBuiltin b         = error $ "Isabelle.ppBuiltin: " ++ show b
 
 ppBinOp :: Builtin -> Maybe Doc
@@ -184,13 +185,14 @@ ppBinOp Or        = Just "|"
 ppBinOp Implies   = Just "==>"
 ppBinOp Equal     = Just "="
 ppBinOp Distinct  = Just "~="
-ppBinOp IntAdd    = Just "+"
-ppBinOp IntSub    = Just "-"
-ppBinOp IntMul    = Just "*"
-ppBinOp IntGt     = Just ">"
-ppBinOp IntGe     = Just ">="
-ppBinOp IntLt     = Just "<"
-ppBinOp IntLe     = Just "<="
+ppBinOp NumAdd    = Just "+"
+ppBinOp NumSub    = Just "-"
+ppBinOp NumMul    = Just "*"
+ppBinOp NumDiv    = Just "/"
+ppBinOp NumGt     = Just ">"
+ppBinOp NumGe     = Just ">="
+ppBinOp NumLt     = Just "<"
+ppBinOp NumLe     = Just "<="
 ppBinOp _         = Nothing
 
 ppLit :: Lit -> Doc
@@ -218,6 +220,7 @@ ppType i (TyCon tc ts) = parIf (i > 0 && (not . null) ts) $
                            ppAsTuple ts (ppType 2 {-1-}) $\ ppVar tc
 ppType i (ts :=>: r)   = parIf (i >= 0) $ fsep (punctuate " =>" (map (ppType 0) (ts ++ [r])))
 ppType _ (BuiltinType Integer) = "int"
+ppType _ (BuiltinType Real)    = "real"
 ppType _ (BuiltinType Boolean) = "bool"
 
 ppTyVar :: (PrettyVar a, Ord a) => a -> Doc

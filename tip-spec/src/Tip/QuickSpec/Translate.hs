@@ -20,7 +20,7 @@ import qualified Data.Foldable as F
 import Control.Applicative
 
 import Tip.Pretty.Haskell (varUnqual)
-import Tip.Haskell.Translate (HsId(..),hsBuiltinTys,hsBuiltins,typeOfBuiltin)
+import Tip.Haskell.Translate (HsId(..),hsBuiltinTys,hsBuiltins,prelude,ratio)
 import Tip.Haskell.Rename (RenameMap)
 
 import Tip.Scope
@@ -70,8 +70,9 @@ backMap thy rm =
 
       Qualified "Prelude" _ "id" -> Just (Head __ __ (\ _ -> Tip.Builtin Tip.At))
       Qualified "Prelude" _ s
-        | Just ty <- rlookup s hsBuiltinTys -> Just (Type (\ [] -> Tip.BuiltinType ty))
-        | Just bu <- rlookup s hsBuiltins   -> Just (Head [] (typeOfBuiltin bu) (\ [] -> Tip.Builtin bu))
+        | Just ty <- rlookup (prelude s :: HsId ()) hsBuiltinTys -> Just (Type (\ [] -> Tip.BuiltinType ty))
+        | Just ty <- rlookup (ratio s :: HsId ()) hsBuiltinTys -> Just (Type (\ [] -> Tip.BuiltinType ty))
+        | Just bu <- rlookup s hsBuiltins   -> Just (Head __ __ (\ _ -> Tip.Builtin bu))
         | [(b,"")] <- reads s               -> Just (Head __ __ (\ _ -> Tip.Builtin (Tip.Lit (Tip.Bool b))))
 
       Other f
