@@ -23,6 +23,7 @@ import Control.Monad
 import qualified Data.Map as Map
 import Control.Applicative ((<|>))
 
+
 infix  4 ===
 -- infixr 3 /\
 infixr 2 \/
@@ -501,3 +502,25 @@ instance Definition Datatype where
   defines = data_name
   uses    = concatMap F.toList . data_cons
 
+-- | Determining polymorphically recursive components
+polyrecursive :: Ord a => Theory a -> a -> Maybe [a]
+polyrecursive Theory{..} = (`Map.lookup` m)
+  where
+  m =
+    make_groups
+      [ fs
+      | grp <- topsort thy_funcs
+      , let fs = map func_name grp
+      , or
+         [    g `elem` fs
+           && or [ case t of
+                     TyVar{} -> False
+                     _       -> True
+                 | t <- args
+                 ]
+         | b <- map func_body grp
+         , Global g _pt args <- universeBi b
+         ]
+      ]
+
+  make_groups grps = Map.fromList $ concat [ [ (g,grp) | g <- grp ] | grp <- grps ]

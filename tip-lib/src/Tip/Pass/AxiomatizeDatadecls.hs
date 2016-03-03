@@ -66,14 +66,18 @@ trDatatype ueq dt@Datatype{..} =
 
      return $
        declsToTheory $
-           [ SortDecl (Sort data_name data_tvs) ]
-        ++ [ SigDecl (Signature gbl (globalType gbl_info))
-           | (gbl,gbl_info) <- dataTypeGlobals dt
-           , case gbl_info of
-               DiscriminatorInfo{} -> False
-               _ -> True
-           ]
+           datatypeSigs dt
         ++ map AssertDecl (if ueq then inj else domain:inj ++ distinct)
+
+datatypeSigs :: Name a => Datatype a -> [Decl a]
+datatypeSigs dt@Datatype{..} =
+     [ SortDecl (Sort data_name data_tvs) ]
+  ++ [ SigDecl (Signature gbl (globalType gbl_info))
+     | (gbl,gbl_info) <- dataTypeGlobals dt
+     , case gbl_info of
+         DiscriminatorInfo{} -> False
+         _ -> True
+     ]
 
 diag :: [a] -> [(a,a)]
 diag xs = [ (x,y) | x:ys <- tails xs, y <- ys ]

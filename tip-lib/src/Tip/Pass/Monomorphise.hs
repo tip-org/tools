@@ -10,6 +10,7 @@ module Tip.Pass.Monomorphise where
 import Tip.Utils.Horn
 import Tip.Utils.SetCover
 import Tip.Pass.UniqLocals
+import Tip.Pass.AxiomatizeDatadecls (datatypeSigs)
 import Tip.Utils
 import Tip.Fresh
 import Tip.Core hiding (Expr, Head)
@@ -30,6 +31,7 @@ import Data.Generics.Geniplate
 
 import Data.List (union)
 import Data.Maybe (catMaybes)
+import Data.Either
 
 import Debug.Trace
 
@@ -49,8 +51,8 @@ instance (PrettyVar a,Pretty a) => Pretty (Head a) where
   pp Arrow{}  = "=>"
   pp (Bun bu) = ppBuiltinType bu
   pp (Decl d) = text ("Decl_" ++ declName d)
-  pp S        = "S"
-  pp Z        = "Z"
+  pp S        = ":s"
+  pp Z        = ":z"
   pp N        = "n"
 
 declName (SortDecl (Sort t _)) = varStr t
@@ -173,8 +175,8 @@ sigRules (Signature f (PolyType tvs args res)) =
               ])
   ++ debumpFuel (App (Fun f) (map Var tvs))
 
-declRules :: Name a => Int -> Decl a -> [Rule' a]
-declRules fuel d =
+declRules :: Name a => (a -> Maybe [a]) -> Int -> Decl a -> [Rule' a]
+declRules polyrec fuel d =
   usort $
   case d of
     SortDecl (Sort t tvs) ->
@@ -199,7 +201,18 @@ declRules fuel d =
     FuncDecl fn@(Function f tvs _ _ b) ->
          retainFuel [ App (Fun f) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
       ++ sigRules (signature fn)
-      ++ retainFuel [ App (Decl d) (map Var tvs) :=> Fin r | r <- exprRecords b ]
+      ++ retainFuel safe
+      ++ lowerFuel careful
+      where
+        mgrp = polyrec f
+        (careful,safe) =
+          partitionEithers
+            [ side $ App (Decl d) (map Var tvs) :=> Fin r
+            | r <- exprRecords b
+            , let side = case (r,mgrp) of
+                           (App (Fun f) _,Just grp) | f `elem` grp -> Left
+                           _                                       -> Right
+            ]
 
     AssertDecl (Formula Prove _ tvs b) ->
       -- tvs should be empty here!!
@@ -302,19 +315,33 @@ monomorphicDecl d =
     FuncDecl Function{..}  -> null func_tvs
     AssertDecl Formula{..} -> null fm_tvs
 
-specialise :: Ord a => [Rule (Head a) Int] -> [(Decl a,[Expr (Head a) Int])]
-specialise = usort . decls . map removeFuels . specialiseRules
+specialise :: Name a => [Rule (Head a) Int] -> [(Decl a,[Expr (Head a) Int])]
+specialise = usort . decls . specialiseRules
   where
-  decls es = [ (d,xs) | App (Decl d) xs <- es ]
+  decls es =
+    let s = [ (d,map removeFuels xs) | App (Decl d) (App S _:xs) <- es ]
+        z = [ (d',map removeFuels xs)
+            | App (Decl d) (App Z _:xs) <- es
+            , (d,map removeFuels xs) `notElem` s
+            , d' <-
+                case d of
+                  FuncDecl f   -> [SigDecl (signature f)]
+                  DataDecl dt  -> [ sd | sd@SortDecl{} <- datatypeSigs dt ]
+                  SigDecl{}    -> [d]
+                  SortDecl{}   -> [d]
+                  AssertDecl{} -> []
+            ]
+    in  s ++ z
 
 monomorphise' :: forall a . (Name a,Pretty a) => Bool -> Theory a -> Fresh (Theory a)
 monomorphise' _verbose thy | monomorphicThy thy = return thy
 monomorphise'  verbose thy =
   do let ds = theoryDecls thy
-     let rules = usort . concat . map (declRules 1) $ ds
+     let rules = usort . concat . map (declRules (polyrecursive thy) 1) $ ds
      when verbose $ traceM (show ("rules:" $\ pp rules))
      rules' <- mapM (uniq (const Nothing) (const fresh) <=< realFuel) rules
      -- when verbose $ traceM (show ("rules':" $\ pp rules'))
+     -- when verbose $ traceM (show ("specialised:" $\ pp (specialiseRules rules')))
      let insts = specialise rules'
      when verbose $ traceM (show ("insts:" $\ pp insts))
      (insts',renames) <- runWriterT (mapM (uncurry renameDecl) insts)
