@@ -25,7 +25,7 @@ covers objs = map (map (m M.!)) sol
 
 covers' :: forall o a . (Ord o,Ord a) => [(o,[a])] -> [[o]]
 covers' objs =
-  map sort $ sort $
+  sort $ map sort $
   unsafePerformIO $
   withNewSolver $ \ s ->
     do lobjs <-
