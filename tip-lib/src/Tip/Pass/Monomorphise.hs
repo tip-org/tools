@@ -221,6 +221,12 @@ declRules polyrec fuel d =
 
     AssertDecl (Formula Assert _ tvs b) ->
          retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) (exprGlobalRecords b) ]
+      ++ retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs)))
+                      [ rec
+                      | rec <- exprGlobalRecords b
+                      , not (F.null rec) -- has some variables in it
+                      ]
+                    ]
       ++  lowerFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) pre
                     | pre <- covers [ (r,F.toList r) | r <- exprGlobalRecords b ]
                     ]
