@@ -86,8 +86,8 @@ exprGlobalRecords e =
 exprTypeRecords :: forall a . Ord a => Tip.Expr a -> [Expr' a]
 exprTypeRecords e =
   usort
-    [ trType lcl_type
-    | Lcl (Local{..}) :: Tip.Expr a <- usort (universeBi e)
+    [ trType t
+    | Local _ t :: Tip.Local a <- usort (universeBi e)
     ]
 
 exprRecords :: Ord a => Tip.Expr a -> [Expr' a]
@@ -214,10 +214,12 @@ declRules polyrec fuel d =
                            _                                       -> Right
             ]
 
-    AssertDecl (Formula Prove _ tvs b) ->
-      -- tvs should be empty here!!
-         groundFuel fuel [ Fin (App (Decl d) (map Var tvs)) ]
+    AssertDecl (Formula Prove _ [] b) ->
+         groundFuel fuel [ Fin (App (Decl d) []) ]
       ++ groundFuel fuel [ Fin r | r <- exprRecords b ]
+
+    AssertDecl (Formula Prove _ (_:_) _) ->
+      error "Monomorphise: cannot monomorphise with polymorphic goal, run --type-skolem-conjecture"
 
     AssertDecl (Formula Assert _ tvs b) ->
          retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) (exprGlobalRecords b) ]
