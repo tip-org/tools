@@ -9,6 +9,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Generics.Geniplate
 import Data.Maybe
+import Control.Monad
 
 -- | Remove datatypes that have only one constructor with one field.
 --   Can only be run after the @addMatch@ pass.
@@ -21,10 +22,10 @@ removeNewtype thy@Theory{..} =
   -- Int -> Int#
   transformBi replaceTypes (replaceCons thy')
   where
-    replaceTypes (TyCon ty []) =
-      case lookupNewtype ty of
-        Just ty' -> ty'
-        Nothing -> TyCon ty []
+    replaceTypes (TyCon tc []) =
+      case lookupNewtype tc of
+        Just ty -> ty
+        Nothing -> TyCon tc []
     replaceTypes (args :=>: res) =
       map replaceTypes args :=>: replaceTypes res
     replaceTypes ty = ty
@@ -46,7 +47,12 @@ removeNewtype thy@Theory{..} =
     thy' =
       thy {
         thy_datatypes = [ d | d <- thy_datatypes, isNothing (lookupNewtype (data_name d)) ]}
-    lookupNewtype ty = do
-      Datatype{data_cons = [Constructor{con_args = [(_, ty')]}]} <- lookupDatatype ty scp
-      return ty'
+    lookupNewtype tc = do
+      Datatype{data_cons = [Constructor{con_args = [(_, ty)]}]} <- lookupDatatype tc scp
+      guard (and [ tc /= tc | TyCon tc' _ <- universe ty ])
+            -- OBS: won't work for mutually recursive newtypes such as
+            -- data A = C1 [B]
+            -- data B = C2 [A]
+      return ty
     scp = scope thy
+
