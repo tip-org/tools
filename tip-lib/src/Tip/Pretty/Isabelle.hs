@@ -84,7 +84,7 @@ ppDatas dts = "datatype" <+>
     vcat (intersperseWithPre ($\) "and" (map ppData dts))
 
 ppData :: (PrettyVar a, Ord a) => Datatype a -> Doc
-ppData (Datatype tc tvs cons) =
+ppData (Datatype tc tvs cons src) =
   ppAsTuple tvs ppTyVar $\
     ppVar tc $\ separating fsep ("=":repeat "|") (map ppCon cons)
 --ppDatas (d:ds) = ppData "datatype" d
@@ -123,7 +123,7 @@ ppFuncs (fn:fns) = header <+>
                         ([],[]) (fn:fns)
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
-ppFunc (Function f _tvs xts t e) =
+ppFunc (Function f _tvs xts t e src) =
      (ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
       [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
@@ -138,8 +138,11 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
-ppFormula (Formula role name _ _tvs term) i =
-  (ppRole role <+> ("x" <> int i) <+> ":") $\ quote (ppExpr 0 term) $$ "oops"
+ppFormula (Formula role optname src _ _tvs term) i =
+  case optname of
+    Nothing ->
+      (ppRole role <+> ("x" <> int i) <+> ":") $\ quote (ppExpr 0 term) $$ "oops"
+    Just name -> (ppRole role <+> ppVar name <+> ":") $\ quote (ppExpr 0 term) $$ "oops"
   -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
 
 ppRole :: Role -> Doc

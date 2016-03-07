@@ -118,12 +118,19 @@ data BuiltinType
   = Integer | Boolean
   deriving (Eq,Ord,Show)
 
+  -- If this definition is imported from some source file, or local to this file.
+data Source =
+      Imported (String, String)
+  deriving (Eq,Ord,Show)
+
+
 data Function a = Function
   { func_name :: a
   , func_tvs  :: [a]
   , func_args :: [Local a]
   , func_res  :: Type a
   , func_body :: Expr a
+  , func_source :: Maybe Source
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -145,6 +152,7 @@ data Datatype a = Datatype
   { data_name :: a
   , data_tvs  :: [a]
   , data_cons :: [Constructor a]
+  , data_source    :: Maybe Source
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -181,6 +189,7 @@ instance Monoid (Theory a) where
 data Formula a = Formula
   { fm_role :: Role
   , fm_name :: Maybe a -- force all formulas to have a name?
+  , fm_source :: Maybe Source
   , fm_info :: Info a
   , fm_tvs  :: [a]
   -- ^ top-level quantified type variables

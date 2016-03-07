@@ -261,7 +261,7 @@ signature func@Function{..} = Signature func_name (funcType func)
 
 -- | The type of a function
 funcType :: Function a -> PolyType a
-funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
+funcType (Function _ tvs lcls res _ _) = PolyType tvs (map lcl_type lcls) res
 
 bound, free, locals :: Ord a => Expr a -> [Local a]
 bound e =
@@ -389,9 +389,9 @@ updateLocalType :: Type a -> Local a -> Local a
 updateLocalType ty (Local name _) = Local name ty
 
 updateFuncType :: PolyType a -> Function a -> Function a
-updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
+updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body src)
   | length lcls == length lclTys =
-      Function name tvs (zipWith updateLocalType lclTys lcls) res body
+      Function name tvs (zipWith updateLocalType lclTys lcls) res body src
   | otherwise = ERROR("non-matching type")
 
 
@@ -495,4 +495,3 @@ instance Definition Function where
 instance Definition Datatype where
   defines = data_name
   uses    = concatMap F.toList . data_cons
-

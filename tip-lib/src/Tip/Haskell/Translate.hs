@@ -175,7 +175,7 @@ trTheory' mode thy@Theory{..} =
     where d = Exact "d"
 
   tr_datatype :: Datatype a -> [Decl a]
-  tr_datatype (Datatype tc tvs cons) =
+  tr_datatype (Datatype tc tvs cons src) =
     [ DataDecl tc tvs
         [ (c,map (trType . snd) args) | Constructor c _ args <- cons ]
         (map prelude ["Eq","Ord","Show"]
@@ -356,7 +356,7 @@ trTheory' mode thy@Theory{..} =
     read_head e = Apply (prelude "read") [Apply (prelude "head") [e]]
 
   tr_assert :: Int -> T.Formula a -> ((a,[a]),[Decl a])
-  tr_assert i (T.Formula r _ _ tvs b) =
+  tr_assert i (T.Formula r _ _ _ tvs b) =
     ((prop_name,args),
       [ TySig prop_name []
           (foldr TyArr

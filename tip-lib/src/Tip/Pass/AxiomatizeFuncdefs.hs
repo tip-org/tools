@@ -27,7 +27,7 @@ axiomatizeFuncdefs thy@Theory{..} =
 axiomatize :: forall a . Function a -> (Signature a, Formula a)
 axiomatize fn@Function{..} =
   ( Signature func_name (funcType fn)
-  , Formula Assert Nothing (Definition func_name) func_tvs
+  , Formula Assert Nothing Nothing (Definition func_name) func_tvs
      (mkQuant Forall func_args (lhs === func_body))
   )
  where
@@ -49,7 +49,7 @@ axiomatizeFuncdefs2 thy@Theory{..} =
 axiomatize2 :: forall a . Ord a => Scope a -> Function a -> (Signature a, [Formula a])
 axiomatize2 scp fn@Function{..} =
   ( Signature func_name (funcType fn)
-  , map (Formula Assert Nothing (Definition func_name) func_tvs)
+  , map (Formula Assert Nothing Nothing (Definition func_name) func_tvs)
      (ax func_args [] (map Lcl func_args) func_body)
   )
   where

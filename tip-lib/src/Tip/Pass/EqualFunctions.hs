@@ -87,7 +87,7 @@ removeAliases thy@(Theory{thy_funcs=fns0})
   where
     renamings = take 1
       [ (g,k)
-      | Function g g_tvs vars _ (hd :@: args) <- fns0
+      | Function g g_tvs vars _ (hd :@: args) _ <- fns0
       , map Lcl vars == args
       , let k = case hd of
                   Builtin{} -> \ _ -> hd
@@ -98,4 +98,3 @@ removeAliases thy@(Theory{thy_funcs=fns0})
     remove = map fst renamings
 
     survivors = filter ((`notElem` remove) . func_name) fns0
-

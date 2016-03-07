@@ -141,7 +141,7 @@ lintBinder lcl@Local{..} = do
   newLocal lcl
 
 lintFormula :: (PrettyVar a, Ord a) => Formula a -> ScopeM a ()
-lintFormula form@(Formula _ _ _ tvs expr) =
+lintFormula form@(Formula _ _ _ _ tvs expr) =
   local $ inContext form $ do
     mapM_ newTyVar tvs
     lintExpr FormulaKind expr

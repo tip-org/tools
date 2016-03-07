@@ -25,8 +25,8 @@ trDatatype ueq dt@Datatype{..} =
      domx <- freshNamed "x"
      let doml = Local domx (TyCon data_name ty_args)
      let domain =
-           Formula Assert Nothing (DataDomain data_name) data_tvs $
-             mkQuant Forall [doml] $
+           Formula Assert Nothing Nothing (DataDomain data_name) data_tvs
+             (mkQuant Forall [doml] $
                ors
                  [ Lcl doml ===
                      Gbl (constructor dt c ty_args)
@@ -34,13 +34,13 @@ trDatatype ueq dt@Datatype{..} =
                            | i <- [0..length args-1]
                            ]
                  | c@(Constructor _ _ args) <- data_cons
-                 ]
+                 ])
      -- head(cons(X,Y)) = X
      inj <-
        sequence
          [ do qs <- mapM freshLocal (map snd args)
               return $
-                Formula Assert Nothing (DataProjection data_name) data_tvs $
+                Formula Assert Nothing Nothing (DataProjection data_name) data_tvs $
                   mkQuant Forall qs $
                     Gbl (projector dt c i ty_args) :@:
                       [Gbl (constructor dt c ty_args) :@: map Lcl qs]
@@ -58,7 +58,7 @@ trDatatype ueq dt@Datatype{..} =
               let tm_k = Gbl (constructor dt k ty_args) :@: map Lcl qs_k
               let tm_j = Gbl (constructor dt j ty_args) :@: map Lcl qs_j
               return $
-                Formula Assert Nothing (DataDistinct data_name) data_tvs $
+                Formula Assert Nothing Nothing (DataDistinct data_name) data_tvs $
                   mkQuant Forall (qs_k ++ qs_j) $
                     tm_k =/= tm_j
          | (k@(Constructor _ _ args_k),j@(Constructor _ _ args_j)) <- diag data_cons

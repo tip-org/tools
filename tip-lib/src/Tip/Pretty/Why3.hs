@@ -80,7 +80,7 @@ ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas (d:ds) = vcat (ppData "type" d:map (ppData "with") ds)
 
 ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
-ppData header (Datatype tc tvs cons) =
+ppData header (Datatype tc tvs cons src) =
   header $\ (ppVar tc $\ sep (map ppTyVar tvs) $\
     separating fsep ("=":repeat "|") (map ppCon cons))
 
@@ -105,7 +105,7 @@ ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
 ppFuncs (fn:fns) = vcat (ppFunc "function" fn:map (ppFunc "with") fns)
 
 ppFunc :: (PrettyVar a, Ord a) => Doc -> Function a -> Doc
-ppFunc header (Function f _tvs xts t e) =
+ppFunc header (Function f _tvs xts t e src) =
    ((header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
      $\ ppExpr 0 e
    ) $$
@@ -118,7 +118,7 @@ ppDeepPattern (DeepVarPat (Local x _)) = ppVar x
 ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
-ppFormula (Formula role _ _ _tvs term) i =
+ppFormula (Formula role _ _ _ _tvs term) i =
   (ppRole role <+> ("x" <> int i) <+> ":") $\ (ppExpr 0 term)
 
 ppRole :: Role -> Doc

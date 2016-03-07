@@ -84,13 +84,13 @@ addSym ik sym@(Symbol (p,s)) =
 trDecls :: [A.Decl] -> CM (Theory Id)
 trDecls [] = return emptyTheory
 trDecls (d:ds) =
-  do thy <- trDecl d
+  do thy <- trDecl [] d
      withTheory thy $
        do thy_rest <- trDecls ds
           return (thy `joinTheories` thy_rest)
 
-trDecl :: A.Decl -> CM (Theory Id)
-trDecl x =
+trDecl :: [Attribute] -> A.Decl -> CM (Theory Id)
+trDecl as x =
   local $
     case x of
       DeclareDatatypes tvs datatypes ->
@@ -102,7 +102,7 @@ trDecl x =
            newScope $
              do tvi <- mapM (addSym LocalId) tvs
                 mapM newTyVar tvi
-                ds <- mapM (trDatatype tvi) datatypes
+                ds <- mapM (trDatatype as tvi) datatypes -- Why are all datatypes declared in a big chunk??
                 return emptyTheory{ thy_datatypes = ds }
 
       DeclareSort s n ->
@@ -110,28 +110,28 @@ trDecl x =
            tvs <- lift . lift $ mapM refresh (replicate (fromInteger n) i)
            return emptyTheory{ thy_sorts = [Sort i tvs] }
 
-      DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
+      DeclareConst const_decl -> trDecl as (DeclareConstPar emptyPar const_decl)
 
-      DeclareConstPar par (ConstDecl s t) -> trDecl (DeclareFunPar par (FunDecl s [] t))
+      DeclareConstPar par (ConstDecl s t) -> trDecl as (DeclareFunPar par (FunDecl s [] t))
 
-      DeclareFun        decl -> trDecl (DeclareFunPar emptyPar decl)
+      DeclareFun        decl -> trDecl as (DeclareFunPar emptyPar decl)
       DeclareFunPar par decl ->
         do d <- trFunDecl par decl
            return emptyTheory{ thy_sigs = [d] }
 
-      DefineFun        def -> trDecl (DefineFunPar emptyPar def)
+      DefineFun        def -> trDecl as (DefineFunPar emptyPar def)
       DefineFunPar par def@(FunDef f _ _ _) ->
-        do thy <- trDecl (DefineFunRecPar par def)
+        do thy <- trDecl as (DefineFunRecPar par def)
            let [fn] = thy_funcs thy
            when (func_name fn `elem` uses fn)
                 (throwError $ ppSym f <+> "is recursive, but define-fun-rec was not used!")
            return thy
 
-      DefineFunRec        def -> trDecl (DefineFunRecPar emptyPar def)
+      DefineFunRec        def -> trDecl as (DefineFunRecPar emptyPar def)
       DefineFunRecPar par def ->
-        do sig <- trFunDecl par (defToDecl def)
+        do sig <- trFunDecl par (defToDecl def) -- Added attributes here.
            withTheory emptyTheory{ thy_sigs = [sig] } $ do
-             fn <- trFunDef par def
+             fn <- trFunDef as par def
              return emptyTheory{ thy_funcs = [fn] }
 
       DefineFunsRec decs bodies ->
@@ -139,52 +139,56 @@ trDecl x =
            fds <- mapM (uncurry trFunDecl . decToDecl) decs
            withTheory emptyTheory{ thy_sigs = fds } $ do
              fns <- sequence
-                [ uncurry trFunDef (decToDef dec body)
+                [ uncurry (trFunDef as) (decToDef dec body)
                 | (dec,body) <- decs `zip` bodies
                 ]
              return emptyTheory{ thy_funcs = fns }
 
-      A.Assert  role           expr -> trDecl (AssertPar role emptyPar expr)
+      A.Assert  role           expr -> trDecl as (AssertPar role emptyPar expr)
       AssertPar role (Par tvs) expr ->
-        --do tvi <- mapM (addSym LocalId) tvs
-        --   mapM newTyVar tvi
-        --   let toRole AssertIt  = T.Assert
-        --       toRole AssertNot = Prove
-          -- fm <- Formula (toRole role) Nothing UserAsserted tvi <$> trExpr expr
-          do fm <- trAssertedFormula role (Par tvs) expr
-             return emptyTheory{ thy_asserts = [fm] }
-      AttribDecl decl attributes -> trDeclAttribs decl attributes
-       -- TODO: If the declaration is an assert-formula, it should be able to have a name.
+        do tvi <- mapM (addSym LocalId) tvs
+           mapM newTyVar tvi
+           let toRole AssertIt  = T.Assert
+               toRole AssertNot = Prove
+           fm1 <- Formula (toRole role) Nothing Nothing UserAsserted tvi <$> trExpr expr
+           fm <- foldrM trFormulaAttrib fm1 as
+           return emptyTheory{ thy_asserts = [fm] }
+          --do fm <- trAssertedFormula role (Par tvs) expr
+          --   return emptyTheory{ thy_asserts = [fm] }
+      AttribDecl decl attributes -> trDecl (as++attributes) decl --trDeclAttribs decl attributes
 
-trAssertedFormula role (Par tvs) expr =
+{-trAssertedFormula role (Par tvs) expr =
   do tvi <- mapM (addSym LocalId) tvs
      mapM newTyVar tvi
      let toRole AssertIt  = T.Assert
          toRole AssertNot = Prove
      Formula (toRole role) Nothing UserAsserted tvi <$> trExpr expr
-
---trDeclAttribs :: A.Decl -> [A.Attribute] -> CM (Theory Id)
---trDeclAttribs decl [] = trDecl decl
+-}
+{-
+trDeclAttribs :: A.Decl -> [A.Attribute] -> CM (Theory Id)
 trDeclAttribs decl attribs =
   case decl of
     A.Assert role expr ->
-      do fm <- trAssertedFormula role emptyPar expr
+      do fm1 <- trAssertedFormula role emptyPar expr
+          fm <- foldrM trFormulaAttrib fm1 attribs
          return emptyTheory{ thy_asserts = [fm] }
     AssertPar role expr par ->
-        do fm1 <- trAssertedFormula role expr par
+        do fm1 <- trAssertedFormula role par expr
            fm <- foldrM trFormulaAttrib fm1 attribs
            return emptyTheory{ thy_asserts = [fm] }
     otherwise -> trDecl decl
-
+-}
 --trFormulaAttrib :: A.Attribute -> Formula a -> Formula a
-trFormulaAttrib a (Formula r n i tvs expr) =
+trFormulaAttrib a (Formula r n src i tvs expr) =
   do
     case a of
       AttribName nm ->
         do name <- addSym GlobalId nm
-           return (Formula r (Just name) i tvs expr)
+           return (Formula r (Just name) src i tvs expr)
+      AttribSrc s nm ->
+           return (Formula r n (Just (Imported(s, nm))) i tvs expr)
       otherwise ->
-        return (Formula r n i tvs expr) -- Currently only deal with attributes about names.
+           return (Formula r n src i tvs expr)
 
 emptyPar :: Par
 emptyPar = Par []
@@ -214,28 +218,51 @@ decToDef dec body = case dec of
   ParFunDec par (InnerFunDec fsym bindings res_type) ->
     (par,FunDef fsym bindings res_type body)
 
-trFunDef :: Par -> FunDef -> CM (T.Function Id)
-trFunDef (Par tvs) (FunDef fsym bindings res_type body) =
+--trFunAttrib :: Attribute -> T.Function Id -> CM (T.Function Id)
+trFunAttrib a (Function f tvi args ty expr src) =
+  do
+    case a of
+      AttribSrc s nm ->
+         return (Function f tvi args ty expr (Just (Imported(s, nm))))
+      otherwise ->
+         return (Function f tvi args ty expr src)
+
+trFunDef :: [Attribute] -> Par -> FunDef -> CM (T.Function Id)
+trFunDef as (Par tvs) (FunDef fsym bindings res_type body) =
   newScope $
     do f <- lkSym fsym
        tvi <- mapM (addSym LocalId) tvs
        mapM newTyVar tvi
        args <- mapM trLocalBinding bindings
-       Function f tvi args <$> trType res_type <*> trExpr body
+       ty <- trType res_type
+       ex <- trExpr body
+       let fn = Function f tvi args ty ex Nothing
+       foldrM trFunAttrib fn as
 
 dataSym :: A.Datatype -> Symbol
 dataSym (A.Datatype sym _) = sym
 
-trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
-trDatatype tvs (A.Datatype sym constructors) =
+trDatatype :: [Attribute] -> [Id] -> A.Datatype -> CM (T.Datatype Id)
+trDatatype as tvs (A.Datatype sym constructors) =
   do x <- lkSym sym
-     T.Datatype x tvs <$> mapM trConstructor constructors
+     constrs <- mapM trConstructor constructors
+     --dt <- T.Datatype x tvs <$> mapM trConstructor constructors <$> Nothing
+     let dt = T.Datatype x tvs constrs Nothing
+     foldrM trDatatypeAttrib dt as
 
 trConstructor :: A.Constructor -> CM (T.Constructor Id)
 trConstructor (A.Constructor name@(Symbol (p,s)) args) =
   do c <- addSym GlobalId name
      is_c <- addSym GlobalId (Symbol (p,"is-" ++ s))
      T.Constructor c is_c <$> mapM (trBinding GlobalId) args
+
+--trDatatypeAttrib :: Attribute -> (T.Datatype Id) -> (T.Datatype Id)
+trDatatypeAttrib a (T.Datatype x tvs cs src) =
+    case a of
+      AttribSrc s nm ->
+           return (T.Datatype x tvs cs (Just(Imported(s, nm))))
+      otherwise ->
+           return (T.Datatype x tvs cs src)
 
 bindingType :: Binding -> A.Type
 bindingType (Binding _ t) = t

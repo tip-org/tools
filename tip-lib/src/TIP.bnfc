@@ -25,6 +25,7 @@ AssertNot. Assertion ::= "assert-not";
 AttribExpr.     Attribute ::= Keyword Expr;
 AttribPlain.    Attribute ::= Keyword;
 AttribName.     Attribute ::= ":named" Symbol;
+AttribSrc.      Attribute ::= ":source" String String;
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 

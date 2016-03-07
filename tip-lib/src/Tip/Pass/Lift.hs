@@ -38,7 +38,7 @@ lambdaLiftTop e0 =
          let g_args = free e0
          let g_tvs  = freeTyVars e0
          let g_type = map lcl_type lam_args :=>: exprType lam_body
-         let g = Function g_name g_tvs g_args g_type (Lam lam_args lam_body)
+         let g = Function g_name g_tvs g_args g_type (Lam lam_args lam_body) Nothing
          tell [g]
          return (applyFunction g (map TyVar g_tvs) (map Lcl g_args))
     _ -> return e0
@@ -64,7 +64,7 @@ letLiftTop e0 =
     Let xl@(Local x xt) b e ->
       do let fvs = free b
          let tvs = freeTyVars b
-         let xfn = Function x tvs fvs (exprType b) b
+         let xfn = Function x tvs fvs (exprType b) b Nothing
          tell [xfn]
          lift ((applyFunction xfn (map TyVar tvs) (map Lcl fvs) // xl) e)
     _ -> return e0
@@ -85,7 +85,7 @@ axLamFunc Function{..} =
   case func_body of
     Lam lam_args e ->
       let abs = Signature func_name (PolyType func_tvs (map lcl_type func_args) func_res)
-          fm  = Formula Assert Nothing (Defunction func_name) func_tvs
+          fm  = Formula Assert Nothing Nothing (Defunction func_name) func_tvs
                   (mkQuant
                     Forall
                     (func_args ++ lam_args)

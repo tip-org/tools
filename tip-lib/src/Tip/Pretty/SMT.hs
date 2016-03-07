@@ -47,11 +47,11 @@ ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort tvs) = parExpr "declare-sort" [ppVar sort, int (length tvs)]
 
 ppDatas :: PrettyVar a => [Datatype a] -> Doc
-ppDatas datatypes@(Datatype _ tyvars _:_) =
+ppDatas datatypes@(Datatype _ tyvars _ _:_) =
   parExprSep "declare-datatypes" [parens (fsep (map ppVar tyvars)), parens (fsep (map ppData datatypes))]
 
 ppData :: PrettyVar a => Datatype a -> Doc
-ppData (Datatype tycon _ datacons) =
+ppData (Datatype tycon _ datacons _ ) =
   parExprSep (ppVar tycon) (map ppCon datacons)
 
 ppCon :: PrettyVar a => Constructor a -> Doc
@@ -91,12 +91,12 @@ ppFuncs fs = expr "define-funs-rec"
   ]
 
 ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
-ppFuncSig parv (Function f tyvars args res_ty body) content =
+ppFuncSig parv (Function f tyvars args res_ty body _) content =
   parv tyvars (ppVar f $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove _ _ tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
-ppFormula (Formula Assert _ _ tvs term) = apply "assert"     (par' tvs (ppExpr term))
+ppFormula (Formula Prove _ _ _ tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
+ppFormula (Formula Assert _ _ _ tvs term) = apply "assert"     (par' tvs (ppExpr term))
 
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])

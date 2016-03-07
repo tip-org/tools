@@ -135,10 +135,10 @@ renameDecl d su = case d of
         f' <- rename tvs f
         let (args',res) = applyPolyType pt (ty_args tvs)
         return (SigDecl (Signature f' (PolyType [] args' res)))
-    AssertDecl (Formula r n i tvs b) ->
-        return (ty_inst tvs (AssertDecl (Formula r n i [] b)))
+    AssertDecl (Formula r n src i tvs b) ->
+        return (ty_inst tvs (AssertDecl (Formula r n src i [] b)))
 
-    DataDecl (Datatype tc tvs cons) -> do
+    DataDecl (Datatype tc tvs cons src) -> do
         tc' <- rename tvs tc
         cons' <- sequence
             [ do k' <- rename tvs k
@@ -147,11 +147,11 @@ renameDecl d su = case d of
                  return (Constructor k' d' args')
             | Constructor k d args <- cons
             ]
-        return (ty_inst tvs (DataDecl (Datatype tc' [] cons')))
+        return (ty_inst tvs (DataDecl (Datatype tc' [] cons' src)))
 
-    FuncDecl fn@(Function f tvs args res body) -> do
+    FuncDecl fn@(Function f tvs args res body src) -> do
         f' <- rename tvs f
-        let fn' = Function f' [] args res body
+        let fn' = Function f' [] args res body src
         return (ty_inst tvs (FuncDecl fn'))
   where
   ty_args tvs = [ toType (fmap absurd e) | tv <- tvs, let Just e = lookup tv su ]
@@ -206,16 +206,16 @@ declToRule enthusiastic_function_inst d = usort $ case d of
     SigDecl (Signature f (PolyType tvs args res)) ->
         sigRule f tvs args res
 
-    AssertDecl (Formula Prove _ _ tvs b) ->
+    AssertDecl (Formula Prove _ _ _ tvs b) ->
         map (Rule []) (Con Dummy []:exprRecords b)
 
-    AssertDecl (Formula Assert _ _ tvs b) ->
+    AssertDecl (Formula Assert _ _ _ tvs b) ->
         -- careful instantiation
         [ Rule (exprGlobalRecords b) e
         | e <- Con Dummy []:exprTypeRecords b
         ]
 
-    DataDecl (Datatype tc tvs cons) ->
+    DataDecl (Datatype tc tvs cons _) ->
         let tcon x = Con (TCon x) (map Var tvs)
             pred x = Con (Pred x) (map Var tvs)
         in  concat [ sigRule k tvs (map snd args) (TyCon tc (map TyVar tvs))
@@ -226,7 +226,7 @@ declToRule enthusiastic_function_inst d = usort $ case d of
                , f <- [k,d] ++ map fst args
                ]
 
-    FuncDecl (Function f tvs args res body) ->
+    FuncDecl (Function f tvs args res body _) ->
         [ Rule (exprGlobalRecords body) (Con (Pred f) (map Var tvs))
         | enthusiastic_function_inst ] ++
         sigRule f tvs (map lcl_type args) res ++

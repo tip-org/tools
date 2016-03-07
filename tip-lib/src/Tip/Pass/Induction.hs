@@ -39,7 +39,7 @@ trTerm (Fun f tms) = Builtin At :@: (Lcl f:map trTerm tms)
 induction :: (Name a,Ord a) => [Int] -> Theory a -> Fresh [Theory a]
 induction coords thy@Theory{..} =
   case goal of
-    Formula Prove i n tvs (Quant qi Forall lcls body)
+    Formula Prove n src i tvs (Quant qi Forall lcls body)
       | cs@(_:_) <- [ x | x <- coords, x >= length lcls || x < 0 ] -> error $ "Induction coordinates " ++ show cs ++ " out of bounds!"
       | otherwise ->
       do (obligs,_) <-
@@ -65,7 +65,7 @@ induction coords thy@Theory{..} =
                   concl <- replace [] concl
                   let body' = hyps ===> concl
                   return
-                    (Formula Prove i n tvs
+                    (Formula Prove n src i tvs
                       (mkQuant Forall [ Local v t | (v,t) <- sks] body'))
              | Obligation sks hyps concl <- obligs
              ]
