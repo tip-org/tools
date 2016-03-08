@@ -216,11 +216,11 @@ data Role = Assert | Prove
 data IndScheme a =
     Structural (Datatype a)
   | Recursion (Function a)
-  | OtherScheme a
+  | OtherScheme (Formula a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
 data ProofPlan a =
-    Direct [Formula a] -- proof without induction by e.g. FO prover, using listed lemmas.
+    FirstOrder [Formula a] -- proof without induction by e.g. FO prover, using listed lemmas.
   | Induction (IndScheme a)
               [Local a] -- vars to do ind on
               [Formula a] -- lemmas used
