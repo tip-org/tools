@@ -32,7 +32,10 @@ tyTyCons = go . expandTypeSynonyms
   where
   go t0
     | Just (t1,t2) <- splitFunTy_maybe t0    = S.union (go t1) (go t2)
-    | Just (tc,ts) <- splitTyConApp_maybe t0 = S.insert tc (S.unions (map go ts))
+    | Just (tc,ts) <- splitTyConApp_maybe t0 =
+        let ts' = concatMap dataConOrigArgTys $ tyConDataCons tc
+            -- ^ Type constructors inside original data type definition
+        in  S.insert tc $ S.unions (map go (ts ++ ts'))
     | Just (_,t) <- splitForAllTy_maybe t0   = go t
     | otherwise                              = S.empty
 
@@ -44,5 +47,4 @@ exprTyCons e =
     [ varTyCons x `S.union` tyTyCons t | Case _ x t _  <- universeBi e ] ++
     [ varTyCons x                      | Var x :: CoreExpr <- universeBi e ] ++
     [ tyTyCons t                       | Type t :: CoreExpr <- universeBi e ] ++
-    [ S.singleton (dataConTyCon c) | DataAlt c <- universeBi e ]
-
+    [ S.singleton (dataConTyCon c)     | DataAlt c <- universeBi e ]
