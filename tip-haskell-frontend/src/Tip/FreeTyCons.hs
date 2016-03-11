@@ -28,15 +28,20 @@ varTyCons :: Var -> Set TyCon
 varTyCons = tyTyCons . varType
 
 tyTyCons :: Type -> Set TyCon
-tyTyCons = go . expandTypeSynonyms
+tyTyCons = go S.empty . expandTypeSynonyms
   where
-  go t0
-    | Just (t1,t2) <- splitFunTy_maybe t0    = S.union (go t1) (go t2)
+  go visited t0
+    | Just (t1,t2) <- splitFunTy_maybe t0    = S.union (go visited t1) (go visited t2)
     | Just (tc,ts) <- splitTyConApp_maybe t0 =
-        let ts' = concatMap dataConOrigArgTys $ tyConDataCons tc
-            -- ^ Type constructors inside original data type definition
-        in  S.insert tc $ S.unions (map go (ts ++ ts'))
-    | Just (_,t) <- splitForAllTy_maybe t0   = go t
+        -- Also consider type constructors inside original data type definition.
+        -- We store that we've iterated through those constructors in order to avoid infinite
+        -- loops when definition is recursive
+        let ts' = if tc `S.member` visited
+                      then []
+                      else concatMap dataConOrigArgTys $ tyConDataCons tc
+            visited' = S.insert tc visited
+        in  S.insert tc $ S.unions (map (go visited') (ts ++ ts'))
+    | Just (_,t) <- splitForAllTy_maybe t0   = go visited t
     | otherwise                              = S.empty
 
 -- | For all used constructors in expressions and patterns,
