@@ -9,11 +9,10 @@ import qualified Data.Map as M
 
 import qualified Data.Typeable as Typeable
 
-import qualified Data.Rewriting.Term as R
-
 import qualified Tip.Core as Tip
 
 import qualified QuickSpec as QS
+import qualified Twee.Base as Twee
 
 import qualified Data.Foldable as F
 
@@ -45,14 +44,14 @@ type BackMap a = Map String (BackEntry (V a))
 
 data V a
   = Orig a
-  | Var QS.Variable
-  | TyVar QS.TyVar
+  | Var Twee.Var
+  | TyVar Twee.Var
   deriving (Eq,Ord,Show)
 
 instance PrettyVar a => PrettyVar (V a) where
   varStr (Orig x)  = varStr x
-  varStr (Var x)   = show (QS.pretty x)
-  varStr (TyVar x) = show (QS.pretty x)
+  varStr (Var x)   = Twee.prettyShow x
+  varStr (TyVar x) = Twee.prettyShow x
 
 rlookup :: Eq b => b -> [(a,b)] -> Maybe a
 rlookup x = lookup x . map (\(x,y) -> (y,x))
@@ -99,18 +98,19 @@ backMap thy rm =
 trProp :: (Ord a,PrettyVar a) => BackMap a -> QS.Prop -> Tip.Expr (V a)
 trProp bm (assums QS.:=>: goal) = map (trLiteral bm) assums Tip.===> trLiteral bm goal
 
-trLiteral :: (Ord a,PrettyVar a) => BackMap a -> QS.Literal QS.Term -> Tip.Expr (V a)
+trLiteral :: (Ord a,PrettyVar a) => BackMap a -> QS.Literal (Twee.Term QS.Constant) -> Tip.Expr (V a)
 trLiteral bm (t1 QS.:=: t2) = trTerm bm t1 Tip.=== trTerm bm t2
 
-trTerm :: (Ord a,PrettyVar a) => BackMap a -> QS.Term -> Tip.Expr (V a)
+trTerm :: (Ord a,PrettyVar a) => BackMap a -> Twee.Term QS.Constant -> Tip.Expr (V a)
 trTerm bm tm =
   case tm of
-    R.Var v -> Tip.Lcl (Tip.Local (Var v) (trType bm (QS.typ v)))
-    R.Fun c (drop (QS.implicitArguments c) -> as) ->
+    Twee.App (QS.Id ty) [Twee.Var v] ->
+      Tip.Lcl (Tip.Local (Var v) (trType bm ty))
+    Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
       let name = QS.conName c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
       in  mk (matchTypes name tvs ty
-                (trType bm (QS.typeDrop (QS.implicitArguments c) (QS.typ c))))
+                (trType bm (QS.typeDrop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) (QS.typ c))))
             Tip.:@: map (trTerm bm) as
 
 matchTypes :: (Ord a,PrettyVar a) => String -> [a] -> Tip.Type a -> Tip.Type a -> [Tip.Type a]
@@ -126,9 +126,9 @@ matchTypes name tvs tmpl ty =
 trType :: PrettyVar a => BackMap a -> QS.Type -> Tip.Type (V a)
 trType bm t =
   case t of
-    R.Var tv -> Tip.TyVar (TyVar tv)
-    R.Fun QS.Arrow [a,b] -> trType bm a ==> trType bm b -- !! ??
-    R.Fun (QS.TyCon tc) as ->
+    Twee.Var tv -> Tip.TyVar (TyVar tv)
+    Twee.App QS.Arrow [a,b] -> trType bm a ==> trType bm b -- !! ??
+    Twee.App (QS.TyCon tc) as ->
       let name = Typeable.tyConName tc
           Type mk = FROMJUST(name) (M.lookup name bm)
       in  mk (map (trType bm) as)

@@ -32,7 +32,7 @@ library
                        testing-feat,
                        hint,
                        quickspec >= 2,
-                       term-rewriting
+                       twee
 
 executable tip-spec
   main-is:             executable/Main.hs
