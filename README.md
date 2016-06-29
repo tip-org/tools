@@ -6,6 +6,7 @@ rough around the edges but include:
 
 * `tip` - transform a TIP file or translate it to various formats
 * `tip-ghc` - translate a Haskell file to TIP format
+* `tip-spec` - invent conjectures about a TIP file
 
 ## Installing from Hackage
 
