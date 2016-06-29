@@ -15,4 +15,5 @@ extra-deps:
 - structural-induction-0.3
 - twee-0.1
 
-flags: {}
+flags:
+    tip-spec: {stack: True}

@@ -13,6 +13,10 @@ cabal-version:       >=1.10
 
 extra-source-files:  errors.h
 
+flag stack
+  Description: Build under stack (internal use only; don't set this flag yourself)
+  Default: False
+
 library
   exposed-modules:
     Tip.QuickSpec
@@ -32,7 +36,7 @@ library
                        testing-feat,
                        hint,
                        quickspec >= 2,
-                       twee
+                       twee, transformers
 
 executable tip-spec
   main-is:             executable/Main.hs
@@ -42,3 +46,7 @@ executable tip-spec
                        tip-lib,
                        tip-spec,
                        quickspec
+
+  if flag(stack)
+    build-depends: template-haskell, process
+    cpp-options: -DSTACK
