@@ -1,3 +1,4 @@
-*
-!Convert.hs
-!.gitignore
+DocTIP.txt
+PrintTIP.hs
+SkelTIP.hs
+TestTIP.hs
