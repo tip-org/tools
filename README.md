@@ -20,12 +20,13 @@ The tools will be put in your `~/.cabal/bin` directory.
 
 With Haskell installed and this repository cloned:
 
-    cabal update
-    cabal install bnfc
-    ./make_parser.sh
-    cabal install ./tip-lib ./tip-haskell-frontend
+    stack setup
+    stack install
 
-The tools will be put in your `~/.cabal/bin` directory.
+The tools will be put in your `~/.local/bin` directory.
+
+If you are modifying the TIP parser, you will also need to have BNFC
+installed, and to run ./make_parser.sh whenever you change the parser.
 
 ## Working with TIP problems
 
