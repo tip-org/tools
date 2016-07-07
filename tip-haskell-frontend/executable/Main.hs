@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP, TemplateHaskell #-}
 module Main where
 
 import Tip.HaskellFrontend
@@ -23,9 +24,17 @@ import Tip.Pretty.SMT as SMT
 import Text.PrettyPrint hiding ((<>))
 
 import Options.Applicative
+import System.Environment
+import Language.Haskell.TH.Syntax(qRunIO, lift)
+import System.Process
 
 main :: IO ()
 main = do
+#ifdef STACK
+    let pkgdb = $(qRunIO (readProcess "stack" ["exec", "--", "sh", "-c", "echo $GHC_PACKAGE_PATH"] "") >>= lift)
+
+    setEnv "GHC_PACKAGE_PATH" (head (lines pkgdb))
+#endif
     (file,params) <-
       execParser $
         info (helper <*>

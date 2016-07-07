@@ -17,3 +17,4 @@ extra-deps:
 
 flags:
     tip-spec: {stack: True}
+    tip-haskell-frontend: {stack: True}
