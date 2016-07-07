@@ -23,7 +23,7 @@ ghc:
     - 7.8
 
 install:
-    - ./travis_long stack --no-terminal --skip-ghc-check setup
+    - travis_wait 60 stack --no-terminal --skip-ghc-check setup
     - export PATH=$HOME/.local/bin:$PATH
 
 before_script:
