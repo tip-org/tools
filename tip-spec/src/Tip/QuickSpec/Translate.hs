@@ -44,13 +44,13 @@ type BackMap a = Map String (BackEntry (V a))
 
 data V a
   = Orig a
-  | Var Twee.Var
+  | Var QS.Type Twee.Var
   | TyVar Twee.Var
   deriving (Eq,Ord,Show)
 
 instance PrettyVar a => PrettyVar (V a) where
   varStr (Orig x)  = varStr x
-  varStr (Var x)   = Twee.prettyShow x
+  varStr (Var _ x) = Twee.prettyShow x
   varStr (TyVar x) = Twee.prettyShow x
 
 rlookup :: Eq b => b -> [(a,b)] -> Maybe a
@@ -105,7 +105,7 @@ trTerm :: (Ord a,PrettyVar a) => BackMap a -> Twee.Term QS.Constant -> Tip.Expr 
 trTerm bm tm =
   case tm of
     Twee.App (QS.Id ty) [Twee.Var v] ->
-      Tip.Lcl (Tip.Local (Var v) (trType bm ty))
+      Tip.Lcl (Tip.Local (Var ty v) (trType bm ty))
     Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
       let name = QS.conName c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
@@ -140,9 +140,9 @@ trType bm t =
 unV :: Name a => Tip.Expr (V a) -> Fresh (Tip.Formula a)
 unV e =
   do mtvs  <- freshMap [ tv | TyVar tv <- F.toList e ]
-     mvars <- freshMap [ v | Var v <- F.toList e ]
+     mvars <- freshMap [ (ty, v) | Var ty v <- F.toList e ]
      let rename (TyVar tv) = mtvs M.! tv
-         rename (Var v)    = mvars M.! v
+         rename (Var ty v)    = mvars M.! (ty, v)
          rename (Orig f)   = f
      let e' = fmap rename e
      return $
