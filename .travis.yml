@@ -4,19 +4,14 @@ ghc:
     - 7.8
 
 install:
-    - export PATH=$HOME/.cabal/bin:$PATH
-    - cabal update
-    - cabal install alex happy
-    - alex --version
-    - happy --version
-    - cabal install bnfc
+    - stack setup
+    - export PATH=$HOME/.local/bin:$PATH
 
 before_script:
     - true
 
 script:
-    - ./make_parser.sh
-    - cabal install tip-lib/ tip-haskell-frontend/ --enable-documentation
+    - stack install
     - tip-ghc examples/Int.hs
     - tip <(tip-ghc examples/Int.hs)
     - tip-ghc examples/Case.hs
