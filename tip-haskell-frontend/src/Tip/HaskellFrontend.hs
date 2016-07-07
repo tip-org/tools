@@ -124,6 +124,7 @@ readModules params@Params{..} cms = do
         | ve@(v,_) <- binds
         , not (varInTip v)
         , varToString v `elem` extra_names
+          || keep_all_names
           || (varWithPropType v && maybe True (varToString v `elem`) prop_names)
         ]
 

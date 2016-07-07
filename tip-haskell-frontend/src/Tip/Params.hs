@@ -16,6 +16,8 @@ data Params = Params
   -- ^ Only consider these properties
   , extra_names :: [String]
   -- ^ Extra names to consider
+  , keep_all_names :: Bool
+  -- ^ Keep unused names
   }
   deriving Show
 
@@ -30,7 +32,7 @@ parseParams = Params
                               ])
   <*> (pure Nothing <|> fmap (Just . commaSep) (many (strOption prop_opt)))
   <*> fmap commaSep (many (strOption (long "extra" <> short 'e' <> metavar "NAME" <> help "Function declaration to add to theory")))
-
+  <*> flag False True (long "keep-all-functions" <> help "Don't remove unused functions from the theory")
   where
 
   prop_opt = long "only" <> long "prop" <> short 'p' <> metavar "NAME" <> help "Property declaration to consider (default all)"
