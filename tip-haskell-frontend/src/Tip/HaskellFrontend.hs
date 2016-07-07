@@ -195,4 +195,3 @@ transFrom (mkVarSet -> s0) binds = filter (\ (v,_) -> v `elemVarSet` fin) binds
         , Just rhs_start <- [lookup v_start binds]
         ]
       `minusVarSet` visited
-
