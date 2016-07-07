@@ -21,7 +21,7 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle | TIP | TFF | Waldmeister
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | TIP | TFF | Waldmeister
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -36,7 +36,8 @@ parseOutputMode =
   <|> flag' Why3 (long "why" <> help "WhyML output")
   <|> flag' (SMTLIB False) (long "smtlib" <> help "SMTLIB output")
   <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
-  <|> flag' Isabelle (long "isabelle" <> help "Isabelle output")
+  <|> flag' (Isabelle False) (long "isabelle" <> help "Isabelle output")
+  <|> flag' (Isabelle True) (long "isabelle-explicit-forall" <> help "Isabelle output (with variables explicitly forall quantified)")
   <|> flag' TFF (long "tff" <> help "TPTP TFF output")
   <|> flag' Waldmeister (long "waldmeister" <> help "Waldmeister output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
@@ -108,7 +109,7 @@ handle passes mode multipath s =
                 , "w")
               Haskell m -> (HS.ppTheory m,     passes, "hs")
               Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
-              Isabelle  -> (Isabelle.ppTheory, passes, "thy")
+              Isabelle expl_forall -> (Isabelle.ppTheory expl_forall, passes, "thy")
               TIP       -> (SMT.ppTheory,      passes, "smt2")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
@@ -123,4 +124,3 @@ handle passes mode multipath s =
                  writeFile (d </> show n <.> ext) (show (pretty thy) ++ "\n")
             | (n, thy) <- [(0 :: Int)..] `zip` thys
             ]
-

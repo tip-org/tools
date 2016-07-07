@@ -56,8 +56,8 @@ quoteWhen p t | p t       = quote
 ppAsTuple :: [a] -> (a -> Doc) -> Doc
 ppAsTuple ts toDoc = parIf (length ts > 1) ((sep.punctuate ",") (map toDoc ts))
 
-ppTheory :: (Ord a, PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
+ppTheory :: (Ord a, PrettyVar a) => Bool -> Theory a -> Doc
+ppTheory explicit_forall (renameAvoiding isabelleKeywords escape -> Theory{..}) 
   = vcat ["theory" <+> "A",
           --"imports $HIPSTER_HOME/IsaHipster",
           "imports Main",
@@ -69,7 +69,7 @@ ppTheory (renameAvoiding isabelleKeywords escape -> Theory{..})
       map ppUninterp thy_sigs ++
       map ppFuncs (topsort thy_funcs) ++
       -- ["(*hipster" <+> sep (map (ppVar.func_name) thy_funcs) <+> "*)"] ++   -- convenience
-      zipWith ppFormula thy_asserts [0..])
+      zipWith (ppFormula explicit_forall) thy_asserts [0..])
     $-$
     "end"
 
@@ -137,14 +137,23 @@ ppDeepPattern (DeepVarPat (Local x _)) = ppVar x
 ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
-ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
-ppFormula (Formula role _ _tvs term) i =
-  (ppRole role <+> ("x" <> int i) <+> ":") $\ quote (ppExpr 0 term) $$ "oops"
+ppFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
+ppFormula explicit_forall (Formula role _ _tvs term)  i =
+  (ppRole role <+> ("property" <> int i) <+> ":") $\ quote (ppExprStripTopForall explicit_forall 0 term) $$ (ppProofText role)
   -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
 
 ppRole :: Role -> Doc
-ppRole Assert = "lemma" --Better with lemma and sorry-proof here. Then need to insert 'sorry' on the line below somehow.
+ppRole Assert = "lemma" -- Translate to lemma and sorry-proof here.
 ppRole Prove  = "theorem"
+
+ppProofText :: Role -> Doc
+ppProofText Assert = "sorry" -- insert a sorry-proof if this is an assertion.
+ppProofText Prove = "oops"   -- Left for the user to fill in with suitable tactic.
+
+-- Maybe strip away explicit top-level forall quantifiers.
+ppExprStripTopForall :: (PrettyVar a, Ord a) => Bool -> Int -> Expr a -> Doc
+ppExprStripTopForall False i (Quant _ Forall ls e) = ppExprStripTopForall False i e
+ppExprStripTopForall _ i term = ppExpr i term
 
 ppExpr :: (PrettyVar a, Ord a) => Int -> Expr a -> Doc
 ppExpr i e | Just (c,t,f) <- ifView e = parens $ "if" $\ ppExpr 0 c $\ "then" $\ ppExpr 0 t $\ "else" $\ ppExpr 0 f
@@ -202,8 +211,8 @@ ppLit (Bool False) = "False"
 ppLit (String s)   = text (show s)
 
 ppQuantName :: Quant -> Doc
-ppQuantName Forall = "!!"
-ppQuantName Exists = "??"
+ppQuantName Forall = "!"
+ppQuantName Exists = "?"
 
 ppCase :: (PrettyVar a, Ord a) => Case a -> Doc
 ppCase (Case pat rhs) = ppPat pat <+> "=>" $\ ppExpr 0 rhs
@@ -285,5 +294,5 @@ isabelleKeywords = (words . unlines)
     , "Nil"
     , "Cons"
     , "EX ALL"
+    , "o"
     ]
-
