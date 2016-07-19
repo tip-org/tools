@@ -57,7 +57,7 @@ ppAsTuple :: [a] -> (a -> Doc) -> Doc
 ppAsTuple ts toDoc = parIf (length ts > 1) ((sep.punctuate ",") (map toDoc ts))
 
 ppTheory :: (Ord a, PrettyVar a) => Bool -> Theory a -> Doc
-ppTheory explicit_forall (renameAvoiding isabelleKeywords escape -> Theory{..}) 
+ppTheory explicit_forall (renameAvoiding isabelleKeywords escape -> Theory{..})
   = vcat ["theory" <+> "A",
           --"imports $HIPSTER_HOME/IsaHipster",
           "imports Main",
@@ -72,6 +72,11 @@ ppTheory explicit_forall (renameAvoiding isabelleKeywords escape -> Theory{..})
       zipWith (ppFormula explicit_forall) thy_asserts [0..])
     $-$
     "end"
+
+ppHipsterConjs :: (Ord a, PrettyVar a) => Theory a -> Doc
+ppHipsterConjs (renameAvoiding isabelleKeywords escape -> Theory{..})
+  = foldl ($-$) empty
+      (zipWith (ppHipsterFormula False) thy_asserts [0..])
 
 ppSort :: (PrettyVar a, Ord a) => Sort a -> Doc
 --ppSort (Sort sort 0) = "type" $\ ppVar sort
@@ -141,6 +146,11 @@ ppFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
 ppFormula explicit_forall (Formula role _ _tvs term)  i =
   (ppRole role <+> ("property" <> int i) <+> ":") $\ quote (ppExprStripTopForall explicit_forall 0 term) $$ (ppProofText role)
   -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
+
+-- TODO: Make sure library functions gets translated to their Isabelle equivalent names.
+ppHipsterFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
+ppHipsterFormula explicit_forall (Formula role _ _tvs term)  i =
+  ppExprStripTopForall explicit_forall 0 term
 
 ppRole :: Role -> Doc
 ppRole Assert = "lemma" -- Translate to lemma and sorry-proof here.
@@ -274,7 +284,7 @@ isabelleKeywords = (words . unlines)
     , "unit"
     , "void"
     , "with"
-    , "sign Nil Cons"
+    --, "sign Nil Cons"
     , "div"
     , "mod"
     ] ++
@@ -288,11 +298,11 @@ isabelleKeywords = (words . unlines)
     , "begin end imports ML using"
     , "apply done oops sorry by back"
     , "text header chapter section subsection subsubsection sect subsect subsubsect"
-    , "nil cons Nil Cons"
+    --, "nil cons Nil Cons"
     , "nil"
     , "cons"
-    , "Nil"
-    , "Cons"
+    --, "Nil"
+    --, "Cons"
     , "EX ALL"
     , "o"
     ]
