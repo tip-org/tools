@@ -106,6 +106,8 @@ trTerm bm tm =
   case tm of
     Twee.App (QS.Id ty) [Twee.Var v] ->
       Tip.Lcl (Tip.Local (Var ty v) (trType bm ty))
+    Twee.App (QS.Apply ty) [t, u] ->
+      Tip.Builtin Tip.At Tip.:@: [trTerm bm t, trTerm bm u]
     Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
       let name = QS.conName c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
