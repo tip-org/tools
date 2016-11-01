@@ -192,6 +192,16 @@ trVar x []
   int i = Local (Eta i) intType
   iHash = trConstructor intDataCon (Tip.PolyType [] [intType] ghcIntType) []
   intPat = ConPat iHash
+trVar eq [ty]
+  | getOccString eq == "=="
+  = return
+      $ Tip.Lam [x]
+      $ Tip.Lam [y]
+      $ Builtin Equal :@: [Lcl x, Lcl y]
+  where
+    x = Local (Eta 0) ty
+    y = Local (Eta 1) ty
+
 trVar x _
   | tip:_ <- [ tip
              | (ghc,tip) <- primops
@@ -261,11 +271,13 @@ trExpr e0 = case collectTypeArgs e0 of
 
     (C.App e1 e2, _)
       | C.Var x <- e2, x == voidPrimId -> trExpr e1 -- (\ x -> Builtin At :@: [x]) <$> trExpr e1
+      | isConstraint (C.exprType e2) -> trExpr e1
       | otherwise -> (\ x y -> Builtin At :@: [x,y]) <$> trExpr e1 <*> trExpr e2
 
 
     (C.Lam x e, _)
        | varType x `eqType` voidPrimTy -> {- Tip.Lam [] <$> -} trExpr e
+       | isConstraint (varType x) -> trExpr e
        | otherwise -> do
            t <- ll (trType (varType x))
            e' <- local (x:) (trExpr e)
@@ -397,13 +409,16 @@ essentiallyInteger tc = tc == TysPrim.intPrimTyCon {-
                       || tyConUnique tc == PrelNames.integerTyConKey
                       -}
 
+isConstraint :: C.Type -> Bool
+isConstraint ty =
+  tyConAppTyCon (typeKind ty) == constraintKindTyCon
 
 trType :: C.Type -> Either String (Tip.Type Id)
 trType = go . expandTypeSynonyms
   where
     go t0
         | Just (t1,t2) <- splitFunTy_maybe t0    =
-            if t1 `eqType` voidPrimTy
+            if t1 `eqType` voidPrimTy || isConstraint t1
                then go t2 -- ([] :=>:) <$> go t2
                else (\ x y -> [x] :=>: y) <$> go t1 <*> go t2
         | Just (tc,[]) <- splitTyConApp_maybe t0, essentiallyInteger tc = return intType
