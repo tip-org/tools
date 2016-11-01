@@ -7,7 +7,7 @@ bug-reports:         http://github.com/tip-org/tools/issues
 license:             BSD3
 license-file:        LICENSE
 author:              Dan Rosén, Nick Smallbone
-maintainer:          danr@chalmers.se
+maintainer:          nicsma@chalmers.se
 category:            Theorem Provers
 build-type:          Simple
 cabal-version:       >=1.10
