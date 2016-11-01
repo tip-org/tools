@@ -147,4 +147,3 @@ makeAlt t rhs dc = case dcAppliedTo t dc of
   where
     dummy_var :: Type -> Unique -> Var
     dummy_var ty u = mkSysLocal (fsLit "d") u ty
-

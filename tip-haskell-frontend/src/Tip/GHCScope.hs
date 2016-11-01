@@ -46,4 +46,3 @@ thingToId _            = Nothing
 
 mapJust :: (a -> Maybe b) -> [a] -> Maybe b
 mapJust k = listToMaybe . mapMaybe k
-
