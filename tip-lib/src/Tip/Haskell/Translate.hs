@@ -605,7 +605,7 @@ makeSig thy@Theory{..} =
                  map constant_decl
                    (ctor_constants ++ builtin_constants))
           , (quickSpec "instances", List $
-               map instance_decl (ctor_constants ++ builtin_constants) ++
+               map instance_decl (ctor_constants ++ builtin_constants ++ func_constants) ++
                [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
