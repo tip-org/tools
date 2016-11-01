@@ -73,7 +73,8 @@ readHaskellFile file params@Params{..} = do
             ["-dynamic-too"
             ,"-fno-ignore-interface-pragmas"
             ,"-fno-omit-interface-pragmas"
-            ,"-fexpose-all-unfoldings"]
+            ,"-fexpose-all-unfoldings"
+            ,"-hide-package", "base", "-package", "tip-prelude"]
             ++ include
         }
 
