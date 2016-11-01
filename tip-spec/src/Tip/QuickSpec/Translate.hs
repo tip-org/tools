@@ -105,14 +105,14 @@ trTerm :: (Ord a,PrettyVar a) => BackMap a -> Twee.Term QS.Constant -> Tip.Expr 
 trTerm bm tm =
   case tm of
     Twee.App (QS.Id ty) [Twee.Var v] ->
-      Tip.Lcl (Tip.Local (Var ty v) (trType bm ty))
+      Tip.Lcl (Tip.Local (Var ty v) (trType Inner bm ty))
     Twee.App (QS.Apply ty) [t, u] ->
       Tip.Builtin Tip.At Tip.:@: [trTerm bm t, trTerm bm u]
     Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
       let name = QS.conName c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
       in  mk (matchTypes name tvs ty
-                (trType bm (QS.typeDrop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) (QS.typ c))))
+                (trType Outer bm (QS.typeDrop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) (QS.typ c))))
             Tip.:@: map (trTerm bm) as
 
 matchTypes :: (Ord a,PrettyVar a) => String -> [a] -> Tip.Type a -> Tip.Type a -> [Tip.Type a]
@@ -125,19 +125,22 @@ matchTypes name tvs tmpl ty =
             ++ "\n" ++ show (pp tmpl)
             ++ "\n" ++ show (pp ty))
 
-trType :: PrettyVar a => BackMap a -> QS.Type -> Tip.Type (V a)
-trType bm t =
+data Mode = Outer | Inner deriving Eq
+
+trType :: PrettyVar a => Mode -> BackMap a -> QS.Type -> Tip.Type (V a)
+trType mode bm t =
   case t of
     Twee.Var tv -> Tip.TyVar (TyVar tv)
-    Twee.App QS.Arrow [a,b] -> trType bm a ==> trType bm b -- !! ??
+    Twee.App QS.Arrow [a,b] -> trType Inner bm a ==> trType mode bm b -- !! ??
     Twee.App (QS.TyCon tc) as ->
       let name = Typeable.tyConName tc
           Type mk = FROMJUST(name) (M.lookup name bm)
-      in  mk (map (trType bm) as)
+      in  mk (map (trType Inner bm) as)
 
   where
-  t ==> (ts Tip.:=>: r) = (t:ts) Tip.:=>: r
-  t ==> r               = [t] Tip.:=>: r
+  t ==> (ts Tip.:=>: r)
+    | mode == Outer = (t:ts) Tip.:=>: r
+  t ==> r = [t] Tip.:=>: r
 
 unV :: Name a => Tip.Expr (V a) -> Fresh (Tip.Formula a)
 unV e =
