@@ -127,8 +127,8 @@ data Kind = Expr | Formula deriving Eq
 theorySigs :: Theory (HsId a) -> [HsId a]
 theorySigs Theory{..} = map sig_name thy_sigs
 
-ufInfo :: Theory (HsId a) -> (Bool,[H.Type (HsId a)])
-ufInfo Theory{thy_sigs} = (not (null imps),imps)
+ufInfo :: Theory (HsId a) -> [H.Type (HsId a)]
+ufInfo Theory{thy_sigs} = imps
   where
   imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ <- thy_sigs]
 
@@ -157,7 +157,7 @@ trTheory' mode thy@Theory{..} =
     tr_asserts thy_asserts ++
     [makeSig thy | mode == QuickSpec ]
   where
-  (translate_UFs,imps) = ufInfo thy
+  imps = ufInfo thy
 
   space_decl :: [Decl a]
   space_decl =
@@ -488,9 +488,8 @@ trTheory' mode thy@Theory{..} =
   tr_polyType_inner (PolyType _ ts t) = trType (ts :=>: t)
 
   tr_polyType :: T.PolyType a -> H.Type a
-  tr_polyType pt@(PolyType tvs _ _)
-    | translate_UFs = TyForall tvs (TyCtx (arb tvs ++ imps) (tr_polyType_inner pt))
-    | otherwise     = tr_polyType_inner pt
+  tr_polyType pt@(PolyType tvs _ _) =
+    TyForall tvs (TyCtx (arb tvs ++ imps) (tr_polyType_inner pt))
 
   -- translate type and add Arbitrary a, CoArbitrary a in the context for
   -- all type variables a
@@ -501,9 +500,9 @@ trTheory' mode thy@Theory{..} =
 
 arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
 arbitrary ts =
-  [ TyCon (quickCheck tc) [t]
+  [ TyCon tc [t]
   | t <- ts
-  , tc <- ["Arbitrary","CoArbitrary"]
+  , tc <- [quickCheck "Arbitrary", quickCheck "CoArbitrary", prelude "Ord"]
   ]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -606,6 +605,7 @@ makeSig thy@Theory{..} =
                  map constant_decl
                    (ctor_constants ++ builtin_constants))
           , (quickSpec "instances", List $
+               map instance_decl (ctor_constants ++ builtin_constants) ++
                [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
@@ -618,13 +618,13 @@ makeSig thy@Theory{..} =
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ <- thy_sigs
                ])
-          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int (if translate_UFs then 15 else 7)])
+          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
           ]
       ]
   where
-  (translate_UFs,imps) = ufInfo thy
+  imps = ufInfo thy
 
   use_cg = True
 
@@ -644,11 +644,23 @@ makeSig thy@Theory{..} =
   poly_type (PolyType _ args res) = args :=>: res
 
   constant_decl (f,t) =
-    Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]
+    Record (Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]) [(quickSpec "conSize", H.Int 0)]
     where
     (pre,qs_type) = qsType t
-    lam | null pre  = id
-        | otherwise = H.Lam (replicate (length pre) (H.ConPat (quickSpec "Dict") []))
+    lam = H.Lam [H.ConPat (quickSpec "Dict") []]
+
+  instance_decl (_,t) =
+    Apply (quickSpec "makeInstance") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
+    where
+      (pre, _) = qsType t
+      args = replicate (length pre) (H.ConPat (quickSpec "Dict") [])
+      res  = H.Apply (prelude "return") [H.Apply (quickSpec "Dict") []]
+
+      ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
+      dict x = TyCon (quickSpec "Dict") [x]
+
+      pairPat x y = H.TupPat [x,y]
+      tyPair x y = H.TyTup [x,y]
 
   int_lit_decl x =
     Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x]
@@ -717,10 +729,9 @@ makeSig thy@Theory{..} =
        ]
 
   qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
-  qsType t = (pre,foldr TyArr inner [ TyCon (quickSpec "Dict") [p] | p <- pre ])
+  qsType t = (pre, TyArr (TyCon (quickSpec "Dict") [TyTup pre]) inner)
     where
-    pre | translate_UFs = arbitrary (map trType qtvs) ++ imps
-        | otherwise     = []
+    pre = arbitrary (map trType qtvs) ++ imps
     inner = trType (applyType tvs qtvs t)
     qtvs = qsTvs (length tvs)
     tvs = tyVars t
