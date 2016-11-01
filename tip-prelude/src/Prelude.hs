@@ -2,18 +2,16 @@
 module Prelude(module Prelude, module P) where
 
 import "base" Prelude as P (
-  (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
+  (<), (<=), (>=), (>), (+), (-), (*), (/), (**), div, mod,
   (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!),
   error, id, return, not, fst, snd,
   negate, abs, divMod, otherwise, Int,
-  String, Bool(True, False), Maybe(Nothing, Just))
+  String, Bool(True, False), Maybe(Nothing, Just), Show(..), Eq)
 
 infixl 9  !!
 infixr 5  ++
 
 type Integer = P.Int
-
-class Eq a where
 
 {-# NOINLINE (==) #-}
 (==) :: a -> a -> Bool
