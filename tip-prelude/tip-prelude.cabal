@@ -6,7 +6,6 @@ author:              Nick Smallbone
 maintainer:          nicsma@chalmers.se
 build-type:          Simple
 cabal-version:       >=1.10
-description:         A version of the Haskell prelude for tip-haskell-frontend
 synopsis:            A version of the Haskell prelude for tip-haskell-frontend
 homepage:            http://tip-org.github.io
 bug-reports:         http://github.com/tip-org/tools/issues

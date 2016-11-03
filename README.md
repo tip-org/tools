@@ -8,15 +8,6 @@ rough around the edges but include:
 * `tip-ghc` - translate a Haskell file to TIP format
 * `tip-spec` - invent conjectures about a TIP file
 
-## Installing from Hackage
-
-To install the latest released version of TIP, make sure you have Haskell installed and then run:
-
-    cabal update
-    cabal install tip-lib tip-haskell-frontend
-
-The tools will be put in your `~/.cabal/bin` directory.
-
 ## Building the development version of the tools
 
 With Haskell installed and this repository cloned:

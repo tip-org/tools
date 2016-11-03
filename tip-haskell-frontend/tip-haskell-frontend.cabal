@@ -3,10 +3,9 @@ version:             0.2
 license:             BSD3
 license-file:        LICENSE
 author:              Dan Rosén
-maintainer:          danr@chalmers.se
+maintainer:          Nick Smallbone, nicsma@chalmers.se
 build-type:          Simple
 cabal-version:       >=1.10
-description:         Convert from Haskell to Tip
 synopsis:            Convert from Haskell to Tip
 homepage:            http://tip-org.github.io
 bug-reports:         http://github.com/tip-org/tools/issues
