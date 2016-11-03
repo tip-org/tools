@@ -6,7 +6,7 @@ packages:
 - tip-prelude/
 - location:
    git: git://github.com/nick8325/quickspec
-   commit: e66f496ef0fa5d5792ef0c3ffe8ebb2c9486f663
+   commit: b6f6e9c6289a35618301e85ea0f1dcc5c189cc94
 
 extra-deps:
 - genifunctors-0.3
