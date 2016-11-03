@@ -686,20 +686,10 @@ makeSig thy@Theory{..} =
   -- builtins
 
   (builtin_lits,builtin_funs) =
-    partition litBuiltin $
+    partition (litBuiltin . fst) $
       usort
-        [ b
-        | Builtin b :@: args <- universeBi thy
-
-        -- only count equality if argument is int:
-        , let is_int = case args of
-                         a1:_ -> exprType a1 == (intType :: T.Type (HsId a))
-                         _    -> __
-        , case b of
-            Equal    -> is_int
-            Distinct -> is_int
-            _         -> True
-        ]
+        [ (b, map exprType args :=>: exprType e)
+        | e@(Builtin b :@: args) <- universeBi thy ]
 
   used_builtin_types :: [BuiltinType]
   used_builtin_types =
@@ -707,7 +697,7 @@ makeSig thy@Theory{..} =
 
   bool_used = Boolean `elem` used_builtin_types
   num_used  = -- Integer `elem` used_builtin_types
-              or [ op `elem` builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
+              or [ op `elem` map fst builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
   real_used = Real `elem` used_builtin_types
 
   builtin_decls
@@ -715,17 +705,16 @@ makeSig thy@Theory{..} =
     ++ [ int_lit_decl x  | num_used,  x <- nub $
                                            [0,1] ++
                                            [ x
-                                           | Lit (T.Int x) <- builtin_lits ]]
+                                           | Lit (T.Int x) <- map fst builtin_lits ]]
 
   builtin_constants
     =  [ (prelude s, ty)
-       | b <- nub $
+       | (b, ty) <- nub $
            -- [ b      | bool_used, b <- [And,Or,Not] ]
            -- [ IntAdd | int_used ]
            -- [ Equal  | bool_used && int_used ]
-              [ b | b <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
+              [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
        , Just s <- [lookup b hsBuiltins]
-       , ty <- typesOfBuiltin b
        ]
 
   qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
