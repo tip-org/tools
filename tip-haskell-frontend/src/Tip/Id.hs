@@ -87,8 +87,9 @@ ppId Error = "error"
 ppName :: Name -> String
 ppName nm
     | k == listTyConKey      = "list"
-    | k == nilDataConKey     = "nil"
-    | k == consDataConKey    = "cons"
+    -- Note: Renames these to Capital Nil and Cons for consistency with Isabelle builtins.
+    | k == nilDataConKey     = "Nil"
+    | k == consDataConKey    = "Cons"
     | k == unitTyConKey      = "Unit"
     | k == genUnitDataConKey = "tt"
     | isSystemName nm        = "x"
@@ -167,4 +168,3 @@ primops =
 #endif
  where
   int i = Local (Eta i) intType
-
