@@ -673,10 +673,12 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       tyPair x y = H.TyTup [x,y]
 
   int_lit_decl x =
-    Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x]
+    Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
+      [(quickSpec "conIsBackground", H.Apply (prelude "True") [])]
 
   bool_lit_decl b =
-    Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b]
+    Record (Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b])
+      [(quickSpec "conIsBackground", H.Apply (prelude "True") [])]
 
   ctor_constants =
     [ (f,poly_type (globalType g))
