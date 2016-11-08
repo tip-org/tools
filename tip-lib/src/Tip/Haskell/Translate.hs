@@ -137,7 +137,7 @@ data Mode = Feat | QuickCheck
      { with_depth_as_argument  :: Bool
      , with_parallel_functions :: Bool
      }
-  | Smten | QuickSpec | Plain
+  | Smten | QuickSpec QuickSpecParams | Plain
   deriving (Eq,Ord,Show)
 
 isLazySmallCheck LazySmallCheck{} = True
@@ -155,7 +155,9 @@ trTheory' mode thy@Theory{..} =
     concatMap tr_sig thy_sigs ++
     concatMap tr_func thy_funcs ++
     tr_asserts thy_asserts ++
-    [makeSig thy | mode == QuickSpec ]
+    case mode of
+      QuickSpec bg -> [makeSig bg thy]
+      _ -> []
   where
   imps = ufInfo thy
 
@@ -192,14 +194,14 @@ trTheory' mode thy@Theory{..} =
     ]
     ++
     [ TH (Apply (feat "deriveEnumerable") [QuoteTyCon tc])
-    | any (== mode) [Feat, QuickCheck, QuickSpec] ]
+    | case mode of { Feat -> True; QuickCheck -> True; QuickSpec _ -> True; _ -> False } ]
     ++
     [ InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
                   (Apply (quickCheck "sized") [Apply (feat "uniform") []])]
-    | any (== mode) [QuickCheck, QuickSpec] ]
+    | case mode of { QuickCheck -> True; QuickSpec _ -> True; _ -> False } ]
     ++
     [ InstDecl
         [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
@@ -578,13 +580,18 @@ typesOfBuiltin b = case b of
 
 -- * QuickSpec signatures
 
-makeSig :: forall a . (PrettyVar a,Ord a) => Theory (HsId a) -> Decl (HsId a)
-makeSig thy@Theory{..} =
+data QuickSpecParams =
+  QuickSpecParams {
+    background_functions :: [String] }
+  deriving (Eq, Ord, Show)
+
+makeSig :: forall a . (PrettyVar a,Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
+makeSig QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $
     Tup
       [ List
           [ Tup
-              [ constant_decl ft
+              [ constant_decl (varStr (fst ft) `elem` background_functions) ft
               , List $
                   if use_cg
                     then
@@ -602,7 +609,7 @@ makeSig thy@Theory{..} =
           [ (quickSpec "constants",
                List $
                  builtin_decls ++
-                 map constant_decl
+                 map (constant_decl True)
                    (ctor_constants ++ builtin_constants))
           , (quickSpec "instances", List $
                map instance_decl (ctor_constants ++ builtin_constants ++ func_constants) ++
@@ -643,8 +650,11 @@ makeSig thy@Theory{..} =
 
   poly_type (PolyType _ args res) = args :=>: res
 
-  constant_decl (f,t) =
-    Record (Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]) [(quickSpec "conSize", H.Int 0)]
+  constant_decl background (f,t) =
+    Record (Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]) $
+      [(quickSpec "conSize", H.Int 0)] ++
+      [(quickSpec "conIsBackground", H.Apply (prelude "True") []) | background]
+
     where
     (pre,qs_type) = qsType t
     lam = H.Lam [H.ConPat (quickSpec "Dict") []]

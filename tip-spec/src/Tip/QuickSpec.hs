@@ -8,7 +8,7 @@ import Tip.Haskell.Translate
 import Tip.Core (Theory)
 
 import qualified QuickSpec.Signature as QS
-import QuickSpec (Signature, Constant, choppyQuickSpec)
+import QuickSpec (Signature, Constant, choppyQuickSpec, shouldPrint)
 
 import Language.Haskell.Interpreter
 import System.FilePath
@@ -24,12 +24,12 @@ import System.IO
 
 type ChoppedSignature = ([(Constant,[Int])],Signature)
 
-theorySignature :: Name a => Theory a -> IO (ChoppedSignature,RenameMap a)
-theorySignature thy =
+theorySignature :: Name a => QuickSpecParams -> Theory a -> IO (ChoppedSignature,RenameMap a)
+theorySignature params thy =
   withSystemTempDirectory "tip-spec" $
     \ dir ->
       do let a_file = dir </> "A" <.> "hs"
-         let (thy_doc, rename_map) = ppTheoryWithRenamings "A" QuickSpec thy
+         let (thy_doc, rename_map) = ppTheoryWithRenamings "A" (QuickSpec params) thy
          writeFile a_file (show thy_doc)
          setCurrentDirectory dir
          r <- runInterpreter $
@@ -47,12 +47,12 @@ theorySignature thy =
                 error "theorySignature"
            Right sig -> return sig
 
-exploreTheory :: Name a => Theory a -> IO (Theory a)
-exploreTheory thy =
-  do ((chops,sig),rm) <- theorySignature thy
+exploreTheory :: Name a => QuickSpecParams -> Theory a -> IO (Theory a)
+exploreTheory params thy =
+  do ((chops,sig),rm) <- theorySignature params thy
      sig' <- toStderr $ choppyQuickSpec chops sig
      let bm  = backMap thy rm
-     let fms = mapM (trProperty bm) (nub (QS.background sig')) `freshFrom` thy
+     let fms = mapM (trProperty bm) (filter shouldPrint (nub (QS.background sig'))) `freshFrom` thy
      return thy { thy_asserts = thy_asserts thy ++ fms }
 
 toStderr :: IO a -> IO a

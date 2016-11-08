@@ -6,6 +6,8 @@ module Main where
 
 import System.Environment
 
+import Tip.Haskell.Translate
+import Options.Applicative
 import Tip.QuickSpec
 import Tip.Parser (parse)
 #ifdef STACK
@@ -15,6 +17,18 @@ import System.Process
 
 import qualified Tip.Pretty.SMT as SMT
 
+parseParams :: Parser QuickSpecParams
+parseParams =
+  QuickSpecParams <$>
+  many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
+
+optionParser :: Parser (Maybe String, QuickSpecParams)
+optionParser =
+  (,) <$> parseFile <*> parseParams
+  where
+    parseFile =
+      fmap Just (strArgument (metavar "FILENAME")) <|> pure Nothing
+
 main :: IO ()
 main = do
 #ifdef STACK
@@ -22,17 +36,23 @@ main = do
 
   setEnv "GHC_PACKAGE_PATH" (head (lines pkgdb))
 #endif
-  args <- getArgs
-  case args of
-     "-":es -> handle es =<< getContents
-     f:es   -> handle es =<< readFile f
-     es     -> handle es =<< getContents
 
-handle :: [String] -> String -> IO ()
-handle es s =
+  (files, params) <-
+    execParser $
+      info (helper <*> optionParser)
+        (fullDesc <>
+         progDesc "Speculate conjectures about a TIP problem" <>
+         header "tip-spec - conjecture synthesis for TIP problems")
+  case files of
+    Nothing  -> handle params =<< getContents
+    Just "-" -> handle params =<< getContents
+    Just f   -> handle params =<< readFile f
+
+handle :: QuickSpecParams -> String -> IO ()
+handle params s =
   case parse s of
     Left err  -> error $ "Parse failed: " ++ err
     Right thy ->
-      do thy' <- exploreTheory thy
+      do thy' <- exploreTheory params thy
          print (SMT.ppTheory thy')
 
