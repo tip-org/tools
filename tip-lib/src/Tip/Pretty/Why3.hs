@@ -179,7 +179,6 @@ ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
 ppLit (Bool True)  = "true"
 ppLit (Bool False) = "false"
-ppLit (String s)   = text (show s)
 
 ppQuantName :: Quant -> Doc
 ppQuantName Forall = "forall"

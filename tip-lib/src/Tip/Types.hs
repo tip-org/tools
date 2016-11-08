@@ -40,6 +40,11 @@ data Expr a
   -- ^ @Let (Local x t) b e@ = @(let ((l x)) b e)@
   -- Unlike SMT-LIB, this does not accept a list of bound
   -- variable-/expression-pairs. Fix?
+  | LetRec [Function a] (Expr a)
+  -- ^ Recursive let. Must *not* normally appear in a TIP problem.
+  -- If you generate a problem with LetRec, you must immediately
+  -- eliminate it with Tip.Passes.eliminateLetRec before any further
+  -- processing.
   | Quant QuantInfo Quant [Local a] (Expr a)
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
@@ -72,7 +77,7 @@ data Builtin
   | NumLt
   | NumLe
   | NumWiden
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Read)
 
 numBuiltin :: Builtin -> Bool
 numBuiltin b = b `elem` [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod,NumGt,NumGe,NumLt,NumLe,NumWiden]
@@ -90,8 +95,7 @@ logicalBuiltin b = b `elem` [And,Or,Implies,Equal,Distinct,Not]
 data Lit
   = Int Integer
   | Bool Bool
-  | String String -- Not really here but might come from GHC
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Read)
 
 -- | Patterns in branches
 data Pattern a
@@ -119,7 +123,7 @@ data Type a
 
 data BuiltinType
   = Integer | Real | Boolean
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Read)
 
 data Function a = Function
   { func_name :: a

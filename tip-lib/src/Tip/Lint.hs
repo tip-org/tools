@@ -196,6 +196,8 @@ lintExpr kind (Let lcl@Local{..} expr body) = do
       "Expression of type", nest 2 (pp (exprType expr)),
       "bound to variable" <+> pp lcl,
       "of type", nest 2 (pp lcl_type)])
+lintExpr _ LetRec{} =
+  throwError "letrec is not supported except by Tip.Passes.eliminateLetRec"
 lintExpr ExprKind (Quant _info _ lcls expr) =
   throwError "Quantifier found in expression"
 lintExpr FormulaKind (Quant _info _ lcls expr) =

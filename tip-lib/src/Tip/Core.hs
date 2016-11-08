@@ -307,13 +307,13 @@ exprType (Lam args body) = map lcl_type args :=>: exprType body
 exprType (Match _ (Case _ body:_)) = exprType body
 exprType (Match _ []) = ERROR("empty case expression")
 exprType (Let _ _ body) = exprType body
+exprType (LetRec _ body) = exprType body
 exprType Quant{} = boolType
 
 -- | The result type of a built in function, applied to some types
 builtinType :: Ord a => Builtin -> [Type a] -> Type a
 builtinType (Lit Int{}) _ = intType
 builtinType (Lit Bool{}) _ = boolType
-builtinType (Lit String{}) _ = ERROR("strings are not really here")
 builtinType And _ = boolType
 builtinType Or _ = boolType
 builtinType Not _ = boolType

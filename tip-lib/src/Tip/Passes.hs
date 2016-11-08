@@ -42,6 +42,7 @@ module Tip.Passes
   -- * Lambda and let lifting
   , lambdaLift
   , letLift
+  , eliminateLetRec
   , axiomatizeLambdas
 
   -- * Function definitions

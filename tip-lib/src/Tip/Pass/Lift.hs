@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
-module Tip.Pass.Lift (lambdaLift, letLift, axiomatizeLambdas, boolOpLift) where
+module Tip.Pass.Lift (lambdaLift, letLift, eliminateLetRec, axiomatizeLambdas, boolOpLift) where
 
 #include "errors.h"
 import Tip.Core
@@ -80,6 +80,13 @@ letLiftTop e0 =
 -- > f fvs = b[fvs]
 letLift :: Name a => Theory a -> Fresh (Theory a)
 letLift = liftTheory letLiftTop
+
+eliminateLetRecTop :: Name a => TopLift a
+eliminateLetRecTop = error "eliminateLetRecTop"
+
+-- | Eliminate letrec.
+eliminateLetRec :: Name a => Theory a -> Fresh (Theory a)
+eliminateLetRec = liftTheory eliminateLetRecTop
 
 axLamFunc :: Function a -> Maybe (Signature a,Formula a)
 axLamFunc Function{..} =

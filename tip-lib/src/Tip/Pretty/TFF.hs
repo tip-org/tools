@@ -137,7 +137,6 @@ ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
 ppLit (Bool True)  = "$true"
 ppLit (Bool False) = "$false"
-ppLit (String s)   = text (show s)
 
 ppType :: PrettyVar a => Type a -> Doc
 ppType (TyVar x)        = ppVar x
