@@ -82,7 +82,7 @@ letLift :: Name a => Theory a -> Fresh (Theory a)
 letLift = liftTheory letLiftTop
 
 eliminateLetRecTop :: Name a => TopLift a
-eliminateLetRecTop = error "eliminateLetRecTop"
+eliminateLetRecTop e = return e
 
 -- | Eliminate letrec.
 eliminateLetRec :: Name a => Theory a -> Fresh (Theory a)

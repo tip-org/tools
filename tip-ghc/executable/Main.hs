@@ -41,21 +41,13 @@ main = do
            progDesc "Translate Haskell to TIP" <>
            header "tip-ghc - translate Haskell to TIP")
     thy <- readHaskellFile params file
-    when (PrintInitialTheory `elem` param_debug_flags params) $ putStrLn (ppRender thy)
     let pipeline =
           freshPass $
             runPasses
-              [ SimplifyGently
-              , RemoveNewtype
-              , UncurryTheory
+              [ UncurryTheory
+              , SimplifyGently
               , CommuteMatch
               , SimplifyGently
-              , IfToBoolOp
-              , RemoveAliases, CollapseEqual
-              , CommuteMatch
-              , SimplifyGently
-              , CSEMatch
-              , EliminateDeadCode
               ]
     case pipeline thy of
       [thy] -> print (SMT.ppTheory thy)

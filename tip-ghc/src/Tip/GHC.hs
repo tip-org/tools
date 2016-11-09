@@ -49,6 +49,7 @@ import Data.IORef
 import Kind
 import CoreUtils
 import qualified Data.ByteString.Char8 as BS
+import Tip.Passes
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -144,7 +145,7 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return thy -- XXX cleanup: let-lift, remove error
+      return $ eliminateErrors $ runFresh $ eliminateLetRec thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Is this a function that the user asked us to include in the theory?
@@ -316,6 +317,9 @@ instance PrettyVar Id where
   varStr (ProjectionId x _ _) = x
   varStr (DiscriminatorId x _) = x
   varStr ErrorId = "error"
+
+instance Show Id where
+  show = varStr
 
 instance Name Id where
   fresh = freshNamed "x"
@@ -544,7 +548,7 @@ tipFunction prog x t =
               args
     expr ctx (Var err `App` _ `App` Type ty `App` _)
       | isPatError err =
-          return (Lcl (Local ErrorId (tipType prog ty)))
+        return (errorTerm (tipType prog ty))
     expr ctx (Var from_integer `App` Type ty `App` _ `App` Lit (LitInteger n _))
       | FromInteger `elem` globalAnnotations prog from_integer =
         return $
@@ -566,7 +570,7 @@ tipFunction prog x t =
     expr ctx (Lam x e) = lam ctx x e
     expr ctx (Let (NonRec x t) u) = letNonRec ctx x t u
     expr ctx (Let (Rec binds) t) = letRec ctx binds t
-    expr ctx (Case t x ty alts) = caseExp ctx ty x t alts
+    expr ctx (Case t x _ alts) = caseExp ctx (varType x) x t alts
     expr ctx (Tick _ e) = expr ctx e
     expr _ e = ERROR("Unsupported expression: " ++ showOutputable e)
 
@@ -772,6 +776,56 @@ isPatError var = var == pAT_ERROR_ID
 
 isAny :: TyCon -> Bool
 isAny tc = tc == anyTyCon
+
+----------------------------------------------------------------------
+-- Stuff which gets cleaned up at the TIP level.
+-- Currently includes removing ErrorId.
+----------------------------------------------------------------------
+
+eliminateErrors :: Theory Id -> Theory Id
+eliminateErrors thy
+  | thy == thy' = thy
+  | otherwise = eliminateErrors thy'
+  where
+    thy' = eliminateErrors1 thy
+
+eliminateErrors1 :: Theory Id -> Theory Id
+eliminateErrors1 thy =
+  thy {
+    -- Any function whose body is just ErrorId gets replaced by an
+    -- uninterpreted function.
+    thy_funcs = funcs \\ errors,
+    thy_sigs  = thy_sigs thy ++ map signature errors }
+  where
+    funcs =
+      [ func {
+          func_body = runFresh $
+            eliminateErrorsExpr (func_body func) }
+      | func <- thy_funcs thy ]
+    errors =
+      [ func
+      | func@Function{func_body = Lcl (Local ErrorId _)} <- funcs ]
+
+eliminateErrorsExpr :: Tip.Expr Id -> Fresh (Tip.Expr Id)
+eliminateErrorsExpr = transformBiM $ \e ->
+  let
+    err = return (Lcl (Local ErrorId (Tip.exprType e)))
+    isError (Lcl (Local ErrorId _)) = True
+    isError _ = False in
+  case e of
+    -- We just pull ErrorId to the top level as far as possible.
+    -- If a branch of a case is an ErrorId, that branch is deleted.
+    f :@: args | any isError args -> err
+    Tip.Lam _ e | isError e -> err
+    Tip.Let x t u | isError t -> (t // x) u
+    Tip.Let x t u | isError u -> err
+    Tip.Quant _ _ _ e | isError e -> err
+    Tip.Match e alts | isError e -> err
+    Tip.Match e alts ->
+      case filter (not . isError . case_rhs) alts of
+        [] -> err
+        alts' -> return (Tip.Match e alts')
+    _ -> return e
 
 ----------------------------------------------------------------------
 -- Debug output.
