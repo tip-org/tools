@@ -51,7 +51,7 @@ renameRest kwds mk_name =
 -- | Renames a theory
 renameAvoiding :: forall a . (Ord a,PrettyVar a) =>
        [String]         -- ^ Keywords to avoid
-    -> (Char -> String) -- ^ Escaping
+    -> (String -> String) -- ^ Escaping
     -> Theory a         -- ^ Theory to be renamed
     -> Theory RenamedId -- ^ The renamed theory
 renameAvoiding kwds repl thy
@@ -64,5 +64,5 @@ renameAvoiding kwds repl thy
   assigned_gbl_names   = [ s | Renamed s <- F.toList first_pass ]
 
   rn :: a -> String
-  rn = concatMap repl . varStr
+  rn = repl . varStr
 

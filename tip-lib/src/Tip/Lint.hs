@@ -53,7 +53,7 @@ check' x p = do
 
 -- | Returns a Left if the theory is malformed
 lintEither :: (PrettyVar a, Ord a) => String -> Theory a -> Either Doc (Theory a)
-lintEither pass thy0@(renameAvoiding [] return -> thy) =
+lintEither pass thy0@(renameAvoiding [] id -> thy) =
 --   trace (" ==== Linting: " ++ pass ++ " ====\n" ++ ppRender thy0 ++ "\n ====") $
   case lintTheory thy0 of
     Nothing -> return thy0

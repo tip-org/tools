@@ -27,14 +27,14 @@ exprSep s xs = parExprSep s xs
 apply :: Doc -> Doc -> Doc
 apply s x = parExpr s [x]
 
-validSMTChar :: Char -> String
-validSMTChar x
-  | isAlphaNum x                             = [x]
-  | x `elem` ("~!@$%^&*_-+=<>.?/" :: String) = [x]
-  | otherwise                                = ""
+validSMTString :: String -> String
+validSMTString (x:xs)
+  | x `elem` ("-0123456789" :: String) = validSMTString ("id" ++ x:xs)
+validSMTString xs =
+  [ x | x <- xs, isAlphaNum x || x `elem` ("~!@$%^&*_-+=<>.?/" :: String) ]
 
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
+ppTheory (renameAvoiding smtKeywords validSMTString -> Theory{..})
   = vcat
      (map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++

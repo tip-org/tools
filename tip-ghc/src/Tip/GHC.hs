@@ -55,6 +55,7 @@ import Control.Exception
 import Data.Typeable(Typeable)
 import qualified Text.PrettyPrint as PP
 import Control.DeepSeq
+import Tip.Lint
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -108,10 +109,10 @@ readHaskellFile params@Params{..} name =
 
       -- Finally, a few types (such as lists) are defined in GHC itself
       -- rather than a package. We have to add those by hand.
-      Just (AnId fromIntegerId) <- lookupGlobalName fromIntegerName
-      Just (AnId fromRationalId) <- lookupGlobalName fromRationalName
-      Just (ATyCon integerTyCon) <- lookupGlobalName integerTyConName
-      Just (ATyCon ratioTyCon) <- lookupGlobalName ratioTyConName
+      Just (AnId fromIntegerId) <- lookupName fromIntegerName
+      Just (AnId fromRationalId) <- lookupName fromRationalName
+      Just (ATyCon integerTyCon) <- lookupName integerTyConName
+      Just (ATyCon ratioTyCon) <- lookupName ratioTyConName
       Just (AConLike (RealDataCon ratioDataCon)) <-
         lookupGlobalName ratioDataConName
       let builtin =
@@ -164,7 +165,7 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return $ clean $ runFresh $ eliminateLetRec thy
+      return $ lint "conversion to TIP" $ clean $ runFresh $ eliminateLetRec thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Is this a function that the user asked us to include in the theory?
@@ -623,6 +624,9 @@ tipFunction prog x t =
           let ([], ty) = applyPolyType (polyType f) (ctx_types ctx)
           special ctx ty spec
     var ctx x
+      | (l:_) <- [l | Literal l <- globalAnnotations prog x] =
+          return (literal l)
+    var ctx x
       | Just fun <- Map.lookup x (ctx_funs ctx) =
         return (fun (ctx_types ctx))
       | Just var <- Map.lookup x (ctx_vars ctx) =
@@ -641,7 +645,7 @@ tipFunction prog x t =
             -- Curry the constructor.
             names <-
               replicateM (length global_args) fresh
-            let args = zipWith Local names (polytype_args (gbl_type global))
+            let args = zipWith Local names (fst (gblType global))
             return $
               foldr (\arg e -> Tip.Lam [arg] e)
                 (Gbl global :@: map Lcl args)
@@ -705,8 +709,8 @@ tipFunction prog x t =
       f <- fun ctx x t
       case func_tvs f of
         [] ->
-          bindFun ctx x $ \ctx name ->
-            Tip.Let (Local name (func_res f)) (func_body f) <$>
+          bindVar ctx x $ \ctx name ->
+            Tip.Let name (func_body f) <$>
             expr ctx u
         _ -> do
           let g tys = applyTypeInExpr (func_tvs f) tys (func_body f)
