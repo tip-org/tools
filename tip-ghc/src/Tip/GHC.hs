@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, CPP #-}
+{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables #-}
 module Tip.GHC where
 
 #include "errors.h"
@@ -8,7 +8,8 @@ import qualified GHC
 import Tip.Fresh
 import Var hiding (Id)
 import qualified Var
-import Tip.GHC.Annotations
+import Tip.GHC.Annotations hiding (Lit, Cast)
+import qualified Tip.GHC.Annotations as Tip
 import Outputable
 import Tip.Pretty
 import Name hiding (Name, varName)
@@ -19,7 +20,7 @@ import TysWiredIn
 import MkCore
 import PrelNames
 import Constants
-import BasicTypes
+import BasicTypes hiding (Inline)
 import Control.Monad.Trans.Writer
 import Data.Char
 import Avail
@@ -50,6 +51,10 @@ import Kind
 import CoreUtils
 import qualified Data.ByteString.Char8 as BS
 import Tip.Passes
+import Control.Exception
+import Data.Typeable(Typeable)
+import qualified Text.PrettyPrint as PP
+import Control.DeepSeq
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -64,9 +69,9 @@ readHaskellFile params@Params{..} name =
     (dflags, _, _) <-
       parseDynamicFlagsCmdLine dflags $ map noLoc $
         param_include ++
-        words ("-hide-package base -package tip-prelude " ++
+        words ("-hide-package base -hide-package tip-ghc -package tip-prelude " ++
                "-fexpose-all-unfoldings -fno-ignore-interface-pragmas " ++
-               "-fno-omit-interface-pragmas -XRebindableSyntax -XImplicitPrelude")
+               "-fno-omit-interface-pragmas")
     -- Don't generate object code.
     setSessionDynFlags dflags {
       hscTarget = HscInterpreted,
@@ -103,26 +108,40 @@ readHaskellFile params@Params{..} name =
 
       -- Finally, a few types (such as lists) are defined in GHC itself
       -- rather than a package. We have to add those by hand.
+      Just (AnId fromIntegerId) <- lookupGlobalName fromIntegerName
+      Just (AnId fromRationalId) <- lookupGlobalName fromRationalName
+      Just (ATyCon integerTyCon) <- lookupGlobalName integerTyConName
+      Just (ATyCon ratioTyCon) <- lookupGlobalName ratioTyConName
+      Just (AConLike (RealDataCon ratioDataCon)) <-
+        lookupGlobalName ratioDataConName
       let builtin =
             Program (Map.fromList builtinTypes)
               (Map.fromList builtinGlobals)
           builtinTypes =
             [tyCon listTyCon [Name "list"],
-             tyCon boolTyCon [PrimType "Boolean"]] ++
+             tyCon boolTyCon [PrimType Boolean],
+             tyCon integerTyCon [PrimType Integer],
+             tyCon ratioTyCon [PrimType Real]] ++
             [tyCon (tupleTyCon Boxed i) [Name (tupleName i)]
             | i <- [0..mAX_TUPLE_SIZE]]
           builtinGlobals =
-            [dataCon consDataCon [Name "cons", Projections ["head", "tail"]],
+            [specialFun pAT_ERROR_ID Error,
+             specialFun fromIntegerId Tip.Cast,
+             specialFun fromRationalId Tip.Cast,
+             dataCon ratioDataCon [SomeSpecial Rational],
+             dataCon consDataCon  [Name "cons", Projections ["head", "tail"]],
              dataCon nilDataCon   [Name "nil"],
-             dataCon falseDataCon [Literal "Bool False"],
-             dataCon trueDataCon  [Literal "Bool True"]] ++
+             dataCon falseDataCon [Literal (Bool False)],
+             dataCon trueDataCon  [Literal (Bool True)]] ++
             [dataCon (tupleDataCon Boxed i) [Name (tupleName i)]
             | i <- [0..mAX_TUPLE_SIZE]]
           tupleName 0 = "unit"
           tupleName 2 = "pair"
           tupleName _ = "tuple"
-  
-      let prog = mconcat [home, away, builtin]
+          specialFun x spec = (x, FunInfo (Var x) [SomeSpecial spec])
+
+      -- Put builtin before away so that it takes precedence
+      let prog = mconcat [home, builtin, away]
 
       when (PrintCore `elem` param_debug_flags) $
         liftIO $ putStrLn (showOutputable home)
@@ -145,7 +164,7 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return $ eliminateErrors $ runFresh $ eliminateLetRec thy
+      return $ clean $ runFresh $ eliminateLetRec thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Is this a function that the user asked us to include in the theory?
@@ -190,9 +209,9 @@ isPropType prog = prop . expandTypeSynonyms
 data Program =
   Program {
     -- Data types.
-    prog_types   :: Map TyCon TypeInfo,
+    prog_types     :: Map TyCon TypeInfo,
     -- Constructors and functions.
-    prog_globals :: Map Var GlobalInfo }
+    prog_globals   :: Map Var GlobalInfo }
 
 data TypeInfo =
   TypeInfo {
@@ -258,18 +277,20 @@ globalAnnotations prog global =
 
 -- Build a program from a list of declarations and a list of annotations.
 program :: [TyThing] -> AnnEnv -> Program
-program things anns = Program (Map.fromList types) (Map.fromList globals)
+program things anns = Program types globals
   where
     types =
+      Map.fromList
       [ tyCon tc (annotations (tyConName tc))
       | ATyCon tc <- things,
         isAlgTyCon tc ]
     globals =
+      Map.fromList $
       [ dataCon dc (annotations (dataConName dc))
       | AConLike (RealDataCon dc) <- things ] ++
       [ (id, FunInfo unfolding (annotations (idName id)))
       | AnId id <- things,
-        CoreUnfolding{uf_tmpl = unfolding} <- [realIdUnfolding id] ]
+        Just unfolding <- [maybeUnfoldingTemplate (realIdUnfolding id)] ]
     
     annotations :: GHC.Name -> [TipAnnotation]
     annotations name =
@@ -305,7 +326,11 @@ data Id =
   | ProjectionId String Var Int
   | DiscriminatorId String Var
   | ErrorId
+  | CastId
   deriving (Eq, Ord)
+
+instance NFData Id where
+  rnf x = x `seq` ()
 
 instance PrettyVar Id where
   varStr (TypeId x _)   = x
@@ -317,6 +342,7 @@ instance PrettyVar Id where
   varStr (ProjectionId x _ _) = x
   varStr (DiscriminatorId x _) = x
   varStr ErrorId = "error"
+  varStr CastId = "cast"
 
 instance Show Id where
   show = varStr
@@ -392,10 +418,10 @@ discriminatorId prog x =
 -- Take a theory which may be missing some function and datatype
 -- definitions, and pull those definitions in from the Haskell program.
 completeTheory :: Program -> Theory Id -> Theory Id
-completeTheory prog thy
-  | null funcs && null types = thy
-  | otherwise =
-    completeTheory prog $
+completeTheory prog thy =
+  inContextShow msg $
+    if null funcs && null types then thy else
+    completeTheory prog $!!
       thy `mappend`
       declsToTheory (map makeFunc funcs ++ map makeType types)
   where
@@ -423,6 +449,11 @@ completeTheory prog thy
     makeType ty
       | isAny ty = SortDecl (Sort (typeId prog ty) [])
       | otherwise = DataDecl (tipDatatype prog ty)
+
+    msg =
+      PP.vcat [
+        PP.text "While elaborating the theory:",
+        PP.nest 2 (pp thy) ]
 
 -- Translate a Haskell datatype declaration to TIP.
 tipDatatype :: Program -> TyCon -> Tip.Datatype Id
@@ -478,8 +509,8 @@ tipType prog = tipTy . expandTypeSynonyms
         ERROR("Illegal monomorphic type in Haskell program: " ++
               showOutputable ty)
 
-    tipTyCon tc anns [] | (s:_) <- [s | PrimType s <- anns] =
-      BuiltinType (read s)
+    tipTyCon tc anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
+      BuiltinType ty
     tipTyCon tc _ tys =
       TyCon (typeId prog tc) (map tipTy tys)
 
@@ -513,15 +544,17 @@ data Context =
     -- The let-bound functions which are in scope.
     ctx_funs  :: Map Var ([Tip.Type Id] -> Tip.Expr Id),
     -- The translated expression will be applied to these types.
-    ctx_types :: [Tip.Type Id] }
+    ctx_types :: [Tip.Type Id],
+    -- A type substitution which should be applied to the current term.
+    ctx_tysubst :: [(Id, Tip.Type Id)] }
 
 -- Translate a Haskell function definition to TIP.
 tipFunction :: Program -> Var -> CoreExpr -> Tip.Function Id
 tipFunction prog x t =
-  runFresh $ fun (Context Map.empty Map.empty []) x t
+  runFresh $ fun (Context Map.empty Map.empty [] []) x t
   where
     fun :: Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
-    fun ctx x t = do
+    fun ctx x t = inContextOutputable msg $ do
       let pty@PolyType{..} = polyType x
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
@@ -531,36 +564,19 @@ tipFunction prog x t =
           func_args = [],
           func_res  = polytype_res,
           func_body = body }
+      where
+        msg =
+          vcat [
+            text "While translating" <+> ppr x <+> text "::" <+> ppr (varType x) <+> text "with body:",
+            nest 2 (ppr t) ]
 
     expr :: Context -> CoreExpr -> Fresh (Tip.Expr Id)
-    expr ctx (Var prim `App` Type ty `App` Lit (MachStr name) `App` Lit (MachInt arity))
-      | Primitive `elem` globalAnnotations prog prim = do
-          names <- replicateM (fromInteger arity) fresh
-          let
-            funArgs (t :=>: u) = t ++ funArgs u
-            funArgs _ = []
-
-            args = zipWith Local names (funArgs (tipType prog ty))
-
-          return $
-            foldr (\arg e -> Tip.Lam [arg] e)
-              (Builtin (read (BS.unpack name)) :@: map Lcl args)
-              args
-    expr ctx (Var err `App` _ `App` Type ty `App` _)
-      | isPatError err =
-        return (errorTerm (tipType prog ty))
-    expr ctx (Var from_integer `App` Type ty `App` _ `App` Lit (LitInteger n _))
-      | FromInteger `elem` globalAnnotations prog from_integer =
-        return $
-        let lit = Builtin (Tip.Lit (Tip.Int n)) :@: []
-        in case tipType prog ty of
-          BuiltinType Integer -> lit
-          BuiltinType Real ->
-            Builtin NumWiden :@: [lit]
-          _ -> ERROR("Unsupported type for numeric literal: " ++ showOutputable ty)
-    expr ctx (Var from_rational `App` Type _ `App` _ `App`
-              (Var _ `App` Type _ `App` Lit (LitInteger m _) `App` Lit (LitInteger n _)))
-      | FromRational `elem` globalAnnotations prog from_rational =
+    expr ctx e@(Var prim `App` Type ty `App` Lit (MachStr name))
+      | Special `elem` globalAnnotations prog prim =
+        special ctx (tipType prog ty) (read (BS.unpack name))
+    expr ctx (Lit l) = return (literal (lit l))
+    expr ctx e@(Var ratio `App` Type _ `App` Lit (LitInteger m _) `App` Lit (LitInteger n _))
+      | SomeSpecial Rational `elem` globalAnnotations prog ratio =
         return $
           Builtin NumDiv :@:
             [Builtin NumWiden :@: [Builtin (Tip.Lit (Tip.Int m)) :@: []],
@@ -574,7 +590,38 @@ tipFunction prog x t =
     expr ctx (Tick _ e) = expr ctx e
     expr _ e = ERROR("Unsupported expression: " ++ showOutputable e)
 
+    lit :: Literal -> Tip.Lit
+    lit (LitInteger n _) = Int n
+    lit l = ERROR("Unsupported literal: " ++ showOutputable l)
+
+    special :: Context -> Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
+    special ctx ty (Primitive name arity) = do
+      names <- replicateM arity fresh
+      let
+        funArgs (t :=>: u) = t ++ funArgs u
+        funArgs _ = []
+
+        args = zipWith Local names (funArgs ty)
+
+      return $
+        foldr (\arg e -> Tip.Lam [arg] e)
+          (Builtin name :@: map Lcl args)
+          args
+    special ctx ty Tip.Cast =
+      return (Lcl (Local CastId ty))
+    special _ ty Error = return (errorTerm ty)
+    special _ ty spec =
+      ERROR("Unsupported special " ++ show spec ++ " :: " ++ ppRender ty)
+
     var :: Context -> Var -> Fresh (Tip.Expr Id)
+    var ctx x
+      | Inline `elem` globalAnnotations prog x =
+        expr ctx (global_definition (globalInfo prog x))
+    var ctx f
+      | (spec:_) <-
+        [spec | SomeSpecial spec <- globalAnnotations prog f] = do
+          let ([], ty) = applyPolyType (polyType f) (ctx_types ctx)
+          special ctx ty spec
     var ctx x
       | Just fun <- Map.lookup x (ctx_funs ctx) =
         return (fun (ctx_types ctx))
@@ -602,9 +649,7 @@ tipFunction prog x t =
           FunInfo{} -> do
             let
               global =
-                Global (globalId prog x)
-                  (tipPolyType prog (varType x))
-                  (ctx_types ctx)
+                Global (globalId prog x) (polyType x) (ctx_types ctx)
             return (Gbl global :@: [])
 
     app :: Context -> CoreExpr -> CoreExpr -> Fresh (Tip.Expr Id)
@@ -704,7 +749,7 @@ tipFunction prog x t =
       Tip.Case (Tip.LitPat (lit l)) <$> expr ctx e
     caseAlt ctx _ (DataAlt dc, [], e)
       | (x:_) <- [x | Literal x <- globalAnnotations prog (dataConWorkId dc)] =
-        Tip.Case (Tip.LitPat (read x)) <$> expr ctx e
+        Tip.Case (Tip.LitPat x) <$> expr ctx e
     caseAlt ctx tys (DataAlt dc, args, e) = do
       -- Make the constructor.
       let conId = dataConWorkId dc
@@ -716,10 +761,6 @@ tipFunction prog x t =
       -- Make variables for the arguments of the constructor.
       bindMany bindVar ctx args $ \ctx locals ->
         Tip.Case (ConPat global locals) <$> expr ctx e
-
-    lit :: Literal -> Tip.Lit
-    lit (LitInteger n _) = Int n
-    lit l = ERROR("Unknown literal: " ++ showOutputable l)
 
     -- A term which represents a runtime error.
     errorTerm :: Tip.Type Id -> Tip.Expr Id
@@ -768,29 +809,27 @@ eraseType ty = prop (expandTypeSynonyms ty)
     prop ty
       | isVoidTy ty = True
       | isDictLikeTy ty = True
+      | ty `eqType` addrPrimTy = True
       | otherwise = False
 
 -- Predicates which identify special functions and types in GHC.
-isPatError :: Var -> Bool
-isPatError var = var == pAT_ERROR_ID
-
 isAny :: TyCon -> Bool
 isAny tc = tc == anyTyCon
 
 ----------------------------------------------------------------------
 -- Stuff which gets cleaned up at the TIP level.
--- Currently includes removing ErrorId.
+-- Currently includes removing ErrorId and CastId.
 ----------------------------------------------------------------------
 
-eliminateErrors :: Theory Id -> Theory Id
-eliminateErrors thy
+clean :: Theory Id -> Theory Id
+clean thy
   | thy == thy' = thy
-  | otherwise = eliminateErrors thy'
+  | otherwise = clean thy'
   where
-    thy' = eliminateErrors1 thy
+    thy' = clean1 thy
 
-eliminateErrors1 :: Theory Id -> Theory Id
-eliminateErrors1 thy =
+clean1 :: Theory Id -> Theory Id
+clean1 thy =
   thy {
     -- Any function whose body is just ErrorId gets replaced by an
     -- uninterpreted function.
@@ -798,21 +837,28 @@ eliminateErrors1 thy =
     thy_sigs  = thy_sigs thy ++ map signature errors }
   where
     funcs =
-      [ func {
-          func_body = runFresh $
-            eliminateErrorsExpr (func_body func) }
+      [ func {func_body = runFresh $ cleanExpr (func_body func) }
       | func <- thy_funcs thy ]
     errors =
       [ func
       | func@Function{func_body = Lcl (Local ErrorId _)} <- funcs ]
 
-eliminateErrorsExpr :: Tip.Expr Id -> Fresh (Tip.Expr Id)
-eliminateErrorsExpr = transformBiM $ \e ->
+cleanExpr :: Tip.Expr Id -> Fresh (Tip.Expr Id)
+cleanExpr = transformBiM $ \e ->
   let
     err = return (Lcl (Local ErrorId (Tip.exprType e)))
     isError (Lcl (Local ErrorId _)) = True
     isError _ = False in
   case e of
+    -- CastId ==> \x -> x
+    -- or
+    -- CastId ==> \x -> Widen x
+    Lcl (Local CastId ([BuiltinType arg] :=>: BuiltinType res)) -> do
+      x <- freshLocal (BuiltinType arg)
+      return $
+        Tip.Lam [x] $
+        if arg == res then Lcl x else Builtin NumWiden :@: [Lcl x]
+
     -- We just pull ErrorId to the top level as far as possible.
     -- If a branch of a case is an ErrorId, that branch is deleted.
     f :@: args | any isError args -> err
@@ -873,3 +919,25 @@ instance Outputable Id where
 
 instance Outputable SDoc where
   ppr = id
+
+data ContextError e = ContextError String e deriving Typeable
+
+instance Exception e => Exception (ContextError e) where
+  displayException (ContextError msg e) =
+    unlines $
+      lines msg ++
+      [""] ++
+      lines (displayException e)
+
+instance Exception e => Show (ContextError e) where
+  show = displayException
+
+inContext :: String -> a -> a
+inContext msg x =
+  mapException (\(e :: SomeException) -> ContextError msg e) x
+
+inContextOutputable :: Outputable a => a -> b -> b
+inContextOutputable = inContext . showOutputable
+
+inContextShow :: Show a => a -> b -> b
+inContextShow = inContext . show

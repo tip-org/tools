@@ -27,6 +27,7 @@ library
   default-language: Haskell2010
   ghc-options: -W
   exposed-modules:
+    Tip
     Tip.GHC
     Tip.GHC.Params              
     Tip.GHC.Annotations
@@ -41,7 +42,10 @@ library
     transformers,
     geniplate-mirror,
     bytestring,
-    ghc-paths
+    ghc-paths,
+    QuickCheck,
+    deepseq,
+    pretty
     
 executable tip-ghc
   main-is: Main.hs

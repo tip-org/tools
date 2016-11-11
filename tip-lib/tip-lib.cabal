@@ -95,6 +95,7 @@ library
                        optparse-applicative,
                        twee,
                        minisat,
+                       deepseq,
                        structural-induction >= 0.3 && < 0.4
   build-tools:         alex, happy
 

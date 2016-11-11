@@ -1,7 +1,7 @@
 -- | the abstract syntax
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable, PatternGuards #-}
-{-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses #-}
+{-# LANGUAGE ExplicitForAll, FlexibleContexts, FlexibleInstances, TemplateHaskell, MultiParamTypeClasses, DeriveDataTypeable, DeriveGeneric, DeriveAnyClass #-}
 module Tip.Types where
 
 import Data.Generics.Geniplate
@@ -9,21 +9,24 @@ import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import Data.Monoid
 import Data.Ratio
+import Data.Data
+import GHC.Generics(Generic)
+import Control.DeepSeq
 
 data Head a
   = Gbl (Global a)
   | Builtin Builtin
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Local a = Local { lcl_name :: a, lcl_type :: Type a }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Global a = Global
   { gbl_name      :: a
   , gbl_type      :: PolyType a
   , gbl_args      :: [Type a]
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 infix 5 :@:
 
@@ -46,16 +49,16 @@ data Expr a
   -- eliminate it with Tip.Passes.eliminateLetRec before any further
   -- processing.
   | Quant QuantInfo Quant [Local a] (Expr a)
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Quant = Forall | Exists
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Generic,NFData)
 
 data QuantInfo = NoInfo | QuantIH Int
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Generic,NFData)
 
 data Case a = Case { case_pat :: Pattern a, case_rhs :: Expr a }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Builtin
   = At
@@ -77,7 +80,7 @@ data Builtin
   | NumLt
   | NumLe
   | NumWiden
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Data,Generic,NFData)
 
 numBuiltin :: Builtin -> Bool
 numBuiltin b = b `elem` [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod,NumGt,NumGe,NumLt,NumLe,NumWiden]
@@ -95,14 +98,14 @@ logicalBuiltin b = b `elem` [And,Or,Implies,Equal,Distinct,Not]
 data Lit
   = Int Integer
   | Bool Bool
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Data,Generic,NFData)
 
 -- | Patterns in branches
 data Pattern a
   = Default
   | ConPat { pat_con  :: Global a, pat_args :: [Local a] }
   | LitPat Lit
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Polymorphic types
 data PolyType a =
@@ -111,7 +114,7 @@ data PolyType a =
     , polytype_args :: [Type a]
     , polytype_res  :: Type a
     }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Types
 data Type a
@@ -119,11 +122,11 @@ data Type a
   | TyCon a [Type a]
   | [Type a] :=>: Type a
   | BuiltinType BuiltinType
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data BuiltinType
   = Integer | Real | Boolean
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Data,Generic,NFData)
 
 data Function a = Function
   { func_name :: a
@@ -132,20 +135,20 @@ data Function a = Function
   , func_res  :: Type a
   , func_body :: Expr a
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Uninterpreted function
 data Signature a = Signature
   { sig_name :: a
   , sig_type :: PolyType a
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Uninterpreted sort
 data Sort a = Sort
   { sort_name :: a
   , sort_tvs  :: [a] }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Data definition
 data Datatype a = Datatype
@@ -153,7 +156,7 @@ data Datatype a = Datatype
   , data_tvs  :: [a]
   , data_cons :: [Constructor a]
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Constructor a = Constructor
   { con_name    :: a
@@ -164,7 +167,7 @@ data Constructor a = Constructor
   -- ^ Argument types names of their projectors
   --   (e.g. [(@head@,a),(@tail@,List a)])
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Theory a = Theory
   { thy_datatypes   :: [Datatype a]
@@ -173,7 +176,7 @@ data Theory a = Theory
   , thy_funcs       :: [Function a]
   , thy_asserts     :: [Formula a]
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 emptyTheory :: Theory a
 emptyTheory = Theory [] [] [] [] []
@@ -192,7 +195,7 @@ data Formula a = Formula
   -- ^ top-level quantified type variables
   , fm_body :: Expr a
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Info a
   = Definition a
@@ -205,10 +208,10 @@ data Info a
   | Defunction a
   | UserAsserted
   | Unknown
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Role = Assert | Prove
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Generic,NFData)
 
 -- * Other views of theories
 
@@ -219,7 +222,7 @@ data Decl a
     | SigDecl (Signature a)
     | FuncDecl (Function a)
     | AssertDecl (Formula a) -- rename to FormulaDecl?
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | 'Decl'arations in a 'Theory'
 theoryDecls :: Theory a -> [Decl a]
@@ -325,5 +328,3 @@ transformTypeInExpr =
 transformTypeInDecl :: (Type a -> Type a) -> Decl a -> Decl a
 transformTypeInDecl =
   $(genTransformBiT' [[t|PolyType|]] [t|forall a. (Type a -> Type a) -> Decl a -> Decl a|])
-
-
