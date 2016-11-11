@@ -142,7 +142,7 @@ emptyScope = Scope S.empty M.empty M.empty M.empty
 
 inContext :: Pretty a => a -> ScopeM b c -> ScopeM b c
 inContext x m =
-  catchError m (\e -> throwError (vcat [sep [text "in context", nest 2 (pp x)], e]))
+  catchError m (\e -> throwError (vcat [sep [text "In context:", nest 2 (pp x)], text "", e]))
 
 local :: Monad m => ScopeT a m b -> ScopeT a m b
 local m = do

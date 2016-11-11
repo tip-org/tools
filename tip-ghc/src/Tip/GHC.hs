@@ -165,7 +165,7 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return $ lint "conversion to TIP" $ clean $ runFresh $ eliminateLetRec thy
+      return $ lint "conversion to TIP" $ clean $ runFresh $ eliminateLetRec thy >>= simplifyTheory gently
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Is this a function that the user asked us to include in the theory?
