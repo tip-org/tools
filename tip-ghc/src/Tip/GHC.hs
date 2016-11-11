@@ -570,6 +570,9 @@ tipFunction prog x t =
             nest 2 (ppr t) ]
 
     expr :: Context -> CoreExpr -> Fresh (Tip.Expr Id)
+    expr ctx (Var inl `App` Type _ `App` e)
+      | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
+        expr ctx (inline e)
     expr ctx e@(Var prim `App` Type ty `App` Lit (MachStr name))
       | Special `elem` globalAnnotations prog prim =
         special ctx (tipType prog ty) (read (BS.unpack name))
@@ -588,6 +591,13 @@ tipFunction prog x t =
     expr ctx (Case t x _ alts) = caseExp ctx (varType x) x t alts
     expr ctx (Tick _ e) = expr ctx e
     expr _ e = ERROR("Unsupported expression: " ++ showOutputable e)
+
+    inline :: CoreExpr -> CoreExpr
+    inline (Var x) =
+      global_definition (globalInfo prog x)
+    inline (App t u) =
+      App (inline t) u
+    inline t = t
 
     lit :: Literal -> Tip.Lit
     lit (LitInteger n _) = Int n
@@ -615,7 +625,7 @@ tipFunction prog x t =
     var :: Context -> Var -> Fresh (Tip.Expr Id)
     var ctx x
       | Inline `elem` globalAnnotations prog x =
-        expr ctx (global_definition (globalInfo prog x))
+        expr ctx (inline (Var x))
     var ctx f
       | (spec:_) <-
         [spec | SomeSpecial spec <- globalAnnotations prog f] = do

@@ -34,4 +34,6 @@ data Special =
   | Cast
     -- The constructor for rational numbers (type integer -> integer -> real).
   | Rational
+    -- The magic inlining function inline :: a -> a.
+  | InlineIt
   deriving (Eq, Ord, Show, Read, Data)

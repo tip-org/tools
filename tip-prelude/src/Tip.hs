@@ -10,3 +10,8 @@ data Prop = MkProp Prop
 
 (===) :: Eq a => a -> a -> Prop
 (===) = special "Primitive Equal 2"#
+
+{-# ANN inline (SomeSpecial InlineIt) #-}
+{-# NOINLINE inline #-}
+inline :: a -> a
+inline x = x
