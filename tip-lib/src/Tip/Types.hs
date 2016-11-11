@@ -52,7 +52,7 @@ data Expr a
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Quant = Forall | Exists
-  deriving (Eq,Ord,Show,Generic,NFData)
+  deriving (Eq,Ord,Show,Read,Data,Generic,NFData)
 
 data QuantInfo = NoInfo | QuantIH Int
   deriving (Eq,Ord,Show,Generic,NFData)

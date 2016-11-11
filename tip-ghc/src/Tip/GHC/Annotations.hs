@@ -36,4 +36,6 @@ data Special =
   | Rational
     -- The magic inlining function inline :: a -> a.
   | InlineIt
+    -- A quantifier.
+  | QuantSpecial Quant
   deriving (Eq, Ord, Show, Read, Data)

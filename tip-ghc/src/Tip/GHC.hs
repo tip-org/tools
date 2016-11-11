@@ -616,6 +616,12 @@ tipFunction prog x t =
         foldr (\arg e -> Tip.Lam [arg] e)
           (Builtin name :@: map Lcl args)
           args
+    special ctx ([ty@([argTy] :=>: _)] :=>: _) (QuantSpecial quant) = do
+      -- \p -> Quant quant (\x -> p x)
+      pred <- freshLocal ty
+      arg  <- freshLocal argTy
+      return $
+        Tip.Lam [pred] (Quant NoInfo quant [arg] (apply (Lcl pred) [Lcl arg]))
     special ctx ty Tip.Cast =
       return (Lcl (Local CastId ty))
     special _ ty Error = return (errorTerm ty)

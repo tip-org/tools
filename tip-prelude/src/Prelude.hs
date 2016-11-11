@@ -736,11 +736,11 @@ minimum xs       =  inline foldl1 min xs
 
 
 zip              :: [a] -> [b] -> [(a,b)]
-zip              =  zipWith (,)
+zip              =  inline zipWith (,)
 
 
 zip3             :: [a] -> [b] -> [c] -> [(a,b,c)]
-zip3             =  zipWith3 (,,)
+zip3             =  inline zipWith3 (,,)
 
 -- The zipWith family generalises the zip family by zipping with the
 -- function given as the first argument, instead of a tupling function.
@@ -748,25 +748,28 @@ zip3             =  zipWith3 (,,)
 -- of corresponding sums.
 
 
+{-# NOINLINE zipWith #-}
 zipWith          :: (a->b->c) -> [a]->[b]->[c]
-zipWith z (a:as) (b:bs)
-                 =  z a b : zipWith z as bs
-zipWith _ _ _    =  []
+zipWith z = aux
+  where
+    aux (a:as) (b:bs) =  z a b : aux as bs
+    aux _ _ = []
 
 
+{-# NOINLINE zipWith3 #-}
 zipWith3         :: (a->b->c->d) -> [a]->[b]->[c]->[d]
-zipWith3 z (a:as) (b:bs) (c:cs)
-                 =  z a b c : zipWith3 z as bs cs
-zipWith3 _ _ _ _ =  []
-
+zipWith3 z = aux
+  where
+    aux (a:as) (b:bs) (c:cs) = z a b c : aux as bs cs
+    aux _ _ _ = []
 
 -- unzip transforms a list of pairs into a pair of lists.
 
 
 unzip            :: [(a,b)] -> ([a],[b])
-unzip            =  foldr (\(a,b) ~(as,bs) -> (a:as,b:bs)) ([],[])
+unzip            =  inline foldr (\(a,b) ~(as,bs) -> (a:as,b:bs)) ([],[])
 
 
 unzip3           :: [(a,b,c)] -> ([a],[b],[c])
-unzip3           =  foldr (\(a,b,c) ~(as,bs,cs) -> (a:as,b:bs,c:cs))
+unzip3           =  inline foldr (\(a,b,c) ~(as,bs,cs) -> (a:as,b:bs,c:cs))
                           ([],[],[])
