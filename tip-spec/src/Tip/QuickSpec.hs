@@ -11,6 +11,7 @@ import qualified QuickSpec.Signature as QS
 import QuickSpec (Signature, Constant, choppyQuickSpec, shouldPrint)
 
 import Language.Haskell.Interpreter
+import Language.Haskell.Interpreter.Unsafe
 import System.FilePath
 import System.Directory
 import System.IO.Temp
@@ -33,7 +34,9 @@ theorySignature params thy =
          writeFile a_file (show thy_doc)
          setCurrentDirectory dir
          r <- runInterpreter $
-           do loadModules ["A"]
+           do unsafeSetGhcOption "-hide-package QuickCheck"
+              unsafeSetGhcOption "-package QuickCheck-2.8.2"
+              loadModules ["A"]
               setImports ["A","QuickSpec.Signature","QuickSpec.Term","Prelude"]
               sig <- interpret "sig" (undefined :: ChoppedSignature)
               return (sig,rename_map)
