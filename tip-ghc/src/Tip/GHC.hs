@@ -545,14 +545,12 @@ data Context =
     -- The let-bound functions which are in scope.
     ctx_funs  :: Map Var ([Tip.Type Id] -> Tip.Expr Id),
     -- The translated expression will be applied to these types.
-    ctx_types :: [Tip.Type Id],
-    -- A type substitution which should be applied to the current term.
-    ctx_tysubst :: [(Id, Tip.Type Id)] }
+    ctx_types :: [Tip.Type Id] }
 
 -- Translate a Haskell function definition to TIP.
 tipFunction :: Program -> Var -> CoreExpr -> Tip.Function Id
 tipFunction prog x t =
-  runFresh $ fun (Context Map.empty Map.empty [] []) x t
+  runFresh $ fun (Context Map.empty Map.empty []) x t
   where
     fun :: Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
     fun ctx x t = inContextOutputable msg $ do
