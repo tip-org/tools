@@ -8,6 +8,7 @@ import Tip.Pretty.TFF as TFF
 import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
 import Tip.Pretty.Haskell as HS
+import Tip.Pretty.Hipster as Hipster
 import Tip.Haskell.Translate as HS
 import Tip.Pretty.Waldmeister as Waldmeister
 import Tip.Pretty
@@ -112,7 +113,7 @@ handle passes mode multipath s =
               Haskell m -> (HS.ppTheory m,     passes, "hs")
               Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
               Isabelle expl_forall -> (Isabelle.ppTheory expl_forall, passes, "thy")
-              Hipster -> (Isabelle.ppHipsterConjs, passes, "txt")
+              Hipster -> (Hipster.ppHipsterConjs, passes, "txt")
               TIP       -> (SMT.ppTheory,      passes, "smt2")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
