@@ -113,6 +113,9 @@ ppExpr lets@Let{} =
     , ppExpr e
     ]
   where (bs,e) = collectLets lets
+ppExpr (LetRec fs e) =
+  parExpr "letrec"
+    [ parens (ppFuncs fs), ppExpr e ]
 ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: PrettyVar a => [Local a] -> Doc
