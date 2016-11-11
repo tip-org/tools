@@ -48,6 +48,8 @@ main = do
               , SimplifyGently
               , CommuteMatch
               , SimplifyGently
+              , RemoveAliases
+              , CollapseEqual
               ]
     case pipeline thy of
       [thy] -> print (SMT.ppTheory thy)

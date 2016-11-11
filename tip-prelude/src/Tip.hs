@@ -1,14 +1,15 @@
-{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MagicHash, NoImplicitPrelude, PackageImports #-}
 module Tip(module Tip, module Tip.GHC.Annotations) where
 
 import Tip.GHC.Annotations
 import Prelude.Prim
+import qualified "base" Prelude
 
 {-# ANN type Prop PropType #-}
 {-# ANN type Prop (PrimType Boolean) #-}
 data Prop = MkProp Prop
 
-(===) :: Eq a => a -> a -> Prop
+(===) :: Prelude.Eq a => a -> a -> Prop
 (===) = special "Primitive Equal 2"#
 
 {-# ANN inline (SomeSpecial InlineIt) #-}

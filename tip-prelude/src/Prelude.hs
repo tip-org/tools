@@ -35,6 +35,7 @@ import qualified "base" Prelude as P
 import "base" Prelude(Bool(..), Read(..), Show(..), String, Eq, Ord)
 import Tip.GHC.Annotations
 import Prelude.Prim
+import Tip
 
 default (Integer, Float)
 
@@ -93,10 +94,9 @@ instance P.Num Rational where
   abs = P.abs
   signum = P.signum
 
--- All uses of primCast MUST be marked inline.
+-- All uses of fromInteger MUST be monomorphic or inlined.
 -- This is because tip-ghc looks at the source and target types
 -- of primCast to decide what code to generate.
--- This implies that all numeric literals must be monomorphic.
 --
 -- This in turn means that almost all of the Prelude numeric functions
 -- must be marked inline.
@@ -286,25 +286,23 @@ primGcd x y          =  gcd' (abs x) (abs y)
 
 {-# ANN lcm Inline #-}
 lcm              :: (Integral a) => a -> a -> a
-lcm _ 0          =  0
-lcm 0 _          =  0
-lcm x y          =  abs ((x `quot` (gcd x y)) * y)
+lcm x y = primCast (primLcm (primCast x) (primCast y))
+
+primLcm :: Integer -> Integer -> Integer
+primLcm _ 0          =  0
+primLcm 0 _          =  0
+primLcm x y          =  abs ((x `quot` (gcd x y)) * y)
 
 
 {-# ANN (^) Inline #-}
 (^)              :: (Num a, Integral b) => a -> b -> a
-x ^ y = primPow (primCast x) (primCast y) 1
-
--- We carefully avoid having any numeric literals of type a
--- (see the comment above the fromInteger function).
-primPow :: Num a => a -> Integer -> a -> a
-primPow x 0 one = one
-primPow x n one | n > 0 =  f x (n-1) x
+x ^ 0 = 1
+x ^ n | n > 0 = f x (n-1) x
   where f _ 0 y = y
         f x n y = g x n  where
                   g x n | even n  = g (x*x) (n `quot` 2)
                         | otherwise = f x (n-1) (x*y)
-primPow _ _ _ = error "Prelude.^: negative exponent"
+_ ^ _ = error "Prelude.^: negative exponent"
 
 
 {-# ANN (^^) Inline #-}
@@ -362,7 +360,7 @@ f $! x    =  x `seq` f x
 -- Boolean functions
 
 
-
+{-# ANN otherwise Inline #-}
 otherwise        :: Bool
 otherwise        =  True
 
@@ -453,25 +451,32 @@ infixl 9  !!
 infixr 5  ++
 infix  4  `elem`, `notElem`
 
+{-# NOINLINE map #-}
 map :: (a -> b) -> [a] -> [b]
-map f [] = []
-map f (x:xs) = f x:map f xs
+map f = map_aux
+  where
+    map_aux [] = []
+    map_aux (x:xs) = f x:map_aux xs
 
 (++) :: [a] -> [a] -> [a]
 []     ++ ys = ys
 (x:xs) ++ ys = x : (xs ++ ys)
 
+{-# NOINLINE filter #-}
 filter :: (a -> Bool) -> [a] -> [a]
-filter p []                 = []
-filter p (x:xs) | p x       = x : filter p xs
-                | otherwise = filter p xs
+filter p = filter_aux
+  where
+    filter_aux [] = []
+    filter_aux (x:xs)
+      | p x = x:filter_aux xs
+      | otherwise = filter_aux xs
 
 concat :: [[a]] -> [a]
-concat xss = foldr (++) [] xss
+concat xss = inline foldr (++) [] xss
 
 
 concatMap :: (a -> [b]) -> [a] -> [b]
-concatMap f = concat . map f
+concatMap f xss = inline foldr_map (++) [] f xss
 
 -- head and tail extract the first element and remaining elements,
 -- respectively, of a list, which must be non-empty.  last and init
@@ -532,13 +537,16 @@ xs     !! n | n < 0 =  error "Prelude.!!: negative index"
 --      scanl1 f [x1, x2, ...] == [x1, x1 `f` x2, ...]
 
 
+{-# NOINLINE foldl #-}
 foldl            :: (a -> b -> a) -> a -> [b] -> a
-foldl f z []     =  z
-foldl f z (x:xs) =  foldl f (f z x) xs
+foldl f = foldl_aux
+  where
+    foldl_aux z [] = z
+    foldl_aux z (x:xs) = foldl_aux (f z x) xs
 
 
 foldl1           :: (a -> a -> a) -> [a] -> a
-foldl1 f (x:xs)  =  foldl f x xs
+foldl1 f (x:xs)  =  inline foldl f x xs
 foldl1 _ []      =  error "Prelude.foldl1: empty list"
 
 
@@ -556,14 +564,23 @@ scanl1 _ []      =  []
 -- above functions.
 
 
+{-# NOINLINE foldr #-}
 foldr            :: (a -> b -> b) -> b -> [a] -> b
-foldr f z []     =  z
-foldr f z (x:xs) =  f x (foldr f z xs)
+foldr f z = foldr_aux
+  where
+    foldr_aux [] = z
+    foldr_aux (x:xs) = f x (foldr_aux xs)
 
+{-# NOINLINE foldr_map #-}
+foldr_map :: (a -> b -> b) -> b -> (c -> a) -> [c] -> b
+foldr_map op e f = foldr_map_aux
+  where
+    foldr_map_aux [] = e
+    foldr_map_aux (x:xs) = op (f x) (foldr_map_aux xs)
 
 foldr1           :: (a -> a -> a) -> [a] -> a
 foldr1 f [x]     =  x
-foldr1 f (x:xs)  =  f x (foldr1 f xs)
+foldr1 f (x:xs)  =  f x (inline foldr1 f xs)
 foldr1 _ []      =  error "Prelude.foldr1: empty list"
 
 
@@ -665,22 +682,24 @@ reverse          =  foldl (flip (:)) []
 -- disjunctive dual of and.
 
 and, or          :: [Bool] -> Bool
-and              =  foldr (&&) True
-or               =  foldr (||) False
+and              =  inline foldr (&&) True
+or               =  inline foldr (||) False
 
 -- Applied to a predicate and a list, any determines if any element
 -- of the list satisfies the predicate.  Similarly, for all.
 
 any, all         :: (a -> Bool) -> [a] -> Bool
-any p            =  or . map p
-all p            =  and . map p
+any p            =  inline foldr_map (||) False p
+all p            =  inline foldr_map (&&) True p
 
 -- elem is the list membership predicate, usually written in infix form,
 -- e.g., x `elem` xs.  notElem is the negation.
 
+{-# NOINLINE elem #-}
+{-# NOINLINE notElem #-}
 elem, notElem    :: (Eq a) => a -> [a] -> Bool
-elem x           =  any (== x)
-notElem x        =  all (/= x)
+elem x           =  inline any (== x)
+notElem x        =  inline all (/= x)
 
 -- lookup key assocs looks up a key in an association list.
 
@@ -695,18 +714,20 @@ lookup key ((x,y):xys)
 {-# ANN sum Inline #-}
 {-# ANN product Inline #-}
 sum, product     :: (Num a) => [a] -> a
-sum              =  foldl (+) 0
-product          =  foldl (*) 1
+sum              =  inline foldl (+) 0
+product          =  inline foldl (*) 1
 
 -- maximum and minimum return the maximum or minimum value from a list,
 -- which must be non-empty, finite, and of an ordered type.
 
+{-# ANN maximum Inline #-}
+{-# ANN minimum Inline #-}
 maximum, minimum :: (Ord a) => [a] -> a
 maximum []       =  error "Prelude.maximum: empty list"
-maximum xs       =  foldl1 max xs
+maximum xs       =  inline foldl1 max xs
 
 minimum []       =  error "Prelude.minimum: empty list"
-minimum xs       =  foldl1 min xs
+minimum xs       =  inline foldl1 min xs
 
 -- zip takes two lists and returns a list of corresponding pairs.  If one
 -- input list is short, excess elements of the longer list are discarded.
