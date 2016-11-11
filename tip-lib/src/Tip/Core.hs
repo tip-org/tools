@@ -270,10 +270,11 @@ funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
 bound, free, locals :: Ord a => Expr a -> [Local a]
 bound e =
   usort $
-    concat [ lcls | Lam lcls _       <- universeBi e ] ++
-           [ lcl  | Let lcl _ _      <- universeBi e ] ++
-    concat [ lcls | Quant _ _ lcls _ <- universeBi e ] ++
-    concat [ lcls | ConPat _ lcls    <- universeBi e ]
+    concat [ lcls | Lam lcls _            <- universeBi e ] ++
+           [ lcl  | Let lcl _ _           <- universeBi e ] ++
+    concat [ lcls | Function _ _ lcls _ _ <- universeBi e ] ++
+    concat [ lcls | Quant _ _ lcls _      <- universeBi e ] ++
+    concat [ lcls | ConPat _ lcls         <- universeBi e ]
 locals = usort . universeBi
 free e = locals e \\ bound e
 
@@ -289,12 +290,17 @@ tyVars t = usort $ [ a | TyVar a <- universeBi t ]
 
 -- The free type variables are in the locals, and the globals:
 -- but only in the types applied to the global variable.
-freeTyVars :: Ord a => Expr a -> [a]
-freeTyVars e =
+appliedTyVars :: Ord a => Expr a -> [a]
+appliedTyVars e =
   usort $
     concatMap tyVars $
              [ lcl_type | Local{..} <- universeBi e ] ++
       concat [ gbl_args | Global{..} <- universeBi e ]
+
+freeTyVars :: Ord a => Expr a -> [a]
+freeTyVars e =
+  appliedTyVars e
+  \\ usort (concatMap func_tvs (universeBi e))
 
 -- | The type of an expression
 exprType :: Ord a => Expr a -> Type a

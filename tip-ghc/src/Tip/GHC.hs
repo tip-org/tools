@@ -165,7 +165,7 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return $ lint "conversion to TIP" $ clean $ runFresh $ eliminateLetRec thy >>= simplifyTheory gently
+      return $ lint "conversion to TIP" $ clean $ runFresh $ simplifyTheory gently thy >>= eliminateLetRec
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Is this a function that the user asked us to include in the theory?
@@ -683,7 +683,23 @@ tipFunction prog x t =
           [] -> ERROR("Expression not applied to enough type arguments")
           (ty:tys) -> do
             e' <- expr ctx { ctx_types = tys } e
-            return (applyTypeInExpr [TyVarId x] [ty] e')
+            let
+              -- Substitute the type for the type variable.
+              -- applyTypeInExpr doesn't affect polytypes of globals
+              -- so we need to do that by hand.
+              subType ty' =
+                applyType [TyVarId x] [ty] ty'
+              sub e =
+                transformBi subGlobal $
+                applyTypeInExpr [TyVarId x] [ty] e
+              subGlobal gbl =
+                gbl { gbl_type = subPolyType (gbl_type gbl) }
+              subPolyType PolyType{..} =
+                PolyType {
+                  polytype_tvs  = polytype_tvs,
+                  polytype_args = map subType polytype_args,
+                  polytype_res  = subType polytype_res }
+            return (sub e')
       | otherwise =
         bindVar ctx x $ \ctx local ->
           Tip.Lam [local] <$> expr ctx e

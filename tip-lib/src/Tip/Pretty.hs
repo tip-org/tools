@@ -13,6 +13,9 @@ infixl 1 $\
 class Pretty a where
   pp :: a -> Doc
 
+instance Pretty Doc where
+  pp = id
+
 -- | Pretty to string
 ppRender :: Pretty a => a -> String
 ppRender = render . pp

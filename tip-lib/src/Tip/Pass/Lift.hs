@@ -17,6 +17,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Writer
 import qualified Data.Map as Map
+import Data.Maybe
 
 type LiftM a = WriterT [Function a] Fresh
 
@@ -82,7 +83,53 @@ letLift :: Name a => Theory a -> Fresh (Theory a)
 letLift = liftTheory letLiftTop
 
 eliminateLetRecTop :: Name a => TopLift a
-eliminateLetRecTop e = return e
+eliminateLetRecTop e0 =
+  case e0 of
+    LetRec binds e -> do
+      let
+        -- Variables and typed that are in scope and should be
+        -- added as parameters to the functions.
+        env =
+          usort (concatMap (free . func_body) binds)
+          \\ usort (concatMap func_args binds)
+        tyenv =
+          usort (concatMap (freeTyVars . func_body) binds)
+          \\ usort (concatMap func_tvs binds)
+      -- A fresh set of names for the functions.
+        names = map func_name binds
+      newNames <- lift $ mapM refresh names
+
+      let
+        find x = lookup x (zip names newNames)
+
+        -- Transform an expression to refer to the lifted functions.
+        transform =
+          transformBi $ \e0 ->
+          case e0 of
+            (Gbl gbl@Global{..} :@: args)
+              | Just new_name <- find gbl_name ->
+                Gbl gbl{
+                  gbl_name = new_name,
+                    gbl_type =
+                      gbl_type {
+                        polytype_tvs  = tyenv ++ polytype_tvs gbl_type,
+                        polytype_args = map lcl_type env ++ polytype_args gbl_type },
+                    gbl_args =
+                      map TyVar tyenv ++ gbl_args } :@:
+                (map Lcl env ++ args)
+            _ -> e0
+
+        -- Transform the function declaration itself.
+        transformFunc func@Function{..} =
+          func {
+            func_name = fromMaybe __ (find func_name),
+            func_tvs  = tyenv ++ func_tvs,
+            func_args = env ++ func_args,
+            func_body = transform func_body }
+
+      tell (map transformFunc binds)
+      return (transform e)
+    _ -> return e0
 
 -- | Eliminate letrec.
 eliminateLetRec :: Name a => Theory a -> Fresh (Theory a)
