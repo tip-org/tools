@@ -48,7 +48,7 @@ class (PrettyVar a, Ord a) => Name a where
 
   -- | Refresh a name with an additional hint string
   refreshNamed :: String -> a -> Fresh a
-  refreshNamed s n = freshNamed (s ++ varStr n)
+  refreshNamed s n = freshNamed (s ++ "-" ++ varStr n)
 
   -- | Gets the unique associated with a name.
   -- May return 0 if the name was not generated using 'fresh' or 'freshNamed'.

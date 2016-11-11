@@ -18,19 +18,22 @@ import Control.Monad
 import Control.Monad.Writer
 import qualified Data.Map as Map
 import Data.Maybe
+import Tip.Pretty
 
 type LiftM a = WriterT [Function a] Fresh
 
 type TopLift a = Expr a -> LiftM a (Expr a)
 
-liftAnywhere :: (Name a,TransformBiM (LiftM a) (Expr a) (t a)) =>
-                TopLift a -> t a -> Fresh (t a,[Function a])
-liftAnywhere top = runWriterT . transformExprInM top
+liftTheory :: Name a => (a -> TopLift a) -> Theory a -> Fresh (Theory a)
+liftTheory top thy = do
+  (thy_funcs', new_func_decls) <-
+    runWriterT $
+      forM (thy_funcs thy) $ \func@Function{..} -> do
+        new_body <-
+          transformExprInM (top func_name) func_body
+        return func { func_body = new_body }
 
-liftTheory :: Name a => TopLift a -> Theory a -> Fresh (Theory a)
-liftTheory top thy0 =
-  do (Theory{..},new_func_decls) <- liftAnywhere top thy0
-     return Theory{thy_funcs = new_func_decls ++ thy_funcs,..}
+  return thy{thy_funcs = new_func_decls ++ thy_funcs'}
 
 lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
@@ -58,7 +61,7 @@ lambdaLiftTop e0 =
 --
 -- After this pass, lambdas only exist at the top level of functions.
 lambdaLift :: Name a => Theory a -> Fresh (Theory a)
-lambdaLift = liftTheory lambdaLiftTop
+lambdaLift = liftTheory (const lambdaLiftTop)
 
 letLiftTop :: Name a => TopLift a
 letLiftTop e0 =
@@ -80,10 +83,10 @@ letLiftTop e0 =
 -- > e[f fvs]
 -- > f fvs = b[fvs]
 letLift :: Name a => Theory a -> Fresh (Theory a)
-letLift = liftTheory letLiftTop
+letLift = liftTheory (const letLiftTop)
 
-eliminateLetRecTop :: Name a => TopLift a
-eliminateLetRecTop e0 =
+eliminateLetRecTop :: Name a => a -> TopLift a
+eliminateLetRecTop func e0 =
   case e0 of
     LetRec binds e -> do
       let
@@ -97,7 +100,7 @@ eliminateLetRecTop e0 =
           \\ usort (concatMap func_tvs binds)
       -- A fresh set of names for the functions.
         names = map func_name binds
-      newNames <- lift $ mapM refresh names
+      newNames <- lift $ mapM (refreshNamed (varStr func)) names
 
       let
         find x = lookup x (zip names newNames)
@@ -242,5 +245,5 @@ boolOpTop e0 =
 --
 -- Run  CollapseEqual and BoolOpToIf afterwards
 boolOpLift :: Name a => Theory a -> Fresh (Theory a)
-boolOpLift = liftTheory boolOpTop
+boolOpLift = liftTheory (const boolOpTop)
 

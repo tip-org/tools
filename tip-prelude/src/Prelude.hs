@@ -453,10 +453,10 @@ infix  4  `elem`, `notElem`
 
 {-# NOINLINE map #-}
 map :: (a -> b) -> [a] -> [b]
-map f = map_aux
+map f = aux
   where
-    map_aux [] = []
-    map_aux (x:xs) = f x:map_aux xs
+    aux [] = []
+    aux (x:xs) = f x:aux xs
 
 (++) :: [a] -> [a] -> [a]
 []     ++ ys = ys
@@ -464,12 +464,12 @@ map f = map_aux
 
 {-# NOINLINE filter #-}
 filter :: (a -> Bool) -> [a] -> [a]
-filter p = filter_aux
+filter p = aux
   where
-    filter_aux [] = []
-    filter_aux (x:xs)
-      | p x = x:filter_aux xs
-      | otherwise = filter_aux xs
+    aux [] = []
+    aux (x:xs)
+      | p x = x:aux xs
+      | otherwise = aux xs
 
 concat :: [[a]] -> [a]
 concat xss = inline foldr (++) [] xss
@@ -539,10 +539,10 @@ xs     !! n | n < 0 =  error "Prelude.!!: negative index"
 
 {-# NOINLINE foldl #-}
 foldl            :: (a -> b -> a) -> a -> [b] -> a
-foldl f = foldl_aux
+foldl f = aux
   where
-    foldl_aux z [] = z
-    foldl_aux z (x:xs) = foldl_aux (f z x) xs
+    aux z [] = z
+    aux z (x:xs) = aux (f z x) xs
 
 
 foldl1           :: (a -> a -> a) -> [a] -> a
@@ -566,17 +566,17 @@ scanl1 _ []      =  []
 
 {-# NOINLINE foldr #-}
 foldr            :: (a -> b -> b) -> b -> [a] -> b
-foldr f z = foldr_aux
+foldr f z = aux
   where
-    foldr_aux [] = z
-    foldr_aux (x:xs) = f x (foldr_aux xs)
+    aux [] = z
+    aux (x:xs) = f x (aux xs)
 
 {-# NOINLINE foldr_map #-}
 foldr_map :: (a -> b -> b) -> b -> (c -> a) -> [c] -> b
-foldr_map op e f = foldr_map_aux
+foldr_map op e f = aux
   where
-    foldr_map_aux [] = e
-    foldr_map_aux (x:xs) = op (f x) (foldr_map_aux xs)
+    aux [] = e
+    aux (x:xs) = op (f x) (aux xs)
 
 foldr1           :: (a -> a -> a) -> [a] -> a
 foldr1 f [x]     =  x
