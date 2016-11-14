@@ -21,8 +21,54 @@ import Tip.Utils
 
 nat_theory :: Theory Id
 Right nat_theory =
-  parse
-    "(declare-datatypes () ((Nat (Z) (S (p Nat))))) (define-fun-rec lt ((x Nat) (y Nat)) Bool (match y (case Z false) (case (S z) (match x (case Z true) (case (S n) (lt n z)))))) (define-fun-rec le ((x Nat) (y Nat)) Bool (match x (case Z true) (case (S z) (match y (case Z false) (case (S x2) (le z x2)))))) (define-fun-rec gt ((x Nat) (y Nat)) Bool (match x (case Z false) (case (S z) (match y (case Z true) (case (S x2) (gt z x2)))))) (define-fun-rec ge ((x Nat) (y Nat)) Bool (match y (case Z true) (case (S z) (match x (case Z false) (case (S x2) (ge x2 z)))))) (define-fun-rec equal ((x Nat) (y Nat)) Bool (match x (case Z (match y (case Z true) (case (S z) false))) (case (S x2) (match y (case Z false) (case (S y2) (equal x2 y2)))))) (define-fun unequal ((x Nat) (y Nat)) Bool (not (equal x y)))(check-sat)"
+  parse $ unlines [
+    "(declare-datatypes () ((Nat (Z) (S (p Nat)))))",
+    "(define-fun-rec lt ((x Nat) (y Nat)) Bool",
+    "  (match y",
+    "    (case Z false)",
+    "    (case (S z)",
+    "      (match x",
+    "        (case Z true)",
+    "        (case (S n) (lt n z))))))",
+    "(define-fun-rec le ((x Nat) (y Nat)) Bool",
+    "  (match x",
+    "    (case Z true)",
+    "    (case (S z)",
+    "      (match y",
+    "        (case Z false)",
+    "        (case (S x2) (le z x2))))))",
+    "(define-fun-rec gt ((x Nat) (y Nat)) Bool",
+    "  (match x",
+    "    (case Z false)",
+    "    (case (S z)",
+    "      (match y (case Z true)",
+    "       (case (S x2) (gt z x2))))))",
+    "(define-fun-rec ge ((x Nat) (y Nat)) Bool",
+    "  (match y",
+    "    (case Z true)",
+    "    (case (S z)",
+    "      (match x",
+    "        (case Z false)",
+    "        (case (S x2) (ge x2 z))))))",
+    "(define-fun-rec plus ((x Nat) (y Nat)) Nat",
+    "  (match x",
+    "    (case Z y)",
+    "    (case (S x) (S (plus x y)))))",
+    -- 0 - S(x) is left undefined to better correspond to
+    -- integer subtraction
+    "(define-fun-rec minus ((x Nat) (y Nat)) Nat",
+    "  (match x",
+    "    (case Z Z)",
+    "    (case (S x)",
+    "      (match y",
+    "        (case (S y) (minus x y))))))",
+    "(define-fun-rec times ((x Nat) (y Nat)) Nat",
+    "  (match x",
+    "    (case Z Z)",
+    "    (case (S x) (plus y (times x y)))))",
+    "(declare-fun idiv (Nat Nat) Nat)",
+    "(declare-fun imod (Nat Nat) Nat)",
+    "(check-sat)"]
 
 renameWrt :: (Ord a,PrettyVar a,Name b) => Theory a -> f b -> Fresh (Theory b)
 renameWrt thy _wrt =
@@ -54,8 +100,7 @@ replaceSorts replacement_thy thy
              replace t0 = t0
          return (transformBi replace thy')
 
--- | Replaces the builtin Int to natural numbers,
---   if the only operations performed on are related to int ordering
+-- | Replaces the builtin Int with natural numbers,
 intToNat :: forall a . Name a => Theory a -> Fresh (Theory a)
 intToNat = replaceInt nat_theory
 
@@ -66,47 +111,63 @@ replaceInt replacement_thy thy
      do nat_thy <- replacement_thy `renameWrt` thy
 
         let [nat] = thy_datatypes nat_thy
+            [zeroCon, succCon] = data_cons nat
+            zeroGlobal = constructor nat zeroCon []
+            zero = Gbl zeroGlobal :@: []
+            succGlobal = constructor nat succCon []
+            succ e = Gbl succGlobal :@: [e]
+            pred e = Gbl (projector nat succCon 0 []) :@: [e]
 
-        let [lt,le,gt,ge,eq,ne] = thy_funcs nat_thy
+        let [lt,le,gt,ge,plus,minus,times] = thy_funcs nat_thy
+            [div,mod] = thy_sigs nat_thy
 
-        let replaceE :: Expr a -> Writer [Function a] (Expr a)
-            replaceE e0@(Builtin b :@: (es@(e1:_))) =
+        let replaceE :: Expr a -> WriterT [Decl a] Fresh (Expr a)
+            replaceE (Builtin NumAdd :@: [e, one]) | one == succ zero =
+              return (succ e)
+            replaceE (Builtin NumSub :@: [e, one]) | one == succ zero = do
+              x <- lift $ freshLocal (TyCon (data_name nat) [])
+              return $
+                Match e [Case (ConPat succGlobal [x]) (pred e)]
+            replaceE e0@(Builtin b :@: (es@(e1:_)))
+              | exprType e1 == BuiltinType Integer =
               case b of
                 NumLt -> ret lt
                 NumLe -> ret le
                 NumGt -> ret gt
                 NumGe -> ret ge
-                Equal    | exprType e1 == intType -> ret eq
-                Distinct | exprType e1 == intType -> ret ne
+                NumAdd -> ret plus
+                NumSub -> ret minus
+                NumMul -> tell [FuncDecl plus] >> ret times
+                IntDiv -> retSig div
+                IntMod -> retSig mod
                 _ -> return e0
               where
-              ret :: Function a -> Writer [Function a] (Expr a)
-              ret op = tell [op] >> return (applyFunction op [] es)
+              ret :: Function a -> WriterT [Decl a] Fresh (Expr a)
+              ret op = tell [FuncDecl op] >> return (applyFunction op [] es)
+              retSig :: Signature a -> WriterT [Decl a] Fresh (Expr a)
+              retSig op = tell [SigDecl op] >> return (applySignature op [] es)
+            replaceE (Builtin (Lit (Int n)) :@: []) =
+              return (foldr (const succ) zero [1..n])
             replaceE e0 = return e0
 
         let replaceT :: Type a -> Writer Any (Type a)
             replaceT (BuiltinType Integer) = tell (Any True) >> return (TyCon (data_name nat) [])
             replaceT t0 = return t0
 
-        let (thy',     fns_used) = runWriter (transformBiM replaceE thy)
-            (thy'',Any ty_used)  = runWriter (transformBiM replaceT thy')
+        (thy', fns_used) <- runWriterT (transformBiM replaceE thy)
+        let (thy'', Any ty_used)  = runWriter (transformBiM replaceT thy')
 
         let used_nat_thy
               | null fns_used && not ty_used = emptyTheory
-              | otherwise                    = nat_thy { thy_funcs = usort fns_used }
+              | otherwise = declsToTheory (DataDecl nat:fns_used)
 
         return (thy'' `joinTheories` used_nat_thy)
   where
   bs :: [Builtin]
   bs = usort (universeBi thy)
 
-  bad (Lit Int{}) = True
-  bad NumAdd   = True
-  bad NumSub   = True
-  bad NumMul   = True
+  bad (Lit (Int n)) | n > 100 = True
   bad NumDiv   = True
-  bad IntDiv   = True
-  bad IntMod   = True
   bad NumWiden = True
   bad _        = False
 
