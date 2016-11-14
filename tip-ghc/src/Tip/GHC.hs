@@ -891,8 +891,8 @@ cleanExpr = transformBiM $ \e ->
     -- CastId ==> \x -> x
     -- or
     -- CastId ==> \x -> Widen x
-    Lcl (Local CastId ([BuiltinType arg] :=>: BuiltinType res)) -> do
-      x <- freshLocal (BuiltinType arg)
+    Lcl (Local CastId ([arg] :=>: res)) -> do
+      x <- freshLocal arg
       return $
         Tip.Lam [x] $
         if arg == res then Lcl x else Builtin NumWiden :@: [Lcl x]
