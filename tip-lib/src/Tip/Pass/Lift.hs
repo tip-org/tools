@@ -26,14 +26,24 @@ type TopLift a = Expr a -> LiftM a (Expr a)
 
 liftTheory :: Name a => (a -> TopLift a) -> Theory a -> Fresh (Theory a)
 liftTheory top thy = do
-  (thy_funcs', new_func_decls) <-
-    runWriterT $
-      forM (thy_funcs thy) $ \func@Function{..} -> do
-        new_body <-
-          transformExprInM (top func_name) func_body
-        return func { func_body = new_body }
+  ((thy_funcs', thy_asserts'), new_func_decls) <-
+    runWriterT $ do
+      thy_funcs' <-
+        forM (thy_funcs thy) $ \func@Function{..} -> do
+          new_body <-
+            transformExprInM (top func_name) func_body
+          return func { func_body = new_body }
 
-  return thy{thy_funcs = new_func_decls ++ thy_funcs'}
+      name <- lift $ freshNamed "formula"
+      thy_asserts' <-
+        forM (thy_asserts thy) $ \form@Formula{..} -> do
+          new_body <-
+            transformExprInM (top name) fm_body
+          return form { fm_body = new_body }
+      return (thy_funcs', thy_asserts')
+
+  return thy{thy_funcs = new_func_decls ++ thy_funcs',
+             thy_asserts = thy_asserts' }
 
 lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
