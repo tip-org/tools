@@ -9,7 +9,6 @@ A == A = True
 B == B = True
 C == C = True
 _ == _ = False
-instance Arbitrary A where arbitrary = elements [A,B,C]
 
 prop_or1 (a :: A) b =       a === b  .||.       b === a
 prop_or2 (a :: A) b = bool (a ==  b) .||.       b === a
