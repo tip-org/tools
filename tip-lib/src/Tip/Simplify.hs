@@ -204,6 +204,22 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
               go _ u v lcls = return (mkQuant Forall lcls (u === v))
             _ -> return e0
 
+        -- Projection applied to a constructor
+        -- e.g. (head (Cons x xs)) -> x
+        Gbl Global{gbl_name = proj_name} :@: [Gbl Global{gbl_name = con_name} :@: args]
+          | Just scp <- mscp,
+            Just (_, con) <- lookupConstructor con_name scp,
+            Just n <- elemIndex proj_name (map fst (con_args con)) ->
+            hooray $ return $ args !! n
+
+        -- Discriminator applied to a constructor
+        -- e.g. (is-Cons (Cons x xs)) -> true
+        Gbl Global{gbl_name = discrim_name} :@: [Gbl Global{gbl_name = con_name} :@: args]
+          | Just scp <- mscp,
+            Just (dt, con) <- lookupConstructor con_name scp,
+            discrim_name `elem` map con_discrim (data_cons dt) ->
+            hooray $ return $ bool $ con_discrim con == discrim_name
+
         Gbl gbl@Global{..} :@: ts ->
           case Map.lookup gbl_name inlinings of
             Just func@Function{..}
