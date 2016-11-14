@@ -20,11 +20,11 @@ bool :: Prelude.Bool -> Prop
 bool = special "Cast"#
 
 {-# ANN (===) Inline #-}
-(===) :: Prelude.Eq a => a -> a -> Prop
+(===) :: a -> a -> Prop
 (===) = special "Primitive Equal 2"#
 
 {-# ANN (=/=) Inline #-}
-(=/=) :: Prelude.Eq a => a -> a -> Prop
+(=/=) :: a -> a -> Prop
 (=/=) = special "Primitive Distinct 2"#
 
 {-# ANN (.&&.) Inline #-}

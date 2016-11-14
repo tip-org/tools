@@ -697,13 +697,13 @@ all p            =  inline foldr_map (&&) True p
 
 {-# NOINLINE elem #-}
 {-# NOINLINE notElem #-}
-elem, notElem    :: (Eq a) => a -> [a] -> Bool
+elem, notElem    :: a -> [a] -> Bool
 elem x           =  inline any (== x)
 notElem x        =  inline all (/= x)
 
 -- lookup key assocs looks up a key in an association list.
 
-lookup           :: (Eq a) => a -> [(a,b)] -> Maybe b
+lookup           :: a -> [(a,b)] -> Maybe b
 lookup key []    =  Nothing
 lookup key ((x,y):xys)
     | key == x   =  Just y
