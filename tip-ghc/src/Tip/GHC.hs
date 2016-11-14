@@ -115,6 +115,7 @@ readHaskellFile params@Params{..} name =
       Just (ATyCon ratioTyCon) <- lookupName ratioTyConName
       Just (AConLike (RealDataCon ratioDataCon)) <-
         lookupGlobalName ratioDataConName
+      Just (AnId eqId) <- lookupName eqName
       let builtin =
             Program (Map.fromList builtinTypes)
               (Map.fromList builtinGlobals)
@@ -129,6 +130,7 @@ readHaskellFile params@Params{..} name =
             [specialFun pAT_ERROR_ID Error,
              specialFun fromIntegerId Tip.Cast,
              specialFun fromRationalId Tip.Cast,
+             specialFun eqId (Primitive Equal 2),
              dataCon ratioDataCon [SomeSpecial Rational],
              dataCon consDataCon  [Name "cons", Projections ["head", "tail"]],
              dataCon nilDataCon   [Name "nil"],
