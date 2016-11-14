@@ -49,7 +49,7 @@ question = neg
 
 {-# ANN forAll Inline #-}
 forAll :: (a -> Prop) -> Prop
-forAll = special "QuantSpecial ForAll"#
+forAll = special "QuantSpecial Forall"#
 
 {-# ANN exists Inline #-}
 exists :: (a -> Prop) -> Prop
