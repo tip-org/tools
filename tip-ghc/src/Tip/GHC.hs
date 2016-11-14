@@ -868,14 +868,18 @@ clean1 thy =
     -- Any function whose body is just ErrorId gets replaced by an
     -- uninterpreted function.
     thy_funcs = funcs \\ errors,
-    thy_sigs  = thy_sigs thy ++ map signature errors }
+    thy_sigs = thy_sigs thy ++ map signature errors,
+    thy_asserts = asserts }
   where
     funcs =
-      [ func {func_body = runFresh $ cleanExpr (func_body func) }
+      [ func { func_body = runFresh $ cleanExpr (func_body func) }
       | func <- thy_funcs thy ]
     errors =
       [ func
       | func@Function{func_body = Lcl (Local ErrorId _)} <- funcs ]
+    asserts =
+      [ form { fm_body = runFresh $ cleanExpr (fm_body form) }
+      | form <- thy_asserts thy ]
 
 cleanExpr :: Tip.Expr Id -> Fresh (Tip.Expr Id)
 cleanExpr = transformBiM $ \e ->
