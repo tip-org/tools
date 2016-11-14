@@ -15,6 +15,10 @@ infixr 0 ==>
 {-# ANN type Prop (PrimType Boolean) #-}
 data Prop = MkProp Prop
 
+{-# ANN bool Inline #-}
+bool :: Prelude.Bool -> Prop
+bool = special "Cast"#
+
 {-# ANN (===) Inline #-}
 (===) :: Prelude.Eq a => a -> a -> Prop
 (===) = special "Primitive Equal 2"#
