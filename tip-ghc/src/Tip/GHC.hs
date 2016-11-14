@@ -578,7 +578,10 @@ tipFunction prog x t =
         expr ctx (inline e)
     expr ctx e@(Var prim `App` Type ty `App` Lit (MachStr name))
       | Special `elem` globalAnnotations prog prim =
-        special ctx (tipType prog ty) (read (BS.unpack name))
+        case reads (BS.unpack name) of
+          [(spec, "")] ->
+            special ctx (tipType prog ty) spec
+          _ -> ERROR("Unknown special " ++ BS.unpack name)
     expr ctx (Lit l) = return (literal (lit l))
     expr ctx e@(Var ratio `App` Type _ `App` Lit (LitInteger m _) `App` Lit (LitInteger n _))
       | SomeSpecial Rational `elem` globalAnnotations prog ratio =
