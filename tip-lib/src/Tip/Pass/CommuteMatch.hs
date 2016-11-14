@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Tip.Pass.CommuteMatch where
@@ -13,6 +14,7 @@ import Tip.Scope
 import Data.Generics.Geniplate
 import Control.Applicative
 import Data.Maybe
+import Control.Monad
 
 -- | Makes an effort to move match statements upwards: moves match above
 -- function applications, and moves matches inside scrutinees outside.
@@ -38,6 +40,9 @@ commuteMatch mthy = aux
               | Case lhs rhs <- inner_alts
               ]
 
+        Match e alts | Just e' <- toMatch e ->
+          aux (Match e' alts)
+
         hd :@: args
           | and [ not (logicalBuiltin b) | Builtin b <- [hd] ]
           , let isMatch Match{} = True
@@ -59,3 +64,25 @@ commuteMatch mthy = aux
 
     mscp = fmap scope mthy
     match e cases = fromMaybe (Match e cases) (tryMatch mscp e cases)
+
+    -- Turn e.g. (= x nil) into a match.
+    toMatch :: Expr a -> Maybe (Expr a)
+    toMatch (Builtin eq :@: [t, u])
+      | eq `elem` [Equal, Distinct] =
+        toMatch1 eq t u `mplus` toMatch1 eq u t
+    toMatch _ = Nothing
+
+    toMatch1 eq t u | Just pat <- toPattern u =
+      Just $
+        Match t
+          [Case Default (bool (if eq == Equal then False else True)),
+            Case pat (bool (if eq == Equal then True else False))]
+    toMatch1 _ _ _ = Nothing
+
+    toPattern (Gbl gbl@Global{..} :@: [])
+      | Just scp <- mscp,
+        Just (d, c) <- lookupConstructor gbl_name scp =
+        Just (ConPat gbl [])
+    toPattern (Builtin (Lit l) :@: []) =
+      Just (LitPat l)
+    toPattern _ = Nothing
