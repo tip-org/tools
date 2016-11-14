@@ -167,7 +167,7 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return $ lint "conversion to TIP" $ clean $ runFresh $ simplifyTheory gently thy >>= eliminateLetRec
+      return $ lint "conversion to TIP" $ clean $ freshPass (simplifyTheory gently >=> eliminateLetRec) thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Is this a function that the user asked us to include in the theory?
@@ -524,20 +524,21 @@ tipType prog = tipTy . expandTypeSynonyms
 -- Translate a Haskell property to TIP.
 tipFormula :: Program -> Var -> CoreExpr -> Tip.Formula Id
 tipFormula prog x t =
-  Formula Prove UserAsserted func_tvs
-    (quantify 0 func_body (Tip.exprType func_body))
+  Formula Prove UserAsserted func_tvs $
+    freshPass quantify func_body
   where
     Function{..} = tipFunction prog x t
+
     -- Try to use names from the formula if possible
-    quantify n (Tip.Lam xs t) (_ :=>: res) =
-      Quant NoInfo Forall xs (quantify n t res)
-    quantify n t (args :=>: res) =
-      Quant NoInfo Forall xs (quantify (n+length args) u res)
-      where
-        u  = apply t (map Lcl xs)
-        xs = zipWith mkLocal [n..] args
-        mkLocal n ty = Local (LocalId "x" n) ty
-    quantify _ t _ = t
+    quantify (Tip.Lam xs t) =
+      Quant NoInfo Forall xs <$> quantify t
+    quantify t =
+      case Tip.exprType t of
+        args :=>: res -> do
+          xs <- mapM freshLocal args
+          Quant NoInfo Forall xs <$>
+            quantify (apply t (map Lcl xs))
+        _ -> return t
 
 -- The context which expressions get translated in.
 data Context =
@@ -874,13 +875,13 @@ clean1 thy =
     thy_asserts = asserts }
   where
     funcs =
-      [ func { func_body = runFresh $ cleanExpr (func_body func) }
+      [ func { func_body = freshPass cleanExpr (func_body func) }
       | func <- thy_funcs thy ]
     errors =
       [ func
       | func@Function{func_body = Lcl (Local ErrorId _)} <- funcs ]
     asserts =
-      [ form { fm_body = runFresh $ cleanExpr (fm_body form) }
+      [ form { fm_body = freshPass cleanExpr (fm_body form) }
       | form <- thy_asserts thy ]
 
 cleanExpr :: Tip.Expr Id -> Fresh (Tip.Expr Id)
