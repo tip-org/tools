@@ -28,12 +28,20 @@ varTyCons :: Var -> Set TyCon
 varTyCons = tyTyCons . varType
 
 tyTyCons :: Type -> Set TyCon
-tyTyCons = go . expandTypeSynonyms
+tyTyCons = go S.empty . expandTypeSynonyms
   where
-  go t0
-    | Just (t1,t2) <- splitFunTy_maybe t0    = S.union (go t1) (go t2)
-    | Just (tc,ts) <- splitTyConApp_maybe t0 = S.insert tc (S.unions (map go ts))
-    | Just (_,t) <- splitForAllTy_maybe t0   = go t
+  go visited t0
+    | Just (t1,t2) <- splitFunTy_maybe t0    = S.union (go visited t1) (go visited t2)
+    | Just (tc,ts) <- splitTyConApp_maybe t0 =
+        -- Also consider type constructors inside original data type definition.
+        -- We store that we've iterated through those constructors in order to avoid infinite
+        -- loops when definition is recursive
+        let ts' = if tc `S.member` visited
+                      then []
+                      else concatMap dataConOrigArgTys $ tyConDataCons tc
+            visited' = S.insert tc visited
+        in  S.insert tc $ S.unions (map (go visited') (ts ++ ts'))
+    | Just (_,t) <- splitForAllTy_maybe t0   = go visited t
     | otherwise                              = S.empty
 
 -- | For all used constructors in expressions and patterns,
@@ -44,5 +52,4 @@ exprTyCons e =
     [ varTyCons x `S.union` tyTyCons t | Case _ x t _  <- universeBi e ] ++
     [ varTyCons x                      | Var x :: CoreExpr <- universeBi e ] ++
     [ tyTyCons t                       | Type t :: CoreExpr <- universeBi e ] ++
-    [ S.singleton (dataConTyCon c) | DataAlt c <- universeBi e ]
-
+    [ S.singleton (dataConTyCon c)     | DataAlt c <- universeBi e ]
