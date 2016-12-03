@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Tip.Utils.Rename where
 
 import Control.Monad.State
@@ -22,8 +22,13 @@ type RenameM a b = ReaderT (Suggestor a b) (State (Map a b,Set b))
 type Suggestor a b = a -> [b]
 
 disambig :: (a -> String) -> Suggestor a String
-disambig f (f -> x) = x : extra x ++ [ x ++ show (i :: Int) | i <- [2..] ]
+disambig f x0 = x : extra x ++ [ x ++ show (i :: Int) | i <- [2..] ]
   where
+    x =
+      case f x0 of
+        "" -> "x"
+        x  -> x
+
     extra x = fromMaybe [] (find (x `elem`) families)
 
     families =
