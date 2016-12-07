@@ -354,6 +354,9 @@ instance Name Id where
   fresh = freshNamed "x"
   freshNamed x = fmap (LocalId x) fresh
 
+  refreshNamed s n
+    | "aux" `isPrefixOf` varStr n = freshNamed s
+    | otherwise = freshNamed (s ++ "-" ++ varStr n)
   getUnique (LocalId _ n) = n
   getUnique _ = 0
 
