@@ -119,6 +119,7 @@ readHaskellFile params@Params{..} name =
       -- rather than a package. We have to add those by hand.
       Just (AnId fromIntegerId) <- lookupName fromIntegerName
       Just (AnId fromRationalId) <- lookupName fromRationalName
+      Just (AnId negateId) <- lookupName negateName
       Just (ATyCon integerTyCon) <- lookupName integerTyConName
       Just (ATyCon ratioTyCon) <- lookupName ratioTyConName
       Just (AConLike (RealDataCon ratioDataCon)) <-
@@ -126,7 +127,7 @@ readHaskellFile params@Params{..} name =
       Just (AnId eqId) <- lookupName eqName
       let builtin =
             Program (Map.fromList builtinTypes)
-              (Map.fromList builtinGlobals)
+              (Map.fromList builtinGlobals) Map.empty
           builtinTypes =
             [tyCon listTyCon [Name "list"],
              tyCon boolTyCon [PrimType Boolean],
@@ -139,7 +140,8 @@ readHaskellFile params@Params{..} name =
              specialFun fromIntegerId Tip.Cast,
              specialFun fromRationalId Tip.Cast,
              specialFun eqId (Primitive Equal 2),
-             dataCon ratioDataCon [SomeSpecial Rational],
+             (negateId, FunInfo (Var negateId) [MakeWiredIn Negate]),
+             dataCon ratioDataCon [MakeWiredIn MakeRational],
              dataCon consDataCon  [Name "cons", Projections ["head", "tail"]],
              dataCon nilDataCon   [Name "nil"],
              dataCon falseDataCon [Literal (Bool False)],
@@ -227,7 +229,9 @@ data Program =
     -- Data types.
     prog_types     :: Map TyCon TypeInfo,
     -- Constructors and functions.
-    prog_globals   :: Map Var GlobalInfo }
+    prog_globals   :: Map Var GlobalInfo,
+    -- Any wired-ins found in the program.
+    prog_wiredIns  :: Map WiredIn Var }
 
 data TypeInfo =
   TypeInfo {
@@ -259,11 +263,12 @@ data GlobalInfo =
     global_annotations :: [TipAnnotation] }
 
 instance Monoid Program where
-  mempty = Program mempty mempty
+  mempty = Program mempty mempty mempty
   p1 `mappend` p2 =
     Program
       (prog_types p1 `mappend` prog_types p2)
       (prog_globals p1 `mappend` prog_globals p2)
+      (prog_wiredIns p1 `mappend` prog_wiredIns p2)
 
 -- Look up the TypeInfo for a type constructor.
 typeInfo :: Program -> TyCon -> TypeInfo
@@ -276,6 +281,12 @@ globalInfo :: Program -> Var -> GlobalInfo
 globalInfo prog global = Map.findWithDefault err global (prog_globals prog)
   where
     err = ERROR("Global " ++ showOutputable global ++ " not found or not supported")
+
+-- Find a given wiredIn.
+findWiredIn :: Program -> WiredIn -> Var
+findWiredIn prog spec = Map.findWithDefault err spec (prog_wiredIns prog)
+  where
+    err = ERROR("Wired-in " ++ show spec ++ " not defined in Prelude")
 
 -- Look up the annotations for a type constructor.
 typeAnnotations :: Program -> TyCon -> [TipAnnotation]
@@ -293,7 +304,7 @@ globalAnnotations prog global =
 
 -- Build a program from a list of declarations and a list of annotations.
 program :: [TyThing] -> AnnEnv -> Program
-program things anns = Program types globals
+program things anns = Program types globals specials
   where
     types =
       Map.fromList
@@ -307,6 +318,12 @@ program things anns = Program types globals
       [ (id, FunInfo unfolding (annotations (idName id)))
       | AnId id <- things,
         Just unfolding <- [maybeUnfoldingTemplate (realIdUnfolding id)] ]
+
+    specials =
+      Map.fromList
+        [ (spec, x)
+        | (x, global) <- Map.toList globals,
+          WiredIn spec <- global_annotations global ]
     
     annotations :: GHC.Name -> [TipAnnotation]
     annotations name =
@@ -599,12 +616,6 @@ tipFunction prog x t =
             special ctx (tipType prog ty) spec
           _ -> ERROR("Unknown special " ++ BS.unpack name)
     expr ctx (Lit l) = return (literal (lit l))
-    expr ctx e@(Var ratio `App` Type _ `App` Lit (LitInteger m _) `App` Lit (LitInteger n _))
-      | SomeSpecial Rational `elem` globalAnnotations prog ratio =
-        return $
-          Builtin NumDiv :@:
-            [Builtin NumWiden :@: [Builtin (Tip.Lit (Tip.Int m)) :@: []],
-             Builtin NumWiden :@: [Builtin (Tip.Lit (Tip.Int n)) :@: []]]
     expr ctx (Var x) = var ctx x
     expr ctx (App t u) = app ctx t u
     expr ctx (Lam x e) = lam ctx x e
@@ -662,6 +673,10 @@ tipFunction prog x t =
     var ctx x
       | (l:_) <- [l | Literal l <- globalAnnotations prog x] =
           return (literal l)
+    var ctx x
+      | (wiredIn:_) <-
+        [ wiredIn | MakeWiredIn wiredIn <- globalAnnotations prog x ] =
+        var ctx (findWiredIn prog wiredIn)
     var ctx x
       | Just fun <- Map.lookup x (ctx_funs ctx) =
         return (fun (ctx_types ctx))

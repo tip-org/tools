@@ -17,7 +17,8 @@ data TipAnnotation =
     -- (useful when the function must be applied to a monomorphic type).
   | Inline
     -- TIP built-in types, special functions and literals.
-  | PrimType BuiltinType | SomeSpecial Special | Special | Literal Lit
+  | PrimType BuiltinType | SomeSpecial Special
+  | MakeWiredIn WiredIn | WiredIn WiredIn | Special | Literal Lit
     -- The type of properties.
   | PropType
   deriving (Eq, Ord, Show, Data)
@@ -32,10 +33,17 @@ data Special =
     --   a) have the same representation in TIP, or
     --   b) be a cast from integer to real.
   | Cast
-    -- The constructor for rational numbers (type integer -> integer -> real).
-  | Rational
     -- The magic inlining function inline :: a -> a.
   | InlineIt
     -- A quantifier.
   | QuantSpecial Quant
+  deriving (Eq, Ord, Show, Read, Data)
+
+-- Functions which are invoked by tip-ghc and must be defined
+-- in the prelude.
+data WiredIn =
+    -- Convert a pair of integers to a rational.
+    MakeRational
+    -- Negate a number.
+  | Negate
   deriving (Eq, Ord, Show, Read, Data)

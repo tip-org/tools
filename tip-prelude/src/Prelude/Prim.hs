@@ -84,3 +84,13 @@ primNot = special "Primitive Not 1"#
 {-# ANN primError Inline #-}
 primError :: a
 primError = special "Error"#
+
+{-# ANN primMakeRational Inline #-}
+{-# ANN primMakeRational (WiredIn MakeRational) #-}
+primMakeRational :: a -> a -> Rational
+primMakeRational x y = primCast x `primQuotient` primCast y
+
+{-# ANN primNegate Inline #-}
+{-# ANN primNegate (WiredIn Negate) #-}
+primNegate :: a -> a
+primNegate x = primCast 0 `primMinus` x
