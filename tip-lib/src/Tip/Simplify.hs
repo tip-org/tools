@@ -85,6 +85,10 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
              (e2, Any simplified) <- lift (runWriterT (aux e1))
              if simplified then hooray $ return e2 else return e0
 
+        Quant NoInfo q xs (Quant NoInfo q' ys form) | q == q' ->
+          hooray $
+          return (Quant NoInfo q (xs ++ ys) form)
+
         Match _ [Case Default body] -> hooray $ return body
 
         -- eta for match
