@@ -56,6 +56,8 @@ import Data.Typeable(Typeable)
 import qualified Text.PrettyPrint as PP
 import Control.DeepSeq
 import Tip.Lint
+import Module
+import Data.List.Split
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -97,15 +99,15 @@ readHaskellFile params@Params{..} name =
         home = mconcat
           [ program (eltsUFM md_types) (mkAnnEnv md_anns)
           | HomeModInfo{hm_details = ModDetails{..}} <- eltsUFM hsc_HPT ]
-        exports =
-          [ x
-          | HomeModInfo{hm_details = ModDetails{..}} <- eltsUFM hsc_HPT,
-            Avail _ x <- md_exports ]
 
       -- Away modules are combined into one giant record, the "external
       -- package state".
       EPS{..} <- liftIO $ readIORef hsc_EPS
       let away = program (eltsUFM eps_PTE) eps_ann_env
+
+          mods =
+            [(hm_iface mod, Home) | mod <- eltsUFM hsc_HPT] ++
+            [(mod, Away) | mod <- moduleEnvElts eps_PIT]
 
       -- Finally, a few types (such as lists) are defined in GHC itself
       -- rather than a package. We have to add those by hand.
@@ -153,8 +155,8 @@ readHaskellFile params@Params{..} name =
         liftIO $ putStrLn (showOutputable prog)
 
       -- Work out an initial set of functions and properties.
-      let funcs = filter (keepFunction params prog exports) (Map.keys (prog_globals home))
-          props = filter (isProperty params prog exports) (Map.keys (prog_globals home))
+      let keep = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
+          (props, funcs) = partition (isPropType prog . varType) keep
 
       let
         thy =
@@ -170,27 +172,32 @@ readHaskellFile params@Params{..} name =
       return $ lint "conversion to TIP" $ clean $ freshPass (simplifyTheory gently >=> eliminateLetRec) thy
     else liftIO $ exitWith (ExitFailure 1)
 
--- Is this a function that the user asked us to include in the theory?
-keepFunction :: Params -> Program -> [GHC.Name] -> Var -> Bool
-keepFunction Params{..} prog exports x
-  | FunInfo{} <- globalInfo prog x =
-      varName x `elem` exports &&
-      (param_keep_all_names || getOccString x `elem` param_extra_names) &&
-      -- Properties don't count as functions
-      not (isPropType prog (varType x))
-  | otherwise = False
+-- Did the user ask us to include this function or property?
+data Source = Home | Away deriving (Eq, Show)
+isIncluded :: Maybe [String] -> [(ModIface, Source)] -> Var -> Bool
+isIncluded names mods x =
+  case filter (foundIn . fst) mods of
+    [] -> False
+    ((mod, source):_) ->
+      case names of
+        Nothing -> source == Home
+        Just names ->
+          (modPrefix mod source, getOccString x) `elem` map parseModulePrefix names
+  where
+    foundIn mod =
+      varName x `elem` [ y | Avail _ y <- mi_exports mod ]
 
--- Is this a property that the user asked us to include in the theory?
-isProperty :: Params -> Program -> [GHC.Name] -> Var -> Bool
-isProperty Params{..} prog exports x
-  | FunInfo{} <- globalInfo prog x =
-    varName x `elem` exports &&
-    isPropType prog (varType x) &&
-    case param_prop_names of
-      Nothing -> True
-      Just names ->
-        getOccString x `elem` names
-  | otherwise = False
+    modPrefix _ Home = ""
+    modPrefix mod Away = moduleNameString (moduleName (mi_module mod))
+
+-- Split a function name up into the module part and the function part.
+parseModulePrefix :: String -> (String, String)
+parseModulePrefix str = (intercalate "." mods, intercalate "." funcs)
+  where
+    components = splitOn "." str
+    (mods, funcs) = span isModule components
+    isModule (x:_) = isUpper x
+    isModule _ = False
 
 -- Is this type a reasonable type for a property?
 isPropType :: Program -> GHC.Type -> Bool

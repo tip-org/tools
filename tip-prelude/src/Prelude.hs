@@ -674,7 +674,7 @@ break p                 =  span (not . p)
 -- reverse xs returns the elements of xs in reverse order.  xs must be finite.
 
 reverse          :: [a] -> [a]
-reverse          =  foldl (flip (:)) []
+reverse xs       =  inline foldl (flip (:)) [] xs
 
 -- and returns the conjunction of a Boolean list.  For the result to be
 -- True, the list must be finite; False, however, results from a False
