@@ -124,6 +124,10 @@ replaceInt replacement_thy thy
               x <- lift $ freshLocal (TyCon (data_name nat) [])
               return $
                 Match e [Case (ConPat succGlobal [x]) (pred e)]
+            replaceE (Builtin NumLt :@: [_, z]) | z == zero = return (bool False)
+            replaceE (Builtin NumLe :@: [z, _]) | z == zero = return (bool True)
+            replaceE (Builtin NumGt :@: [z, _]) | z == zero = return (bool False)
+            replaceE (Builtin NumGe :@: [_, z]) | z == zero = return (bool True)
             replaceE e0@(Builtin b :@: (es@(e1:_)))
               | exprType e1 `elem` [BuiltinType Integer, TyCon (data_name nat) []] =
               case b of
