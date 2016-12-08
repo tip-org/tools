@@ -24,6 +24,7 @@ import Tip.Parser.ErrM
 %name pLetDecl LetDecl
 %name pType Type
 %name pExpr Expr
+%name pLit Lit
 %name pBinder Binder
 %name pCase Case
 %name pPattern Pattern
@@ -155,10 +156,12 @@ Expr : Symbol { Tip.Parser.AbsTIP.Var $1 }
      | '(' 'match' Expr ListCase ')' { Tip.Parser.AbsTIP.Match $3 (reverse $4) }
      | '(' 'let' '(' ListLetDecl ')' Expr ')' { Tip.Parser.AbsTIP.Let (reverse $4) $6 }
      | '(' Binder '(' ListBinding ')' Expr ')' { Tip.Parser.AbsTIP.Binder $2 (reverse $4) $6 }
-     | Integer { Tip.Parser.AbsTIP.LitInt $1 }
-     | '-' Integer { Tip.Parser.AbsTIP.LitNegInt $2 }
-     | 'true' { Tip.Parser.AbsTIP.LitTrue }
-     | 'false' { Tip.Parser.AbsTIP.LitFalse }
+     | Lit { Tip.Parser.AbsTIP.Lit $1 }
+Lit :: { Lit }
+Lit : Integer { Tip.Parser.AbsTIP.LitInt $1 }
+    | '-' Integer { Tip.Parser.AbsTIP.LitNegInt $2 }
+    | 'true' { Tip.Parser.AbsTIP.LitTrue }
+    | 'false' { Tip.Parser.AbsTIP.LitFalse }
 Binder :: { Binder }
 Binder : 'lambda' { Tip.Parser.AbsTIP.Lambda }
        | 'forall' { Tip.Parser.AbsTIP.Forall }
@@ -169,6 +172,7 @@ Pattern :: { Pattern }
 Pattern : 'default' { Tip.Parser.AbsTIP.Default }
         | '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 $3 }
         | Symbol { Tip.Parser.AbsTIP.SimplePat $1 }
+        | Lit { Tip.Parser.AbsTIP.LitPat $1 }
 Head :: { Head }
 Head : Symbol { Tip.Parser.AbsTIP.Const $1 }
      | '@' { Tip.Parser.AbsTIP.At }

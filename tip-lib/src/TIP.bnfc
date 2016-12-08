@@ -53,10 +53,12 @@ App.       Expr ::= "(" Head [Expr] ")";
 Match.     Expr ::= "(" "match" Expr [Case] ")";
 Let.       Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
 Binder.    Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
-LitInt.    Expr ::= Integer;
-LitNegInt. Expr ::= "-" Integer;
-LitTrue.   Expr ::= "true";
-LitFalse.  Expr ::= "false";
+Lit.       Expr ::= Lit;
+
+LitInt.    Lit ::= Integer;
+LitNegInt. Lit ::= "-" Integer;
+LitTrue.   Lit ::= "true";
+LitFalse.  Lit ::= "false";
 
 Lambda. Binder ::= "lambda";
 Forall. Binder ::= "forall";
@@ -67,6 +69,7 @@ Case.    Case ::= "(" "case" Pattern Expr ")";
 Default.    Pattern ::= "default";
 ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
 SimplePat.  Pattern ::= Symbol;
+LitPat.     Pattern ::= Lit;
 
 Const.      Head ::= Symbol;
 At.         Head ::= "@";

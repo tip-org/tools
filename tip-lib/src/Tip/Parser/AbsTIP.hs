@@ -77,10 +77,10 @@ data Expr
     | Match Expr [Case]
     | Let [LetDecl] Expr
     | Binder Binder [Binding] Expr
-    | LitInt Integer
-    | LitNegInt Integer
-    | LitTrue
-    | LitFalse
+    | Lit Lit
+  deriving (Eq, Ord, Show, Read)
+
+data Lit = LitInt Integer | LitNegInt Integer | LitTrue | LitFalse
   deriving (Eq, Ord, Show, Read)
 
 data Binder = Lambda | Forall | Exists
@@ -89,7 +89,8 @@ data Binder = Lambda | Forall | Exists
 data Case = Case Pattern Expr
   deriving (Eq, Ord, Show, Read)
 
-data Pattern = Default | ConPat Symbol [Symbol] | SimplePat Symbol
+data Pattern
+    = Default | ConPat Symbol [Symbol] | SimplePat Symbol | LitPat Lit
   deriving (Eq, Ord, Show, Read)
 
 data Head
