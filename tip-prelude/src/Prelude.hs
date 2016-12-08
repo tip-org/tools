@@ -296,13 +296,10 @@ primLcm x y          =  abs ((x `quot` (gcd x y)) * y)
 
 {-# ANN (^) Inline #-}
 (^)              :: (Num a, Integral b) => a -> b -> a
-x ^ 0 = 1
-x ^ n | n > 0 = f x (n-1) x
-  where f _ 0 y = y
-        f x n y = g x n  where
-                  g x n | even n  = g (x*x) (n `quot` 2)
-                        | otherwise = f x (n-1) (x*y)
-_ ^ _ = error "Prelude.^: negative exponent"
+x ^ n | n >= 0 = pow x n
+  where
+    pow x 0 = 1
+    pow x n = x * pow x (n-1)
 
 
 {-# ANN (^^) Inline #-}
