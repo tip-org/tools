@@ -1,6 +1,5 @@
 {-# LANGUAGE TypeOperators, FlexibleInstances #-}
 -- | A property language for TIP properties.
--- XXXXX fill this in.
 module Tip
     ( Equality
     , (:=>:)

@@ -14,6 +14,15 @@ infixr 0 ==>
 {-# ANN type Prop PropType #-}
 {-# ANN type Prop (PrimType Boolean) #-}
 data Prop = MkProp Prop
+-- | The property data type
+
+type Equality a = Prop
+type a :=>: b = Prop
+type And a b = Prop
+type Or a b = Prop
+type Neg a = Prop
+type Forall a b = Prop
+type Exists a b = Prop
 
 {-# ANN bool Inline #-}
 bool :: Prelude.Bool -> Prop
