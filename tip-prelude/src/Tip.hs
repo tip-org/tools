@@ -14,7 +14,6 @@ infixr 0 ==>
 {-# ANN type Prop PropType #-}
 {-# ANN type Prop (PrimType Boolean) #-}
 data Prop = MkProp Prop
--- | The property data type
 
 type Equality a = Prop
 type a :=>: b = Prop
