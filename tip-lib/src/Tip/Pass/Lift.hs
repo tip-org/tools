@@ -30,15 +30,13 @@ liftTheory top thy = do
     runWriterT $ do
       thy_funcs' <-
         forM (thy_funcs thy) $ \func@Function{..} -> do
-          new_body <-
-            transformExprInM (top func_name) func_body
+          new_body <- top func_name func_body
           return func { func_body = new_body }
 
       name <- lift $ freshNamed "formula"
       thy_asserts' <-
         forM (thy_asserts thy) $ \form@Formula{..} -> do
-          new_body <-
-            transformExprInM (top name) fm_body
+          new_body <- top name fm_body
           return form { fm_body = new_body }
       return (thy_funcs', thy_asserts')
 
@@ -71,7 +69,7 @@ lambdaLiftTop e0 =
 --
 -- After this pass, lambdas only exist at the top level of functions.
 lambdaLift :: Name a => Theory a -> Fresh (Theory a)
-lambdaLift = liftTheory (const lambdaLiftTop)
+lambdaLift = liftTheory (transformExprInM . const lambdaLiftTop)
 
 letLiftTop :: Name a => TopLift a
 letLiftTop e0 =
@@ -93,16 +91,26 @@ letLiftTop e0 =
 -- > e[f fvs]
 -- > f fvs = b[fvs]
 letLift :: Name a => Theory a -> Fresh (Theory a)
-letLift = liftTheory (const letLiftTop)
+letLift = liftTheory (transformExprInM . const letLiftTop)
 
-eliminateLetRecTop :: Name a => a -> TopLift a
-eliminateLetRecTop func e0 =
-  case e0 of
-    LetRec binds e -> do
+eliminateLetRecTop :: Name a => (a -> Bool) -> a -> TopLift a
+eliminateLetRecTop p func e = elim e
+  where
+    elim (hd :@: args) = fmap (hd :@:) (mapM elim args)
+    elim x@Lcl{} = return x
+    elim (Lam xs e) = Lam xs <$> elim e
+    elim (Match e cases) = Match <$> elim e <*> mapM case_ cases
+      where
+        case_ (Case pat body) = Case pat <$> elim body
+    elim (Let x t u) = Let x <$> elim t <*> elim u
+    elim (Quant info q xs e) = Quant info q xs <$> elim e
+
+    elim (LetRec binds e) = do
       let
-        -- Variables and typed that are in scope and should be
+        -- Variables and types that are in scope and should be
         -- added as parameters to the functions.
         env =
+          filter (p . lcl_name) $
           usort (concatMap (free . func_body) binds)
           \\ usort (concatMap func_args binds)
         tyenv =
@@ -140,13 +148,16 @@ eliminateLetRecTop func e0 =
             func_args = env ++ func_args,
             func_body = transform func_body }
 
-      tell (map transformFunc binds)
-      return (transform e)
-    _ -> return e0
+        elimFunc func@Function{..} = do
+          body <- elim func_body
+          return func { func_body = body }
+
+      mapM (elimFunc . transformFunc) binds >>= tell
+      elim (transform e)
 
 -- | Eliminate letrec.
-eliminateLetRec :: Name a => Theory a -> Fresh (Theory a)
-eliminateLetRec = liftTheory eliminateLetRecTop
+eliminateLetRec :: Name a => (a -> Bool) -> Theory a -> Fresh (Theory a)
+eliminateLetRec p = liftTheory (eliminateLetRecTop p)
 
 axLamFunc :: Function a -> Maybe (Signature a,Formula a)
 axLamFunc Function{..} =
@@ -255,5 +266,5 @@ boolOpTop e0 =
 --
 -- Run  CollapseEqual and BoolOpToIf afterwards
 boolOpLift :: Name a => Theory a -> Fresh (Theory a)
-boolOpLift = liftTheory (const boolOpTop)
+boolOpLift = liftTheory (transformExprInM . const boolOpTop)
 

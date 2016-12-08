@@ -177,7 +177,11 @@ readHaskellFile params@Params{..} name =
       when (PrintInitialTheory `elem` param_debug_flags) $
         liftIO $ putStrLn (ppRender thy)
 
-      return $ lint "conversion to TIP" $ clean $ freshPass (simplifyTheory gently >=> eliminateLetRec) thy
+      let
+        realName ErrorId = False
+        realName CastId = False
+        realName _ = True
+      return $ lint "conversion to TIP" $ clean $ freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Did the user ask us to include this function or property?
