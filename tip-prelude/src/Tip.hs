@@ -23,6 +23,14 @@ type Neg a = Prop
 type Forall a b = Prop
 type Exists a b = Prop
 
+class Testable a where
+instance Testable Prelude.Bool
+instance Testable Prop
+
+{-# ANN property Inline #-}
+property :: Testable prop => prop -> Prop
+property = special "Cast"#
+
 {-# ANN bool Inline #-}
 bool :: Prelude.Bool -> Prop
 bool = special "Cast"#
@@ -36,31 +44,31 @@ bool = special "Cast"#
 (=/=) = special "Primitive Distinct 2"#
 
 {-# ANN (.&&.) Inline #-}
-(.&&.) :: Prop -> Prop -> Prop
+(.&&.) :: (Testable p, Testable q) => p -> q -> Prop
 (.&&.) = special "Primitive And 2"#
 
 {-# ANN (.||.) Inline #-}
-(.||.) :: Prop -> Prop -> Prop
+(.||.) :: (Testable p, Testable q) => p -> q -> Prop
 (.||.) = special "Primitive Or 2"#
 
 {-# ANN (==>) Inline #-}
-(==>) :: Prop -> Prop -> Prop
+(==>) :: (Testable p, Testable q) => p -> q -> Prop
 (==>) = special "Primitive Implies 2"#
 
 {-# ANN neg Inline #-}
-neg :: Prop -> Prop
+neg :: Testable prop => prop -> Prop
 neg = special "Primitive Not 1"#
 
 {-# ANN question Inline #-}
-question :: Prop -> Prop
+question :: Testable prop => prop -> Prop
 question = neg
 
 {-# ANN forAll Inline #-}
-forAll :: (a -> Prop) -> Prop
+forAll :: Testable prop => (a -> prop) -> Prop
 forAll = special "QuantSpecial Forall"#
 
 {-# ANN exists Inline #-}
-exists :: (a -> Prop) -> Prop
+exists :: Testable prop => (a -> prop) -> Prop
 exists = special "QuantSpecial Exists"#
 
 {-# ANN inline (SomeSpecial InlineIt) #-}
