@@ -27,14 +27,14 @@ exprSep s xs = parExprSep s xs
 apply :: Doc -> Doc -> Doc
 apply s x = parExpr s [x]
 
-validSMTChar :: Char -> String
-validSMTChar x
-  | isAlphaNum x                             = [x]
-  | x `elem` ("~!@$%^&*_-+=<>.?/" :: String) = [x]
-  | otherwise                                = ""
+validSMTString :: String -> String
+validSMTString (x:xs)
+  | x `elem` ("-0123456789" :: String) = validSMTString ("id" ++ x:xs)
+validSMTString xs =
+  [ x | x <- xs, isAlphaNum x || x `elem` ("~!@$%^&*_-+=<>.?/" :: String) ]
 
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding smtKeywords validSMTChar -> Theory{..})
+ppTheory (renameAvoiding smtKeywords validSMTString -> Theory{..})
   = vcat
      (map ppSort thy_sorts ++
       map ppDatas (topsort thy_datatypes) ++
@@ -113,6 +113,9 @@ ppExpr lets@Let{} =
     , ppExpr e
     ]
   where (bs,e) = collectLets lets
+ppExpr (LetRec fs e) =
+  parExpr "letrec"
+    [ parens (ppFuncs fs), ppExpr e ]
 ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: PrettyVar a => [Local a] -> Doc
@@ -153,7 +156,6 @@ ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
 ppLit (Bool True)  = "true"
 ppLit (Bool False) = "false"
-ppLit (String s)   = text (show s)
 
 ppQuant :: Quant -> Doc
 ppQuant Forall = "forall"

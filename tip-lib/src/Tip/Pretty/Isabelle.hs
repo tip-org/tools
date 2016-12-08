@@ -38,10 +38,6 @@ separating comb seps docs = comb (go seps docs)
     go _      []     = []
     go []     _      = error "separating: ran out of separators!"
 
-escape :: Char -> String
-escape x | isAlphaNum x = [x]
-escape _                = []
-
 intersperseWithPre :: (a -> a -> a) -> a -> [a] -> [a]
 intersperseWithPre f  s (t1:t2:ts) = t1:map (f s) (t2:ts)
 intersperseWithPre _f _s ts        = ts
@@ -57,7 +53,7 @@ ppAsTuple :: [a] -> (a -> Doc) -> Doc
 ppAsTuple ts toDoc = parIf (length ts > 1) ((sep.punctuate ",") (map toDoc ts))
 
 ppTheory :: (Ord a, PrettyVar a) => Bool -> Theory a -> Doc
-ppTheory explicit_forall (renameAvoiding isabelleKeywords escape -> Theory{..})
+ppTheory explicit_forall (renameAvoiding isabelleKeywords (filter isAlphaNum) -> Theory{..})
   = vcat ["theory" <+> "A",
           --"imports $HIPSTER_HOME/IsaHipster",
           "imports Main",
@@ -74,7 +70,7 @@ ppTheory explicit_forall (renameAvoiding isabelleKeywords escape -> Theory{..})
     "end"
 
 ppHipsterConjs :: (Ord a, PrettyVar a) => Theory a -> Doc
-ppHipsterConjs (renameAvoiding isabelleKeywords escape -> Theory{..})
+ppHipsterConjs (renameAvoiding isabelleKeywords (filter isAlphaNum) -> Theory{..})
   = foldl ($-$) empty
       (zipWith (ppHipsterFormula False) thy_asserts [0..])
 
@@ -218,7 +214,6 @@ ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
 ppLit (Bool True)  = "True"
 ppLit (Bool False) = "False"
-ppLit (String s)   = text (show s)
 
 ppQuantName :: Quant -> Doc
 ppQuantName Forall = "!"

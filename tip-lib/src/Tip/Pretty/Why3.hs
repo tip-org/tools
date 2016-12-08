@@ -54,12 +54,8 @@ separating comb seps docs = comb (go seps docs)
     go _      []     = []
     go []     _      = error "separating: ran out of separators!"
 
-escape :: Char -> String
-escape x | isAlphaNum x = [x]
-escape _                = []
-
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding why3Keywords escape . why3VarTheory -> Theory{..})
+ppTheory (renameAvoiding why3Keywords (filter isAlphaNum) . why3VarTheory -> Theory{..})
   = block ("module" <+> "A") $
     vcat (
       "use HighOrd" :
@@ -179,7 +175,6 @@ ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
 ppLit (Bool True)  = "true"
 ppLit (Bool False) = "false"
-ppLit (String s)   = text (show s)
 
 ppQuantName :: Quant -> Doc
 ppQuantName Forall = "forall"

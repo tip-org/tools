@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeOperators, FlexibleInstances #-}
--- | The language properties are expressed in in the Haskell source
+-- | A property language for TIP properties.
+-- XXXXX fill this in.
 module Tip
     ( Equality
     , (:=>:)
@@ -19,10 +20,12 @@ module Tip
     , forAll
     , exists
     , module Test.QuickCheck
+    , module Tip.GHC.Annotations
     ) where
 
 import Test.QuickCheck hiding ((===), (==>), (.&&.), (.||.), forAll)
 import qualified Test.QuickCheck as QC
+import Tip.GHC.Annotations()
 
 infix 3 ===
 infix 3 =/=

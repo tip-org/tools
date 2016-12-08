@@ -1,11 +1,10 @@
 {-# LANGUAGE CPP, TemplateHaskell #-}
 module Main where
 
-import Tip.HaskellFrontend
+import Tip.GHC
+import Tip.GHC.Params
 
-import Text.Show.Pretty hiding (Name)
 import System.Environment
-import qualified Data.Foldable as F
 import Data.Ord
 
 import Control.Monad
@@ -21,8 +20,6 @@ import Tip.Utils.Rename
 import Tip.Pretty
 import Tip.Pretty.SMT as SMT
 
-import Text.PrettyPrint hiding ((<>))
-
 import Options.Applicative
 import System.Environment
 import Language.Haskell.TH.Syntax(qRunIO, lift)
@@ -35,7 +32,7 @@ main = do
 
     setEnv "GHC_PACKAGE_PATH" (head (lines pkgdb))
 #endif
-    (file,params) <-
+    (file, params) <-
       execParser $
         info (helper <*>
                 ((,) <$> strArgument (metavar "FILENAME" <> help "Haskell file to process")
@@ -43,12 +40,11 @@ main = do
           (fullDesc <>
            progDesc "Translate Haskell to TIP" <>
            header "tip-ghc - translate Haskell to TIP")
-    mthy <- readHaskellFile file params
+    mthy <- readHaskellFile params file
     case mthy of
       Left s -> error s
       Right thy -> do
-        when (PrintInitialTheory `elem` debug_flags params) $ putStrLn (ppRender thy)
-        let renamed_thy = renameWith disambigId thy
+        when (PrintInitialTheory `elem` param_debug_flags params) $ putStrLn (ppRender thy)
         let pipeline =
               freshPass $
                 runPasses
@@ -64,34 +60,6 @@ main = do
                   , CSEMatch
                   , EliminateDeadCode
                   ]
-        case pipeline renamed_thy of
-          [thy'] -> print (SMT.ppTheory thy')
-          _      -> error "tip-ghc: not one theory!"
-
-data Var = Var String | Refresh Var Int
-  deriving (Show,Eq,Ord)
-
-varMax :: Var -> Int
-varMax Var{}         = 0
-varMax (Refresh v i) = varMax v `max` i
-
-instance PrettyVar Var where
-  varStr (Var "")      = "x"
-  varStr (Var xs)      = xs
-  varStr (Refresh v i) = varStr v
-
-disambigId :: Id -> [Var]
-disambigId i = vs : [ Refresh vs x | x <- [0..] ]
-  where
-    vs = Var $ case varStr i of { [] -> "x"; xs -> xs }
-
-instance Name Var where
-  fresh     = refresh (Var "")
-  refresh (Refresh v _) = refresh v
-  refresh v@Var{}       = Refresh v `fmap` fresh
-
-  freshNamed s = refresh (Var s)
-
-  getUnique (Refresh _ i) = i
-  getUnique Var{}         = 0
-
+        case pipeline thy of
+          [thy] -> print (SMT.ppTheory thy)
+          _     -> error "tip-ghc: not one theory!"

@@ -34,7 +34,7 @@ import Data.List
 lint :: (PrettyVar a, Ord a) => String -> Theory a -> Theory a
 lint pass thy =
   case lintEither pass thy of
-    Left doc -> error (show doc)
+    Left doc -> errorWithoutStackTrace (show doc)
     Right x  -> x
 
 -- | Same as 'lint', but returns in a monad, for convenience
@@ -53,16 +53,16 @@ check' x p = do
 
 -- | Returns a Left if the theory is malformed
 lintEither :: (PrettyVar a, Ord a) => String -> Theory a -> Either Doc (Theory a)
-lintEither pass thy0@(renameAvoiding [] return -> thy) =
+lintEither pass thy0@(renameAvoiding [] id -> thy) =
 --   trace (" ==== Linting: " ++ pass ++ " ====\n" ++ ppRender thy0 ++ "\n ====") $
   case lintTheory thy0 of
     Nothing -> return thy0
     Just doc ->
       case lintTheory thy of
         Just doc ->
-          Left (text ("Lint failed after " ++ pass ++ ":") $$ doc $$ "!!!")
+          Left (doc $$ vcat ["", text $ "Error: lint failed after " ++ pass ++ " with above error"])
         Nothing ->
-          Left (text ("Non-renamed linting pass failed!? " ++ pass ++ ":") $$ doc $$ "!!!")
+          Left (doc $$ vcat ["", text $ "Error: non-renamed linting pass failed!? " ++ pass])
 
 -- | Returns the error if the theory is malformed
 lintTheory :: (PrettyVar a, Ord a) => Theory a -> Maybe Doc
@@ -196,6 +196,10 @@ lintExpr kind (Let lcl@Local{..} expr body) = do
       "Expression of type", nest 2 (pp (exprType expr)),
       "bound to variable" <+> pp lcl,
       "of type", nest 2 (pp lcl_type)])
+lintExpr _ LetRec{} =
+  throwError $
+    "LetRec is for internal use only" $$
+    "(use Tip.Passes.eliminateLetRec to eliminate it)"
 lintExpr ExprKind (Quant _info _ lcls expr) =
   throwError "Quantifier found in expression"
 lintExpr FormulaKind (Quant _info _ lcls expr) =

@@ -23,7 +23,6 @@ library
   exposed-modules:
     Tip.Core
     Tip.Lint
-    Tip.Types
     Tip.Scope
     Tip.Fresh
     Tip.WorkerWrapper
@@ -83,9 +82,10 @@ library
 
   hs-source-dirs:      src
   include-dirs:        src
-  ghc-options:         -w
+  ghc-options:         -W
   default-language:    Haskell2010
   build-depends:       base >=4 && <5,
+                       tip-types,
                        geniplate-mirror >=0.7.1,
                        genifunctors >= 0.3,
                        split,
@@ -96,6 +96,7 @@ library
                        optparse-applicative,
                        twee,
                        minisat,
+                       deepseq,
                        structural-induction >= 0.3 && < 0.4
   build-tools:         alex, happy
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
-module Tip.Pass.Lift (lambdaLift, letLift, axiomatizeLambdas, boolOpLift) where
+module Tip.Pass.Lift (lambdaLift, letLift, eliminateLetRec, axiomatizeLambdas, boolOpLift) where
 
 #include "errors.h"
 import Tip.Core
@@ -17,19 +17,33 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Writer
 import qualified Data.Map as Map
+import Data.Maybe
+import Tip.Pretty
 
 type LiftM a = WriterT [Function a] Fresh
 
 type TopLift a = Expr a -> LiftM a (Expr a)
 
-liftAnywhere :: (Name a,TransformBiM (LiftM a) (Expr a) (t a)) =>
-                TopLift a -> t a -> Fresh (t a,[Function a])
-liftAnywhere top = runWriterT . transformExprInM top
+liftTheory :: Name a => (a -> TopLift a) -> Theory a -> Fresh (Theory a)
+liftTheory top thy = do
+  ((thy_funcs', thy_asserts'), new_func_decls) <-
+    runWriterT $ do
+      thy_funcs' <-
+        forM (thy_funcs thy) $ \func@Function{..} -> do
+          new_body <-
+            transformExprInM (top func_name) func_body
+          return func { func_body = new_body }
 
-liftTheory :: Name a => TopLift a -> Theory a -> Fresh (Theory a)
-liftTheory top thy0 =
-  do (Theory{..},new_func_decls) <- liftAnywhere top thy0
-     return Theory{thy_funcs = new_func_decls ++ thy_funcs,..}
+      name <- lift $ freshNamed "formula"
+      thy_asserts' <-
+        forM (thy_asserts thy) $ \form@Formula{..} -> do
+          new_body <-
+            transformExprInM (top name) fm_body
+          return form { fm_body = new_body }
+      return (thy_funcs', thy_asserts')
+
+  return thy{thy_funcs = new_func_decls ++ thy_funcs',
+             thy_asserts = thy_asserts' }
 
 lambdaLiftTop :: Name a => TopLift a
 lambdaLiftTop e0 =
@@ -57,7 +71,7 @@ lambdaLiftTop e0 =
 --
 -- After this pass, lambdas only exist at the top level of functions.
 lambdaLift :: Name a => Theory a -> Fresh (Theory a)
-lambdaLift = liftTheory lambdaLiftTop
+lambdaLift = liftTheory (const lambdaLiftTop)
 
 letLiftTop :: Name a => TopLift a
 letLiftTop e0 =
@@ -79,7 +93,60 @@ letLiftTop e0 =
 -- > e[f fvs]
 -- > f fvs = b[fvs]
 letLift :: Name a => Theory a -> Fresh (Theory a)
-letLift = liftTheory letLiftTop
+letLift = liftTheory (const letLiftTop)
+
+eliminateLetRecTop :: Name a => a -> TopLift a
+eliminateLetRecTop func e0 =
+  case e0 of
+    LetRec binds e -> do
+      let
+        -- Variables and typed that are in scope and should be
+        -- added as parameters to the functions.
+        env =
+          usort (concatMap (free . func_body) binds)
+          \\ usort (concatMap func_args binds)
+        tyenv =
+          usort (concatMap (freeTyVars . func_body) binds)
+          \\ usort (concatMap func_tvs binds)
+      -- A fresh set of names for the functions.
+        names = map func_name binds
+      newNames <- lift $ mapM (refreshNamed (varStr func)) names
+
+      let
+        find x = lookup x (zip names newNames)
+
+        -- Transform an expression to refer to the lifted functions.
+        transform =
+          transformBi $ \e0 ->
+          case e0 of
+            (Gbl gbl@Global{..} :@: args)
+              | Just new_name <- find gbl_name ->
+                Gbl gbl{
+                  gbl_name = new_name,
+                    gbl_type =
+                      gbl_type {
+                        polytype_tvs  = tyenv ++ polytype_tvs gbl_type,
+                        polytype_args = map lcl_type env ++ polytype_args gbl_type },
+                    gbl_args =
+                      map TyVar tyenv ++ gbl_args } :@:
+                (map Lcl env ++ args)
+            _ -> e0
+
+        -- Transform the function declaration itself.
+        transformFunc func@Function{..} =
+          func {
+            func_name = fromMaybe __ (find func_name),
+            func_tvs  = tyenv ++ func_tvs,
+            func_args = env ++ func_args,
+            func_body = transform func_body }
+
+      tell (map transformFunc binds)
+      return (transform e)
+    _ -> return e0
+
+-- | Eliminate letrec.
+eliminateLetRec :: Name a => Theory a -> Fresh (Theory a)
+eliminateLetRec = liftTheory eliminateLetRecTop
 
 axLamFunc :: Function a -> Maybe (Signature a,Formula a)
 axLamFunc Function{..} =
@@ -188,5 +255,5 @@ boolOpTop e0 =
 --
 -- Run  CollapseEqual and BoolOpToIf afterwards
 boolOpLift :: Name a => Theory a -> Fresh (Theory a)
-boolOpLift = liftTheory boolOpTop
+boolOpLift = liftTheory (const boolOpTop)
 

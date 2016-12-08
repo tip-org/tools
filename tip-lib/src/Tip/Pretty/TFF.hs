@@ -20,13 +20,11 @@ clause name kind body =
   hang ("tff(" <> text name <> ", " <> text kind <> ",") 2
        (body <> ").")
 
-validTFFChar :: Char -> String
-validTFFChar x
-  | isAlphaNum x || x == '_' = [x]
-  | otherwise                = ""
+validTFFChar :: Char -> Bool
+validTFFChar x = isAlphaNum x || x == '_'
 
 ppTheory :: (Ord a,PrettyVar a) => Theory a -> Doc
-ppTheory (renameAvoiding [] validTFFChar . tffvarify -> Theory{..})
+ppTheory (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
   = vcat
      (map ppSort thy_sorts ++
       map ppUninterp thy_sigs ++
@@ -137,7 +135,6 @@ ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
 ppLit (Bool True)  = "$true"
 ppLit (Bool False) = "$false"
-ppLit (String s)   = text (show s)
 
 ppType :: PrettyVar a => Type a -> Doc
 ppType (TyVar x)        = ppVar x
