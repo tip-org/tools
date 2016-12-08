@@ -80,11 +80,16 @@ readHaskellFile params@Params{..} name =
       hscTarget = HscInterpreted,
       ghcLink = LinkInMemory,
       ghcMode = CompManager }
-    
+
     -- Compile everything.
     target <- guessTarget name Nothing
     setTargets [target]
     ok <- load LoadAllTargets
+
+    -- Make sure all the built-in TIP stuff gets loaded.
+    findModule (mkModuleName "Prelude") Nothing >>= getModuleInfo
+    findModule (mkModuleName "Prelude.Prim") Nothing >>= getModuleInfo
+    findModule (mkModuleName "Tip") Nothing >>= getModuleInfo
 
     -- Finally, extract the TIP code from the compiled modules.
     if succeeded ok then do
