@@ -58,6 +58,7 @@ import Control.DeepSeq
 import Tip.Lint
 import Module
 import Data.List.Split
+import Control.Monad.Trans.State.Strict
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -437,7 +438,7 @@ discriminatorId prog x =
 -- definitions, and pull those definitions in from the Haskell program.
 completeTheory :: Program -> Theory Id -> Theory Id
 completeTheory prog thy =
-  inContextShow msg $
+  inContext (show msg) $
     if null funcs && null types then thy else
     completeTheory prog $!!
       thy `mappend`
@@ -571,7 +572,7 @@ tipFunction prog x t =
   runFresh $ fun (Context Map.empty Map.empty []) x t
   where
     fun :: Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
-    fun ctx x t = inContextOutputable msg $ do
+    fun ctx x t = inContextM (showOutputable msg) $ do
       let pty@PolyType{..} = polyType x
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
@@ -999,8 +1000,7 @@ inContext :: String -> a -> a
 inContext msg x =
   mapException (\(e :: SomeException) -> ContextError msg e) x
 
-inContextOutputable :: Outputable a => a -> b -> b
-inContextOutputable = inContext . showOutputable
-
-inContextShow :: Show a => a -> b -> b
-inContextShow = inContext . show
+inContextM :: String -> Fresh a -> Fresh a
+inContextM msg (Fresh x) =
+  Fresh $ state $ \s ->
+    inContext msg (runState x s)
