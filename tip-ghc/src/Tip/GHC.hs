@@ -664,7 +664,12 @@ tipFunction prog x t =
     var :: Context -> Var -> Fresh (Tip.Expr Id)
     var ctx x
       | Inline `elem` globalAnnotations prog x =
-        expr ctx (inline (Var x))
+        let
+          msg =
+            vcat [
+              text "While translating" <+> ppr x <+> text "::" <+> ppr (varType x) <+> text "with body:",
+              nest 2 (ppr (inline (Var x))) ] in
+        inContextM (showOutputable msg) $ expr ctx (inline (Var x))
     var ctx f
       | (spec:_) <-
         [spec | SomeSpecial spec <- globalAnnotations prog f] = do
