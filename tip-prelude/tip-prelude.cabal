@@ -21,6 +21,7 @@ library
   exposed-modules:
     Prelude
     Prelude.Prim
+    Data.List
     Tip
   ghc-options:         -O0 -fexpose-all-unfoldings -fno-omit-interface-pragmas -fno-ignore-interface-pragmas
   hs-source-dirs:      src
