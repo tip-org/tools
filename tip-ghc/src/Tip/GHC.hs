@@ -710,23 +710,7 @@ tipFunction prog x t =
           [] -> ERROR("Expression not applied to enough type arguments")
           (ty:tys) -> do
             e' <- expr ctx { ctx_types = tys } e
-            let
-              -- Substitute the type for the type variable.
-              -- applyTypeInExpr doesn't affect polytypes of globals
-              -- so we need to do that by hand.
-              subType ty' =
-                applyType [TyVarId x] [ty] ty'
-              sub e =
-                transformBi subGlobal $
-                applyTypeInExpr [TyVarId x] [ty] e
-              subGlobal gbl =
-                gbl { gbl_type = subPolyType (gbl_type gbl) }
-              subPolyType PolyType{..} =
-                PolyType {
-                  polytype_tvs  = polytype_tvs,
-                  polytype_args = map subType polytype_args,
-                  polytype_res  = subType polytype_res }
-            return (sub e')
+            return (substTypes [TyVarId x] [ty] e')
       | otherwise =
         bindVar ctx x $ \ctx local ->
           Tip.Lam [local] <$> expr ctx e
@@ -764,7 +748,7 @@ tipFunction prog x t =
             Tip.Let name (func_body f) <$>
             expr ctx u
         _ -> do
-          let g tys = applyTypeInExpr (func_tvs f) tys (func_body f)
+          let g tys = substTypes (func_tvs f) tys (func_body f)
           bindInlineFun ctx x g $ \ctx ->
             expr ctx u
 
@@ -856,6 +840,26 @@ tipFunction prog x t =
       bind1 ctx x $ \ctx name ->
         bindMany bind1 ctx xs $ \ctx names ->
           k ctx (name:names)
+
+
+    -- Type substitution, which (unlike applyTypeInExpr) also substitutes
+    -- into the polytypes of globals.
+    -- This only makes sense if each type variable is only bound once.
+    substTypes :: [Id] -> [Tip.Type Id] -> Tip.Expr Id -> Tip.Expr Id
+    substTypes tvs tys e =
+      transformBi substGlobal (applyTypeInExpr tvs tys e)
+      where
+        substGlobal gbl =
+          gbl {
+            gbl_type = substPolyType (gbl_type gbl) }
+        substPolyType PolyType{..} =
+          PolyType {
+            polytype_tvs  = polytype_tvs,
+            polytype_args = map substType polytype_args,
+            polytype_res  = substType polytype_res }
+
+        substType ty =
+          applyType tvs tys ty
 
 -- Should a given type be erased?
 eraseType :: GHC.Type -> Bool
