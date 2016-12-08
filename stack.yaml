@@ -1,10 +1,9 @@
 resolver: lts-7.7
 
 packages:
-- tip-ghc/
-- tip-ghc-annotations/
+- tip-types/
 - tip-lib/
-- tip-lib-core/
+- tip-ghc/
 - tip-spec/
 - tip-prelude/
 - location:
