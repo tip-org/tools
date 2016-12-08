@@ -737,6 +737,7 @@ tipFunction prog x t =
           Tip.Lam [local] <$> expr ctx e
 
     letNonRec :: Context -> Var -> CoreExpr -> CoreExpr -> Fresh (Tip.Expr Id)
+    letNonRec ctx x _ u | eraseType (varType x) = expr ctx u
     letNonRec ctx x t u = do
       -- If x is polymorphic, we inline it. This is because
       -- non-recursive TIP let-bindings are monomorphic.
