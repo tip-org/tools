@@ -38,18 +38,9 @@ Right nat_theory =
     "        (case Z false)",
     "        (case (S x2) (le z x2))))))",
     "(define-fun-rec gt ((x Nat) (y Nat)) Bool",
-    "  (match x",
-    "    (case Z false)",
-    "    (case (S z)",
-    "      (match y (case Z true)",
-    "       (case (S x2) (gt z x2))))))",
+    "  (lt y x))",
     "(define-fun-rec ge ((x Nat) (y Nat)) Bool",
-    "  (match y",
-    "    (case Z true)",
-    "    (case (S z)",
-    "      (match x",
-    "        (case Z false)",
-    "        (case (S x2) (ge x2 z))))))",
+    "  (le y x))",
     "(define-fun-rec plus ((x Nat) (y Nat)) Nat",
     "  (match x",
     "    (case Z y)",
@@ -66,8 +57,14 @@ Right nat_theory =
     "  (match x",
     "    (case Z Z)",
     "    (case (S x) (plus y (times x y)))))",
-    "(declare-fun idiv (Nat Nat) Nat)",
-    "(declare-fun imod (Nat Nat) Nat)",
+    "(define-fun-rec idiv ((x Nat) (y Nat)) Nat",
+    "  (match (lt x y)",
+    "    (case true Z)",
+    "    (case default (S (idiv (minus x y) y)))))",
+    "(define-fun-rec imod ((x Nat) (y Nat)) Nat",
+    "  (match (lt x y)",
+    "    (case true x)",
+    "    (case default (imod (minus x y) y))))",
     "(check-sat)"]
 
 renameWrt :: (Ord a,PrettyVar a,Name b) => Theory a -> f b -> Fresh (Theory b)
@@ -118,8 +115,7 @@ replaceInt replacement_thy thy
             succ e = Gbl succGlobal :@: [e]
             pred e = Gbl (projector nat succCon 0 []) :@: [e]
 
-        let [lt,le,gt,ge,plus,minus,times] = thy_funcs nat_thy
-            [div,mod] = thy_sigs nat_thy
+        let [lt,le,gt,ge,plus,minus,times,div,mod] = thy_funcs nat_thy
 
         let replaceE :: Expr a -> WriterT [Decl a] Fresh (Expr a)
             replaceE (Builtin NumAdd :@: [e, one]) | one == succ zero =
@@ -129,23 +125,21 @@ replaceInt replacement_thy thy
               return $
                 Match e [Case (ConPat succGlobal [x]) (pred e)]
             replaceE e0@(Builtin b :@: (es@(e1:_)))
-              | exprType e1 == BuiltinType Integer =
+              | exprType e1 `elem` [BuiltinType Integer, TyCon (data_name nat) []] =
               case b of
                 NumLt -> ret lt
                 NumLe -> ret le
-                NumGt -> ret gt
-                NumGe -> ret ge
+                NumGt -> tell [FuncDecl lt] >> ret gt
+                NumGe -> tell [FuncDecl le] >> ret ge
                 NumAdd -> ret plus
                 NumSub -> ret minus
                 NumMul -> tell [FuncDecl plus] >> ret times
-                IntDiv -> retSig div
-                IntMod -> retSig mod
+                IntDiv -> tell [FuncDecl lt, FuncDecl minus] >> ret div
+                IntMod -> tell [FuncDecl lt, FuncDecl minus] >> ret mod
                 _ -> return e0
               where
               ret :: Function a -> WriterT [Decl a] Fresh (Expr a)
               ret op = tell [FuncDecl op] >> return (applyFunction op [] es)
-              retSig :: Signature a -> WriterT [Decl a] Fresh (Expr a)
-              retSig op = tell [SigDecl op] >> return (applySignature op [] es)
             replaceE (Builtin (Lit (Int n)) :@: []) =
               return (foldr (const succ) zero [1..n])
             replaceE e0 = return e0
