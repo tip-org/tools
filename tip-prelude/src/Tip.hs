@@ -1,4 +1,4 @@
-{-# LANGUAGE MagicHash, NoImplicitPrelude, PackageImports #-}
+{-# LANGUAGE MagicHash, NoImplicitPrelude, PackageImports, TypeOperators #-}
 module Tip(module Tip, module Tip.GHC.Annotations) where
 
 import Tip.GHC.Annotations
