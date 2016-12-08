@@ -159,7 +159,7 @@ replaceInt replacement_thy thy
 
         let used_nat_thy
               | null fns_used && not ty_used = emptyTheory
-              | otherwise = declsToTheory (DataDecl nat:fns_used)
+              | otherwise = declsToTheory (DataDecl nat:usort fns_used)
 
         return (thy'' `joinTheories` used_nat_thy)
   where
