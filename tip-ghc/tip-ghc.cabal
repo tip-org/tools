@@ -30,11 +30,11 @@ library
     Tip
     Tip.GHC
     Tip.GHC.Params              
-    Tip.GHC.Annotations
   build-depends:
     base >= 4 && < 5,
     containers,
     tip-lib,
+    tip-ghc-annotations,
     optparse-applicative,
     ghc,
     ghc-boot,
