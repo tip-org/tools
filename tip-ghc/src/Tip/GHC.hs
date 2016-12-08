@@ -551,6 +551,7 @@ tipType prog = tipTy . expandTypeSynonyms
 
     tipTyCon tc anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
       BuiltinType ty
+    tipTyCon tc _ _ | isAny tc = TyCon (typeId prog tc) []
     tipTyCon tc _ tys =
       TyCon (typeId prog tc) (map tipTy tys)
 
@@ -897,7 +898,9 @@ eraseType ty = prop (expandTypeSynonyms ty)
       | ty `eqType` addrPrimTy = True
       | otherwise = False
 
--- Predicates which identify special functions and types in GHC.
+-- The 'Any' type is treated specially in a couple of ways:
+-- * It has a kind argument, which should be ignored (in trType).
+-- * It gets turned into an uninterpreted sort (in completeTheory).
 isAny :: TyCon -> Bool
 isAny tc = tc == anyTyCon
 
