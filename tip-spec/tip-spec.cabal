@@ -46,7 +46,8 @@ executable tip-spec
                        tip-lib,
                        tip-spec,
                        quickspec,
-                       optparse-applicative
+                       optparse-applicative,
+                       split
 
   if flag(stack)
     build-depends: template-haskell, process

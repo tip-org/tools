@@ -16,11 +16,16 @@ import System.Process
 #endif
 
 import qualified Tip.Pretty.SMT as SMT
+import Data.List.Split
 
 parseParams :: Parser QuickSpecParams
 parseParams =
   QuickSpecParams <$>
+  commaSep <$>
   many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
+
+commaSep :: [String] -> [String]
+commaSep = concatMap (splitOn ",")
 
 optionParser :: Parser (Maybe String, QuickSpecParams)
 optionParser =
