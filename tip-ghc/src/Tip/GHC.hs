@@ -169,11 +169,12 @@ readHaskellFile params@Params{..} name =
           (props, funcs) = partition (isPropType prog . varType) keep
 
       let
+        kept fun = fun { func_attrs = ("keep", Nothing):func_attrs fun }
         thy =
           completeTheory prog $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
           | prop <- props ] ++
-          [ FuncDecl (tipFunction prog func (global_definition (globalInfo prog func)))
+          [ FuncDecl (kept (tipFunction prog func (global_definition (globalInfo prog func))))
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
@@ -503,9 +504,10 @@ completeTheory prog thy0 =
 tipDatatype :: Program -> TyCon -> Tip.Datatype Id
 tipDatatype prog tc =
   Datatype {
-    data_name = typeId prog tc,
-    data_tvs  = map TyVarId type_tvs,
-    data_cons = map (tipConstructor prog) type_constructors }
+    data_name  = typeId prog tc,
+    data_attrs = [],
+    data_tvs   = map TyVarId type_tvs,
+    data_cons  = map (tipConstructor prog) type_constructors }
   where
     TypeInfo{..} = typeInfo prog tc
 
@@ -514,6 +516,7 @@ tipConstructor :: Program -> Var -> Tip.Constructor Id
 tipConstructor prog x =
   Constructor {
     con_name    = globalId prog x,
+    con_attrs   = [],
     con_discrim = discriminatorId prog x,
     con_args    = zipWith con [1..] global_args }
   where
@@ -603,11 +606,12 @@ tipFunction prog x t =
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
         Function {
-          func_name = globalId prog x,
-          func_tvs  = polytype_tvs,
-          func_args = [],
-          func_res  = polytype_res,
-          func_body = body }
+          func_name  = globalId prog x,
+          func_attrs = [],
+          func_tvs   = polytype_tvs,
+          func_args  = [],
+          func_res   = polytype_res,
+          func_body  = body }
       where
         msg =
           vcat [
