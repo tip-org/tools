@@ -125,6 +125,7 @@ readHaskellFile params@Params{..} name =
       Just (AConLike (RealDataCon ratioDataCon)) <-
         lookupGlobalName ratioDataConName
       Just (AnId eqId) <- lookupName eqName
+      Just (AnId unpackCStringId) <- lookupName unpackCStringName
       let builtin =
             Program (Map.fromList builtinTypes)
               (Map.fromList builtinGlobals) Map.empty
@@ -137,6 +138,7 @@ readHaskellFile params@Params{..} name =
             | i <- [0..mAX_TUPLE_SIZE]]
           builtinGlobals =
             [specialFun pAT_ERROR_ID Error,
+             specialFun unpackCStringId Tip.Cast,
              specialFun fromIntegerId Tip.Cast,
              specialFun fromRationalId Tip.Cast,
              specialFun eqId (Primitive Equal 2),
@@ -181,7 +183,7 @@ readHaskellFile params@Params{..} name =
         realName ErrorId = False
         realName CastId = False
         realName _ = True
-      return $ lint "conversion to TIP" $ clean $ freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy
+      return $ lint "conversion to TIP" $ freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Did the user ask us to include this function or property?
@@ -456,13 +458,17 @@ discriminatorId prog x =
 -- Take a theory which may be missing some function and datatype
 -- definitions, and pull those definitions in from the Haskell program.
 completeTheory :: Program -> Theory Id -> Theory Id
-completeTheory prog thy =
+completeTheory prog thy0 =
   inContext (show msg) $
     if null funcs && null types then thy else
     completeTheory prog $!!
       thy `mappend`
       declsToTheory (map makeFunc funcs ++ map makeType types)
   where
+    -- Note: we interleave cleaning and completing the theory so that
+    -- we don't pull in the String type when the program calls error
+    thy = clean thy0
+
     funcs :: [Var]
     funcs =
       usort
