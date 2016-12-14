@@ -40,6 +40,7 @@ import Tip.Parser.ErrM
 %name pListFunDecl ListFunDecl
 %name pListFunDef ListFunDef
 %name pListFunDec ListFunDec
+%name pSymbol Symbol
 -- no lexer declaration
 %monad { Err } { thenM } { returnM }
 %tokentype {Token}
@@ -91,13 +92,15 @@ import Tip.Parser.ErrM
   'true' { PT _ (TS _ 45) }
 
 L_integ  { PT _ (TI $$) }
-L_Symbol { PT _ (T_Symbol _) }
+L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
+L_QuotedSymbol { PT _ (T_QuotedSymbol _) }
 
 
 %%
 
 Integer :: { Integer } : L_integ  { (read ( $1)) :: Integer }
-Symbol    :: { Symbol} : L_Symbol { Symbol (mkPosToken $1)}
+UnquotedSymbol    :: { UnquotedSymbol} : L_UnquotedSymbol { UnquotedSymbol (mkPosToken $1)}
+QuotedSymbol    :: { QuotedSymbol} : L_QuotedSymbol { QuotedSymbol (mkPosToken $1)}
 
 Start :: { Start }
 Start : ListDecl { Tip.Parser.AbsTIP.Start $1 }
@@ -105,7 +108,7 @@ ListDecl :: { [Decl] }
 ListDecl : '(' 'check-sat' ')' { [] }
          | '(' Decl ')' ListDecl { (:) $2 $4 }
 Decl :: { Decl }
-Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes $3 (reverse $6) }
+Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
      | 'declare-sort' Symbol Integer { Tip.Parser.AbsTIP.DeclareSort $2 $3 }
      | 'declare-const' ConstDecl { Tip.Parser.AbsTIP.DeclareConst $2 }
      | 'declare-const' '(' Par '(' ConstDecl ')' ')' { Tip.Parser.AbsTIP.DeclareConstPar $3 $5 }
@@ -122,7 +125,7 @@ Assertion :: { Assertion }
 Assertion : 'assert' { Tip.Parser.AbsTIP.AssertIt }
           | 'assert-not' { Tip.Parser.AbsTIP.AssertNot }
 Par :: { Par }
-Par : 'par' '(' ListSymbol ')' { Tip.Parser.AbsTIP.Par $3 }
+Par : 'par' '(' ListSymbol ')' { Tip.Parser.AbsTIP.Par (reverse $3) }
 ConstDecl :: { ConstDecl }
 ConstDecl : Symbol Type { Tip.Parser.AbsTIP.ConstDecl $1 $2 }
 FunDecl :: { FunDecl }
@@ -170,7 +173,7 @@ Case :: { Case }
 Case : '(' 'case' Pattern Expr ')' { Tip.Parser.AbsTIP.Case $3 $4 }
 Pattern :: { Pattern }
 Pattern : 'default' { Tip.Parser.AbsTIP.Default }
-        | '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 $3 }
+        | '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
         | Symbol { Tip.Parser.AbsTIP.SimplePat $1 }
         | Lit { Tip.Parser.AbsTIP.LitPat $1 }
 Head :: { Head }
@@ -211,7 +214,8 @@ ListBinding :: { [Binding] }
 ListBinding : {- empty -} { [] }
             | ListBinding Binding { flip (:) $1 $2 }
 ListSymbol :: { [Symbol] }
-ListSymbol : {- empty -} { [] } | Symbol ListSymbol { (:) $1 $2 }
+ListSymbol : {- empty -} { [] }
+           | ListSymbol Symbol { flip (:) $1 $2 }
 ListType :: { [Type] }
 ListType : {- empty -} { [] } | ListType Type { flip (:) $1 $2 }
 ListFunDecl :: { [FunDecl] }
@@ -223,6 +227,9 @@ ListFunDef : {- empty -} { [] }
 ListFunDec :: { [FunDec] }
 ListFunDec : {- empty -} { [] }
            | ListFunDec FunDec { flip (:) $1 $2 }
+Symbol :: { Symbol }
+Symbol : UnquotedSymbol { Tip.Parser.AbsTIP.Unquoted $1 }
+       | QuotedSymbol { Tip.Parser.AbsTIP.Quoted $1 }
 {
 
 returnM :: a -> Err a

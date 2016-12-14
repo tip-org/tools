@@ -7,7 +7,9 @@ module Tip.Parser.AbsTIP where
 
 
 
-newtype Symbol = Symbol ((Int,Int),String)
+newtype UnquotedSymbol = UnquotedSymbol ((Int,Int),String)
+  deriving (Eq, Ord, Show, Read)
+newtype QuotedSymbol = QuotedSymbol ((Int,Int),String)
   deriving (Eq, Ord, Show, Read)
 data Start = Start [Decl]
   deriving (Eq, Ord, Show, Read)
@@ -116,3 +118,5 @@ data Head
     | NumWiden
   deriving (Eq, Ord, Show, Read)
 
+data Symbol = Unquoted UnquotedSymbol | Quoted QuotedSymbol
+  deriving (Eq, Ord, Show, Read)

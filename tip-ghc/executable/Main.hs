@@ -52,5 +52,5 @@ main = do
               , CollapseEqual
               ]
     case pipeline thy of
-      [thy] -> print (SMT.ppTheory thy)
+      [thy] -> print (SMT.ppTheory [] thy)
       _     -> error "tip-ghc: not one theory!"

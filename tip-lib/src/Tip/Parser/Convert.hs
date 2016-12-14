@@ -54,26 +54,36 @@ instance Name Id where
          return (Id n u Nothing)
   getUnique (Id _ u _) = u
 
+symPos :: Symbol -> (Int, Int)
+symPos (Unquoted (UnquotedSymbol (p, _))) = p
+symPos (Quoted (QuotedSymbol (p, _))) = p
+
+symStr :: Symbol -> String
+symStr (Unquoted (UnquotedSymbol (_, s))) = s
+symStr (Quoted (QuotedSymbol (_, s))) = tail $ init s
+
 ppSym :: Symbol -> Doc
-ppSym (Symbol ((x,y),s)) = text s <+> "(" <> int x <> ":" <> int y <> ")"
+ppSym sym = text (symStr sym) <+> "(" <> int x <> ":" <> int y <> ")"
+  where
+    (x, y) = symPos sym
 
 lkSym :: Symbol -> CM Id
-lkSym sym@(Symbol (p,s)) =
-  do mik <- lift $ gets (M.lookup s)
+lkSym sym =
+  do mik <- lift $ gets (M.lookup (symStr sym))
      case mik of
-       Just (i,_) -> return $ i { idPos = Just p }
+       Just (i,_) -> return $ i { idPos = Just (symPos sym) }
        Nothing    -> throwError $ "Symbol" <+> ppSym sym <+> "not bound"
 
 addSym :: IdKind -> Symbol -> CM Id
-addSym ik sym@(Symbol (p,s)) =
-  do mik <- lift $ gets (M.lookup s)
+addSym ik sym =
+  do mik <- lift $ gets (M.lookup (symStr sym))
      case mik of
        Just (_,GlobalId)       -> throwError $ "Symbol" <+> ppSym sym <+> "is already globally bound"
        Just _ | ik == GlobalId -> throwError $ "Symbol" <+> ppSym sym <+> "is locally bound, and cannot be overwritten by a global"
        _                       -> return ()
      u <- lift (lift fresh)
-     let i = Id s u (Just p)
-     lift $ modify (M.insert s (i,ik))
+     let i = Id (symStr sym) u (Just (symPos sym))
+     lift $ modify (M.insert (symStr sym) (i,ik))
      return i
 
 trDecls :: [A.Decl] -> CM (Theory Id)
@@ -194,9 +204,9 @@ trDatatype tvs (A.Datatype sym constructors) =
      T.Datatype x tvs <$> mapM trConstructor constructors
 
 trConstructor :: A.Constructor -> CM (T.Constructor Id)
-trConstructor (A.Constructor name@(Symbol (p,s)) args) =
+trConstructor (A.Constructor name args) =
   do c <- addSym GlobalId name
-     is_c <- addSym GlobalId (Symbol (p,"is-" ++ s))
+     is_c <- addSym GlobalId (Unquoted (UnquotedSymbol (symPos name, "is-" ++ symStr name)))
      T.Constructor c is_c <$> mapM (trBinding GlobalId) args
 
 bindingType :: Binding -> A.Type

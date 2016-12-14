@@ -46,7 +46,7 @@ induction coords thy@Theory{..} =
       | cs@(_:_) <-
           [ x | x <- coords, x >= length lcls || x < 0 ]
           -> error $ unlines
-               [ "In theory: " ++ show (SMT.ppTheory thy)
+               [ "In theory: " ++ show (SMT.ppTheory [] thy)
                , "Induction coordinates " ++ show cs ++ " out of bounds!"
                , "on goal: " ++ show (SMT.ppFormula goal)
                ]

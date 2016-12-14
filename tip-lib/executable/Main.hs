@@ -78,7 +78,7 @@ handle passes mode multipath s =
       let (pretty,pipeline,ext) =
             case mode of
               SMTLIB ax_func_decls ->
-                ( SMT.ppTheory
+                ( SMT.ppTheory SMT.smtKeywords
                 , passes ++
                   [ TypeSkolemConjecture, Monomorphise False
                   , LambdaLift, AxiomatizeLambdas
@@ -114,7 +114,7 @@ handle passes mode multipath s =
               Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
               Isabelle expl_forall -> (Isabelle.ppTheory expl_forall, passes, "thy")
               Hipster -> (Hipster.ppHipsterConjs, passes, "txt")
-              TIP       -> (SMT.ppTheory,      passes, "smt2")
+              TIP       -> (SMT.ppTheory [],      passes, "smt2")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
         Nothing ->

@@ -104,5 +104,8 @@ terminator FunDecl "";
 terminator FunDef "";
 terminator FunDec "";
 
-position token Symbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
+Unquoted. Symbol ::= UnquotedSymbol;
+Quoted.   Symbol ::= QuotedSymbol;
 
+position token UnquotedSymbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
+position token QuotedSymbol '|'(char - '|')*'|';
