@@ -169,7 +169,12 @@ readHaskellFile params@Params{..} name =
           (props, funcs) = partition (isPropType prog . varType) keep
 
       let
-        kept fun = fun { func_attrs = ("keep", Nothing):func_attrs fun }
+        kept fun =
+          fun { func_attrs = ("keep", Nothing):("haskell-name", Just name):func_attrs fun }
+          where
+            name = mod ++ "." ++ getOccString func_id
+            mod = moduleNameString (moduleName (nameModule (varName func_id)))
+            GlobalId _ func_id = func_name fun
         thy =
           completeTheory prog $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
