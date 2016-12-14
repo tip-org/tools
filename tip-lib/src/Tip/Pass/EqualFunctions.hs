@@ -91,10 +91,9 @@ removeAliases thy@(Theory{thy_funcs=fns0})
     renamingsAndFuncs = take 1
       [ (g,k,f)
       | fun@(Function g _ g_tvs vars _ (hd :@: args)) <- fns0
-      , not (keep fun)
       , map Lcl vars == args
       , (k,f) <- case hd of
-                  Builtin{} -> [(\ _ -> hd, Nothing)]
+                  Builtin{} -> [(\ _ -> hd, Nothing) | not (keep fun)]
                   Gbl (Global f pty f_args) | f /= g ->
                     [(\ g_app -> Gbl (Global f pty (map (applyType g_tvs g_app) f_args)), Just f)]
                   _ -> []
