@@ -34,33 +34,26 @@ runFreshFrom n (Fresh m) = evalState m (n+1)
 
 -- | The Name type class
 class (PrettyVar a, Ord a) => Name a where
-  -- | Make a fresh name
-  fresh :: Fresh a
-
-  -- | Refresh a name, which could have some resemblance to the original
-  -- name
-  refresh :: a -> Fresh a
-  refresh x = freshNamed (varStr x)
-
   -- | Make a fresh name that can incorporate the given string
   freshNamed :: String -> Fresh a
-  freshNamed _ = fresh
-
-  -- | Refresh a name with an additional hint string
-  refreshNamed :: String -> a -> Fresh a
-  refreshNamed s n = freshNamed (s ++ "-" ++ varStr n)
 
   -- | Gets the unique associated with a name.
-  -- May return 0 if the name was not generated using 'fresh' or 'freshNamed'.
+  -- May return 0 if the name was not generated using 'freshNamed'.
   getUnique :: a -> Int
 
+-- | Make a fresh name
+fresh :: Name a => Fresh a
+fresh = freshNamed ""
+
+-- | Refresh a name, which could have some resemblance to the original
+-- name
+refresh :: (PrettyVar a, Name b) => a -> Fresh b
+refresh x = freshNamed (varStr x)
+
 instance Name Int where
-  fresh     = Fresh (state (id &&& succ))
+  freshNamed _ = Fresh (state (id &&& succ))
   getUnique = id
 
 instance Name a => Name (PPVar a) where
-  fresh = fmap PPVar fresh
-  refresh = fmap PPVar . refresh . unPPVar
   freshNamed = fmap PPVar . freshNamed
-  refreshNamed s n = fmap PPVar (refreshNamed s (unPPVar n))
 

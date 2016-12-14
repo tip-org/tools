@@ -52,11 +52,6 @@ instance Name Id where
   freshNamed n
     = do u <- fresh
          return (Id n u Nothing)
-
-  fresh = freshNamed "x"
-
-  refresh = refreshNamed ""
-
   getUnique (Id _ u _) = u
 
 ppSym :: Symbol -> Doc

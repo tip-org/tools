@@ -118,7 +118,9 @@ eliminateLetRecTop p func e = elim e
           \\ usort (concatMap func_tvs binds)
       -- A fresh set of names for the functions.
         names = map func_name binds
-      newNames <- lift $ mapM (refreshNamed (varStr func)) names
+        freshList =
+          freshNamed . intercalate "-" . filter (not . null) . map varStr
+      newNames <- lift $ sequence [ freshList [func, name] | name <- names ]
 
       let
         find x = lookup x (zip names newNames)
