@@ -32,7 +32,7 @@ ppVarSMT :: PrettyVar a => a -> Doc
 ppVarSMT x
   | isValidSMTString str && str `notElem` smtQuoted =
     text str
-  | otherwise = text ("|" ++ str ++ "|")
+  | otherwise = text ("|" ++ sanitiseSMTString str ++ "|")
   where
     str = varStr x
 
@@ -42,6 +42,9 @@ isValidSMTString (x:xs)
   | x `elem` ("-0123456789" :: String) = False
 isValidSMTString xs =
   and [ isAlphaNum x || x `elem` ("~!@$%^&*_-+=<>.?/" :: String) | x <- xs ]
+
+sanitiseSMTString :: String -> String
+sanitiseSMTString = filter (`notElem` ("|\\" :: String))
 
 ppTheory :: (Ord a,PrettyVar a) => [String] -> Theory a -> Doc
 ppTheory keywords thy =
@@ -55,7 +58,7 @@ ppTheory keywords thy =
   where
     Theory{..} =
       renameAvoiding (tipKeywords ++ keywords)
-        (filter (`notElem` ("|\\" :: String))) thy
+        sanitiseSMTString thy
 
 ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [ppVarSMT sort, ppAttrs attrs, int (length tvs)]
