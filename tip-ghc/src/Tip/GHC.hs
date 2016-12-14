@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables, BangPatterns #-}
 module Tip.GHC where
 
 #include "errors.h"
@@ -701,7 +701,7 @@ tipFunction prog x t =
           ConInfo{..} -> do
             -- Work out the type of the constructor.
             let
-              TyCon _ tys =
+              !(TyCon _ tys) =
                 applyType (map TyVarId global_tvs) (ctx_types ctx)
                   (tipType prog global_res)
               dt  = tipDatatype prog global_tycon
