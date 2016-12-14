@@ -914,7 +914,7 @@ nameAttrs :: NamedThing a => a -> [Attr]
 nameAttrs x =
   case toHaskellName x of
     Nothing -> []
-    Just name -> [("haskell-name", Just name)]
+    Just name -> [("original-name", Just name)]
 
 -- Should a given type be erased?
 eraseType :: GHC.Type -> Bool
