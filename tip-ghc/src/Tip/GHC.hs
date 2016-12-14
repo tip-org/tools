@@ -59,6 +59,7 @@ import Tip.Lint
 import Module
 import Data.List.Split
 import Control.Monad.Trans.State.Strict
+import Data.Maybe
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -170,11 +171,7 @@ readHaskellFile params@Params{..} name =
 
       let
         kept fun =
-          fun { func_attrs = ("keep", Nothing):("haskell-name", Just name):func_attrs fun }
-          where
-            name = mod ++ "." ++ getOccString func_id
-            mod = moduleNameString (moduleName (nameModule (varName func_id)))
-            GlobalId _ func_id = func_name fun
+          fun { func_attrs = ("keep", Nothing):func_attrs fun }
         thy =
           completeTheory prog $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
@@ -438,6 +435,17 @@ discriminatorId :: Program -> Var -> Id
 discriminatorId prog x =
   DiscriminatorId ("is-" ++ globalStr prog x) x
 
+-- Find out if a variable corresponds to an exported function, and if so,
+-- return the name of that function.
+toHaskellName :: NamedThing a => a -> Maybe String
+toHaskellName name = do
+  mod <- nameModule_maybe (getName name)
+  return (correct (moduleNameString (moduleName mod)) ++ "." ++ getOccString name)
+  where
+    correct mod
+      | "GHC." `isPrefixOf` mod = "Prelude"
+      | otherwise = mod
+
 ----------------------------------------------------------------------
 -- The main translation functions. 
 --
@@ -510,7 +518,7 @@ tipDatatype :: Program -> TyCon -> Tip.Datatype Id
 tipDatatype prog tc =
   Datatype {
     data_name  = typeId prog tc,
-    data_attrs = [],
+    data_attrs = nameAttrs tc,
     data_tvs   = map TyVarId type_tvs,
     data_cons  = map (tipConstructor prog) type_constructors }
   where
@@ -521,7 +529,7 @@ tipConstructor :: Program -> Var -> Tip.Constructor Id
 tipConstructor prog x =
   Constructor {
     con_name    = globalId prog x,
-    con_attrs   = [],
+    con_attrs   = nameAttrs x,
     con_discrim = discriminatorId prog x,
     con_args    = zipWith con [1..] global_args }
   where
@@ -603,16 +611,16 @@ data Context =
 -- Translate a Haskell function definition to TIP.
 tipFunction :: Program -> Var -> CoreExpr -> Tip.Function Id
 tipFunction prog x t =
-  runFreshFrom 0 $ fun (Context Map.empty Map.empty []) x t
+  runFreshFrom 0 $ fun True (Context Map.empty Map.empty []) x t
   where
-    fun :: Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
-    fun ctx x t = inContextM (showOutputable msg) $ do
+    fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
+    fun attr ctx x t = inContextM (showOutputable msg) $ do
       let pty@PolyType{..} = polyType x
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
         Function {
           func_name  = globalId prog x,
-          func_attrs = [],
+          func_attrs = concat [nameAttrs x | attr],
           func_tvs   = polytype_tvs,
           func_args  = [],
           func_res   = polytype_res,
@@ -781,7 +789,7 @@ tipFunction prog x t =
       -- By inlining all polymorphic let-bindings, we avoid all this
       -- nonsense and hopefully translate partial pattern matching
       -- into partial TIP functions.
-      f <- fun ctx x t
+      f <- fun False ctx x t
       case func_tvs f of
         [] ->
           bindVar ctx x $ \ctx name ->
@@ -801,7 +809,7 @@ tipFunction prog x t =
       bindMany bindFun ctx vars $ \ctx names -> do
         -- Translate all the bodies.
         fs <- sequence $
-          [ do { f <- fun ctx var body; return f { func_name = name } }
+          [ do { f <- fun False ctx var body; return f { func_name = name } }
           | (var, body, name) <- zip3 vars bodies names ]
 
         LetRec fs <$> expr ctx t
@@ -900,6 +908,13 @@ tipFunction prog x t =
 
         substType ty =
           applyType tvs tys ty
+
+-- Put the Haskell name of a variable into its attributes.
+nameAttrs :: NamedThing a => a -> [Attr]
+nameAttrs x =
+  case toHaskellName x of
+    Nothing -> []
+    Just name -> [("haskell-name", Just name)]
 
 -- Should a given type be erased?
 eraseType :: GHC.Type -> Bool
