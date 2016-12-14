@@ -19,8 +19,8 @@ import Control.Monad.State
 
 import Data.Generics.Geniplate
 
-renameVars :: forall f a . (Ord a,Traversable f) => (a -> Bool) -> f a -> f (Either a Int)
-renameVars is_var t = runFresh (evalStateT (traverse rename t) M.empty)
+renameVars :: forall f a . (Name a,Traversable f) => (a -> Bool) -> f a -> f (Either a Int)
+renameVars is_var = freshPass (\t -> (evalStateT (traverse rename t) M.empty))
   where
     rename :: a -> StateT (Map a Int) Fresh (Either a Int)
     rename x | is_var x = do my <- gets (M.lookup x)
@@ -31,7 +31,7 @@ renameVars is_var t = runFresh (evalStateT (traverse rename t) M.empty)
                                              return (Right y)
     rename x = return (Left x)
 
-renameFn :: Ord a => Function a -> Function (Either a Int)
+renameFn :: Name a => Function a -> Function (Either a Int)
 renameFn fn = renameVars (`notElem` gbls) fn
   where
     gbls = delete (func_name fn) (globals fn)
@@ -47,7 +47,7 @@ rename d x = case lookup x d of
 -- > g y = E[y]
 --
 -- then we remove @g@ and replace it with @f@ everywhere
-collapseEqual :: forall a . Ord a => Theory a -> Theory a
+collapseEqual :: forall a . Name a => Theory a -> Theory a
 collapseEqual thy@(Theory{ thy_funcs = fns0 })
     = fmap (rename renamings) thy{ thy_funcs = survivors }
   where
@@ -80,7 +80,7 @@ renameGlobals rns = transformBi $ \ h0 ->
 -- > g [a] x y = f [T1 a,T2 a] x y
 --
 -- then we remove @g [t]@ and replace it with @f [T1 t,T2 t]@ everywhere
-removeAliases :: Ord a => Theory a -> Theory a
+removeAliases :: Name a => Theory a -> Theory a
 removeAliases thy@(Theory{thy_funcs=fns0})
     | null renamings = thy
     | otherwise = removeAliases $ renameGlobals renamings thy{ thy_funcs = survivors }

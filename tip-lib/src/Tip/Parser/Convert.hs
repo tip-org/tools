@@ -28,7 +28,7 @@ data IdKind = LocalId | GlobalId
 type CM a = ScopeT Id (StateT (Map String (Id,IdKind)) Fresh) a
 
 runCM :: CM a -> Either String a
-runCM m = either (Left . show) Right $ runFresh (evalStateT (runScopeT m) M.empty)
+runCM m = either (Left . show) Right $ runFreshFrom 0 (evalStateT (runScopeT m) M.empty)
 
 -- | Identifiers from parsed Tip syntax
 data Id = Id

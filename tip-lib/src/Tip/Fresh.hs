@@ -24,10 +24,6 @@ f `freshPass` x = f x `freshFrom` x
 freshFrom :: (Foldable f,Name b) => Fresh a -> f b -> a
 freshFrom m x = runFreshFrom (succ (maximumOn getUnique x)) m
 
--- | Run fresh, starting from zero
-runFresh :: Fresh a -> a
-runFresh (Fresh m) = evalState m 0
-
 -- | Run fresh from some starting value
 runFreshFrom :: Int -> Fresh a -> a
 runFreshFrom n (Fresh m) = evalState m (n+1)

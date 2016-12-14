@@ -589,7 +589,7 @@ data Context =
 -- Translate a Haskell function definition to TIP.
 tipFunction :: Program -> Var -> CoreExpr -> Tip.Function Id
 tipFunction prog x t =
-  runFresh $ fun (Context Map.empty Map.empty []) x t
+  runFreshFrom 0 $ fun (Context Map.empty Map.empty []) x t
   where
     fun :: Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
     fun ctx x t = inContextM (showOutputable msg) $ do
