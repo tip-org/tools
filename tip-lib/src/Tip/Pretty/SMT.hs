@@ -53,7 +53,9 @@ ppTheory keywords thy =
     map ppFormula thy_asserts ++
     ["(check-sat)"]
   where
-    Theory{..} = renameAvoiding (tipKeywords ++ keywords) id thy
+    Theory{..} =
+      renameAvoiding (tipKeywords ++ keywords)
+        (filter (`notElem` ("|\\" :: String))) thy
 
 ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort tvs) = parExpr "declare-sort" [ppVarSMT sort, int (length tvs)]
