@@ -41,6 +41,9 @@ rename d x = case lookup x d of
     Just y  -> y
     Nothing -> x
 
+keep :: Function a -> Bool
+keep f = ("keep", Nothing) `elem` func_attrs f
+
 -- | If we have
 --
 -- > f x = E[x]
@@ -57,7 +60,7 @@ collapseEqual thy@(Theory{ thy_funcs = fns0 })
     renamings :: [(a,a)]
     survivors :: [Function a]
     (renamings,survivors) = partitionEithers
-        [ case [ (func_name f,func_name g) | (g,rg) <- prev , rf == rg ] of
+        [ case [ (func_name f,func_name g) | not (keep f), (g,rg) <- prev, rf == rg ] of
             []   -> Right f -- f is better
             fg:_ -> Left fg -- g is better
         | ((f,rf),prev) <- withPrevious rfs
@@ -87,7 +90,8 @@ removeAliases thy@(Theory{thy_funcs=fns0})
   where
     renamingsAndFuncs = take 1
       [ (g,k,f)
-      | Function g _ g_tvs vars _ (hd :@: args) <- fns0
+      | fun@(Function g _ g_tvs vars _ (hd :@: args)) <- fns0
+      , not (keep fun)
       , map Lcl vars == args
       , (k,f) <- case hd of
                   Builtin{} -> [(\ _ -> hd, Nothing)]
