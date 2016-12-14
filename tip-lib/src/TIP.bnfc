@@ -5,7 +5,7 @@ Start. Start ::= [Decl];
 (:). [Decl] ::= "(" Decl ")"  [Decl];
 
 DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
-DeclareSort.      Decl ::= "declare-sort" Symbol Integer;
+DeclareSort.      Decl ::= "declare-sort" Symbol [Attr] Integer;
 DeclareConst.     Decl ::= "declare-const" ConstDecl;
 DeclareConstPar.  Decl ::= "declare-const" "(" Par "(" ConstDecl ")" ")";
 DeclareFun.       Decl ::= "declare-fun" FunDecl;
@@ -15,26 +15,26 @@ DefineFunPar.     Decl ::= "define-fun" "(" Par "(" FunDef ")" ")";
 DefineFunRec.     Decl ::= "define-fun-rec" FunDef;
 DefineFunRecPar.  Decl ::= "define-fun-rec" "(" Par "(" FunDef ")" ")";
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
-Assert.           Decl ::= Assertion Expr;
-AssertPar.        Decl ::= Assertion "(" Par Expr ")";
+Assert.           Decl ::= Assertion [Attr] Expr;
+AssertPar.        Decl ::= Assertion [Attr] "(" Par Expr ")";
 
 AssertIt.  Assertion ::= "assert";
 AssertNot. Assertion ::= "assert-not";
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
-ConstDecl.   ConstDecl ::= Symbol Type;
+ConstDecl.   ConstDecl ::= Symbol [Attr] Type;
 
-FunDecl.     FunDecl ::= Symbol "(" [Type] ")" Type;
+FunDecl.     FunDecl ::= Symbol [Attr] "(" [Type] ")" Type;
 
-FunDef.      FunDef ::= Symbol "(" [Binding] ")" Type Expr;
+FunDef.      FunDef ::= Symbol [Attr] "(" [Binding] ")" Type Expr;
 
 ParFunDec.   FunDec ::= "(" Par InnerFunDec ")";
 MonoFunDec.  FunDec ::= InnerFunDec;
-InnerFunDec. InnerFunDec ::= "(" Symbol "(" [Binding] ")" Type ")";
+InnerFunDec. InnerFunDec ::= "(" Symbol [Attr] "(" [Binding] ")" Type ")";
 
-Datatype.     Datatype ::= "(" Symbol [Constructor] ")";
-Constructor.  Constructor ::= "(" Symbol [Binding] ")";
+Datatype.     Datatype ::= "(" Symbol [Attr] [Constructor] ")";
+Constructor.  Constructor ::= "(" Symbol [Attr] [Binding] ")";
 
 Binding. Binding ::= "(" Symbol Type ")";
 
@@ -92,6 +92,9 @@ NumLt.      Head ::= "<";
 NumLe.      Head ::= "<=";
 NumWiden.   Head ::= "to_real";
 
+NoValue. Attr ::= Keyword;
+Value.   Attr ::= Keyword Symbol;
+
 terminator LetDecl "";
 terminator Case "";
 terminator Expr "";
@@ -103,9 +106,11 @@ terminator Type "";
 terminator FunDecl "";
 terminator FunDef "";
 terminator FunDec "";
+terminator Attr "";
 
 Unquoted. Symbol ::= UnquotedSymbol;
 Quoted.   Symbol ::= QuotedSymbol;
 
 position token UnquotedSymbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
 position token QuotedSymbol '|'(char - '|')*'|';
+token Keyword ':'(letter|digit|["-"])*;

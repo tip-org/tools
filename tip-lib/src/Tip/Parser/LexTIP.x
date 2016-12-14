@@ -30,6 +30,7 @@ $white+ ;
 @rsyms { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
 ($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) * { tok (\p s -> PT p (eitherResIdent (T_UnquotedSymbol . share) s)) }
 \| ($u # \|)* \| { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
+\: ($l | $d | [\-]) * { tok (\p s -> PT p (eitherResIdent (T_Keyword . share) s)) }
 
 $l $i*   { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
 
@@ -54,6 +55,7 @@ data Tok =
  | TC !String         -- character literals
  | T_UnquotedSymbol !String
  | T_QuotedSymbol !String
+ | T_Keyword !String
 
  deriving (Eq,Show,Ord)
 
@@ -90,6 +92,7 @@ prToken t = case t of
   PT _ (TC s)   -> s
   PT _ (T_UnquotedSymbol s) -> s
   PT _ (T_QuotedSymbol s) -> s
+  PT _ (T_Keyword s) -> s
 
 
 data BTree = N | B String Tok BTree BTree deriving (Show)

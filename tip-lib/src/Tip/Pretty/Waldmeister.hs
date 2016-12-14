@@ -58,7 +58,7 @@ ppType (TyCon t []) = ppVar t
 ppType t            = error $ "Waldmeister: cannot handle any sophisticated types: " ++ show (SMT.ppType t)
 
 ppSig :: (Ord a,PrettyVar a) => Signature a -> Doc
-ppSig (Signature f (PolyType [] arg_types res_type)) =
+ppSig (Signature f _ (PolyType [] arg_types res_type)) =
   hsep $ [ppVar f,":"] ++ map ppType arg_types ++ ["->",ppType res_type]
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc

@@ -103,21 +103,21 @@ trDecl x =
            forM_ datatypes $ \dt -> do
              sym <- addSym GlobalId (dataSym dt)
              tvi <- mapM (addSym LocalId) tvs
-             newSort (Sort sym tvi)
+             newSort (Sort sym (trAttrs (dataAttrs dt)) tvi)
            newScope $
              do tvi <- mapM (addSym LocalId) tvs
                 mapM newTyVar tvi
                 ds <- mapM (trDatatype tvi) datatypes
                 return emptyTheory{ thy_datatypes = ds }
 
-      DeclareSort s n ->
+      DeclareSort s attrs n ->
         do i <- addSym GlobalId s
            tvs <- lift . lift $ mapM refresh (replicate (fromInteger n) i)
-           return emptyTheory{ thy_sorts = [Sort i tvs] }
+           return emptyTheory{ thy_sorts = [Sort i (trAttrs attrs) tvs] }
 
       DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
 
-      DeclareConstPar par (ConstDecl s t) -> trDecl (DeclareFunPar par (FunDecl s [] t))
+      DeclareConstPar par (ConstDecl s attrs t) -> trDecl (DeclareFunPar par (FunDecl s attrs [] t))
 
       DeclareFun        decl -> trDecl (DeclareFunPar emptyPar decl)
       DeclareFunPar par decl ->
@@ -125,7 +125,7 @@ trDecl x =
            return emptyTheory{ thy_sigs = [d] }
 
       DefineFun        def -> trDecl (DefineFunPar emptyPar def)
-      DefineFunPar par def@(FunDef f _ _ _) ->
+      DefineFunPar par def@(FunDef f _ _ _ _) ->
         do thy <- trDecl (DefineFunRecPar par def)
            let [fn] = thy_funcs thy
            when (func_name fn `elem` uses fn)
@@ -149,13 +149,13 @@ trDecl x =
                 ]
              return emptyTheory{ thy_funcs = fns }
 
-      A.Assert  role           expr -> trDecl (AssertPar role emptyPar expr)
-      AssertPar role (Par tvs) expr ->
+      A.Assert  role attrs expr -> trDecl (AssertPar role attrs emptyPar expr)
+      AssertPar role attrs (Par tvs) expr ->
         do tvi <- mapM (addSym LocalId) tvs
            mapM newTyVar tvi
            let toRole AssertIt  = T.Assert
                toRole AssertNot = Prove
-           fm <- Formula (toRole role) UserAsserted tvi <$> trExpr expr
+           fm <- Formula (toRole role) (trAttrs attrs) UserAsserted tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
 
 emptyPar :: Par
@@ -164,50 +164,53 @@ emptyPar = Par []
 decToDecl :: FunDec -> (Par,FunDecl)
 decToDecl dec = case dec of
   MonoFunDec inner -> decToDecl (ParFunDec emptyPar inner)
-  ParFunDec par (InnerFunDec fsym bindings res_type) ->
-    (par,FunDecl fsym (map bindingType bindings) res_type)
+  ParFunDec par (InnerFunDec fsym attrs bindings res_type) ->
+    (par,FunDecl fsym attrs (map bindingType bindings) res_type)
 
 defToDecl :: FunDef -> FunDecl
-defToDecl (FunDef fsym bindings res_type _) =
-  FunDecl fsym (map bindingType bindings) res_type
+defToDecl (FunDef fsym attrs bindings res_type _) =
+  FunDecl fsym attrs (map bindingType bindings) res_type
 
 trFunDecl :: Par -> FunDecl -> CM (T.Signature Id)
-trFunDecl (Par tvs) (FunDecl fsym args res) =
+trFunDecl (Par tvs) (FunDecl fsym attrs args res) =
     newScope $
       do f <- addSym GlobalId fsym
          tvi <- mapM (addSym LocalId) tvs
          mapM newTyVar tvi
          pt <- PolyType tvi <$> mapM trType args <*> trType res
-         return (Signature f pt)
+         return (Signature f (trAttrs attrs) pt)
 
 decToDef :: FunDec -> A.Expr -> (Par,FunDef)
 decToDef dec body = case dec of
   MonoFunDec inner -> decToDef (ParFunDec emptyPar inner) body
-  ParFunDec par (InnerFunDec fsym bindings res_type) ->
-    (par,FunDef fsym bindings res_type body)
+  ParFunDec par (InnerFunDec fsym attrs bindings res_type) ->
+    (par,FunDef fsym attrs bindings res_type body)
 
 trFunDef :: Par -> FunDef -> CM (T.Function Id)
-trFunDef (Par tvs) (FunDef fsym bindings res_type body) =
+trFunDef (Par tvs) (FunDef fsym attrs bindings res_type body) =
   newScope $
     do f <- lkSym fsym
        tvi <- mapM (addSym LocalId) tvs
        mapM newTyVar tvi
        args <- mapM trLocalBinding bindings
-       Function f tvi args <$> trType res_type <*> trExpr body
+       Function f (trAttrs attrs) tvi args <$> trType res_type <*> trExpr body
 
 dataSym :: A.Datatype -> Symbol
-dataSym (A.Datatype sym _) = sym
+dataSym (A.Datatype sym _ _) = sym
+
+dataAttrs :: A.Datatype -> [A.Attr]
+dataAttrs (A.Datatype _ attrs _) = attrs
 
 trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
-trDatatype tvs (A.Datatype sym constructors) =
+trDatatype tvs (A.Datatype sym attrs constructors) =
   do x <- lkSym sym
-     T.Datatype x tvs <$> mapM trConstructor constructors
+     T.Datatype x (trAttrs attrs) tvs <$> mapM trConstructor constructors
 
 trConstructor :: A.Constructor -> CM (T.Constructor Id)
-trConstructor (A.Constructor name args) =
+trConstructor (A.Constructor name attrs args) =
   do c <- addSym GlobalId name
      is_c <- addSym GlobalId (Unquoted (UnquotedSymbol (symPos name, "is-" ++ symStr name)))
-     T.Constructor c is_c <$> mapM (trBinding GlobalId) args
+     T.Constructor c (trAttrs attrs) is_c <$> mapM (trBinding GlobalId) args
 
 bindingType :: Binding -> A.Type
 bindingType (Binding _ t) = t
@@ -351,3 +354,9 @@ trType t0 = case t0 of
   A.RealTy     -> return realType
   A.BoolTy     -> return boolType
 
+trAttrs :: [A.Attr] -> [T.Attr]
+trAttrs = map trAttr
+
+trAttr :: A.Attr -> T.Attr
+trAttr (NoValue (Keyword (':':name))) = (name, Nothing)
+trAttr (Value (Keyword (':':name)) value) = (name, Just (symStr value))

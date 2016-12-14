@@ -82,7 +82,7 @@ ppFuncs (fn:fns) = header <+>
                         ([],[]) (fn:fns)
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
-ppFunc (Function f _tvs xts t e) =
+ppFunc (Function f _ _tvs xts t e) =
      (ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
       [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
@@ -95,7 +95,7 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
 ppHipsterFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
-ppHipsterFormula explicit_forall (Formula role _ _tvs term)  i =
+ppHipsterFormula explicit_forall (Formula _ role _ _tvs term)  i =
   ppExprStripTopForall explicit_forall 0 term
 
 -- Maybe strip away explicit top-level forall quantifiers.

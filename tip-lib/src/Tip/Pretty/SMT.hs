@@ -58,19 +58,19 @@ ppTheory keywords thy =
         (filter (`notElem` ("|\\" :: String))) thy
 
 ppSort :: PrettyVar a => Sort a -> Doc
-ppSort (Sort sort tvs) = parExpr "declare-sort" [ppVarSMT sort, int (length tvs)]
+ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [ppVarSMT sort, ppAttrs attrs, int (length tvs)]
 
 ppDatas :: PrettyVar a => [Datatype a] -> Doc
-ppDatas datatypes@(Datatype _ tyvars _:_) =
+ppDatas datatypes@(Datatype _ _ tyvars _:_) =
   parExprSep "declare-datatypes" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppData datatypes))]
 
 ppData :: PrettyVar a => Datatype a -> Doc
-ppData (Datatype tycon _ datacons) =
-  parExprSep (ppVarSMT tycon) (map ppCon datacons)
+ppData (Datatype tycon attrs _ datacons) =
+  parExprSep (ppVarSMT tycon $\ ppAttrs attrs) (map ppCon datacons)
 
 ppCon :: PrettyVar a => Constructor a -> Doc
-ppCon (Constructor datacon selector args) =
-  parExprSep (ppVarSMT datacon) [apply (ppVarSMT p) (ppType t) | (p,t) <- args]
+ppCon (Constructor datacon attrs selector args) =
+  parExprSep (ppVarSMT datacon $\ ppAttrs attrs) [apply (ppVarSMT p) (ppType t) | (p,t) <- args]
 
 
 par :: (PrettyVar a) => [a] -> Doc -> Doc
@@ -85,10 +85,10 @@ par'' :: (PrettyVar a) => [a] -> Doc -> Doc
 par'' xs d = par' xs (parens d)
 
 ppUninterp :: PrettyVar a => Signature a -> Doc
-ppUninterp (Signature f (PolyType tyvars arg_types result_type)) =
+ppUninterp (Signature f attrs (PolyType tyvars arg_types result_type)) =
   apply (if null arg_types then "declare-const" else "declare-fun")
     (par tyvars
-      (ppVarSMT f $\
+      (ppVarSMT f $\ ppAttrs attrs $\
         (sep [ if null arg_types then empty else parens (fsep (map ppType arg_types))
              , ppType result_type
              ])))
@@ -105,12 +105,16 @@ ppFuncs fs = expr "define-funs-rec"
   ]
 
 ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
-ppFuncSig parv (Function f tyvars args res_ty body) content =
-  parv tyvars (ppVarSMT f $\ fsep [ppLocals args, ppType res_ty, content])
+ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
+  parv tyvars (ppVarSMT f $\ ppAttrs attrs $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove _ tvs term)  = apply "assert-not" (par' tvs (ppExpr term))
-ppFormula (Formula Assert _ tvs term) = apply "assert"     (par' tvs (ppExpr term))
+ppFormula (Formula Prove attrs _ tvs term)  =
+  apply "assert-not" $
+    ppAttrs attrs $\ par' tvs (ppExpr term)
+ppFormula (Formula Assert attrs _ tvs term) =
+  apply "assert" $
+   ppAttrs attrs $\ par' tvs (ppExpr term)
 
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
@@ -193,6 +197,16 @@ ppBuiltinType :: BuiltinType -> Doc
 ppBuiltinType Integer = "Int"
 ppBuiltinType Real    = "Real"
 ppBuiltinType Boolean = "Bool"
+
+ppAttrs :: [Attr] -> Doc
+ppAttrs = fsep . map ppAttr
+
+ppAttr :: Attr -> Doc
+ppAttr (name, Nothing) = ppKeyword name
+ppAttr (name, Just x) = ppKeyword name <+> ppVarSMT x
+
+ppKeyword :: String -> Doc
+ppKeyword x = text (':':x)
 
 -- Temporary use SMTLIB as the pretty printer:
 

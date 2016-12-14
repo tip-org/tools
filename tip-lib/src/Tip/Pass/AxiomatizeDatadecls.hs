@@ -25,7 +25,7 @@ trDatatype ueq dt@Datatype{..} =
      domx <- freshNamed "x"
      let doml = Local domx (TyCon data_name ty_args)
      let domain =
-           Formula Assert (DataDomain data_name) data_tvs $
+           Formula Assert [] (DataDomain data_name) data_tvs $
              mkQuant Forall [doml] $
                ors
                  [ Lcl doml ===
@@ -33,20 +33,20 @@ trDatatype ueq dt@Datatype{..} =
                        :@: [ Gbl (projector dt c i ty_args) :@: [Lcl doml]
                            | i <- [0..length args-1]
                            ]
-                 | c@(Constructor _ _ args) <- data_cons
+                 | c@Constructor{con_args = args} <- data_cons
                  ]
      -- head(cons(X,Y)) = X
      inj <-
        sequence
          [ do qs <- mapM freshLocal (map snd args)
               return $
-                Formula Assert (DataProjection data_name) data_tvs $
+                Formula Assert [] (DataProjection data_name) data_tvs $
                   mkQuant Forall qs $
                     Gbl (projector dt c i ty_args) :@:
                       [Gbl (constructor dt c ty_args) :@: map Lcl qs]
                     ===
                     Lcl (case drop i qs of q:_ -> q; [] -> __)
-         | c@(Constructor _ _ args) <- data_cons
+         | c@Constructor{con_args = args} <- data_cons
          , i <- [0..length args-1]
          ]
 
@@ -58,10 +58,10 @@ trDatatype ueq dt@Datatype{..} =
               let tm_k = Gbl (constructor dt k ty_args) :@: map Lcl qs_k
               let tm_j = Gbl (constructor dt j ty_args) :@: map Lcl qs_j
               return $
-                Formula Assert (DataDistinct data_name) data_tvs $
+                Formula Assert [] (DataDistinct data_name) data_tvs $
                   mkQuant Forall (qs_k ++ qs_j) $
                     tm_k =/= tm_j
-         | (k@(Constructor _ _ args_k),j@(Constructor _ _ args_j)) <- diag data_cons
+         | (k@Constructor{con_args = args_k},j@Constructor{con_args = args_j}) <- diag data_cons
          ]
 
      return $
@@ -71,8 +71,8 @@ trDatatype ueq dt@Datatype{..} =
 
 datatypeSigs :: Name a => Datatype a -> [Decl a]
 datatypeSigs dt@Datatype{..} =
-     [ SortDecl (Sort data_name data_tvs) ]
-  ++ [ SigDecl (Signature gbl (globalType gbl_info))
+     [ SortDecl (Sort data_name data_attrs data_tvs) ]
+  ++ [ SigDecl (Signature gbl [] (globalType gbl_info))
      | (gbl,gbl_info) <- dataTypeGlobals dt
      , case gbl_info of
          DiscriminatorInfo{} -> False

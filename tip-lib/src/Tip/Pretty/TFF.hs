@@ -31,12 +31,12 @@ ppTheory (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
       map ppFormula thy_asserts)
 
 ppSort :: PrettyVar a => Sort a -> Doc
-ppSort (Sort sort []) =
+ppSort (Sort sort _ []) =
   clause "type" "type" $
     ppVar sort <+> ":" <+> "$tType"
 
 ppUninterp :: PrettyVar a => Signature a -> Doc
-ppUninterp (Signature f (PolyType [] arg_types result_type)) =
+ppUninterp (Signature f _ (PolyType [] arg_types result_type)) =
   clause "func" "type" $
     ppVar f <+> ":" <+>
     case arg_types of
@@ -44,9 +44,9 @@ ppUninterp (Signature f (PolyType [] arg_types result_type)) =
       _  -> sep (punctuate " *" (map ppType arg_types)) <+> ">" <+> ppType result_type
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove _ [] term)  =
+ppFormula (Formula Prove _ _ [] term)  =
   clause "goal" "conjecture" (ppExpr 0 (tffify term))
-ppFormula (Formula Assert _ [] term) =
+ppFormula (Formula Assert _ _ [] term) =
   clause "axiom" "axiom" (ppExpr 0 (tffify term))
 
 tffify :: Ord a => Expr a -> Expr a

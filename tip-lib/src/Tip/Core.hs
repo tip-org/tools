@@ -261,20 +261,20 @@ occurrences var body = length (filter (== var) (universeBi body))
 
 -- | The signature of a function
 signature :: Function a -> Signature a
-signature func@Function{..} = Signature func_name (funcType func)
+signature func@Function{..} = Signature func_name func_attrs (funcType func)
 
 -- | The type of a function
 funcType :: Function a -> PolyType a
-funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
+funcType (Function _ _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
 
 bound, free, locals :: Ord a => Expr a -> [Local a]
 bound e =
   usort $
-    concat [ lcls | Lam lcls _            <- universeBi e ] ++
-           [ lcl  | Let lcl _ _           <- universeBi e ] ++
-    concat [ lcls | Function _ _ lcls _ _ <- universeBi e ] ++
-    concat [ lcls | Quant _ _ lcls _      <- universeBi e ] ++
-    concat [ lcls | ConPat _ lcls         <- universeBi e ]
+    concat [ lcls | Lam lcls _                 <- universeBi e ] ++
+           [ lcl  | Let lcl _ _                <- universeBi e ] ++
+    concat [ lcls | Function{func_args = lcls} <- universeBi e ] ++
+    concat [ lcls | Quant _ _ lcls _           <- universeBi e ] ++
+    concat [ lcls | ConPat _ lcls              <- universeBi e ]
 locals = usort . universeBi
 free e = locals e \\ bound e
 
@@ -401,9 +401,9 @@ updateLocalType :: Type a -> Local a -> Local a
 updateLocalType ty (Local name _) = Local name ty
 
 updateFuncType :: PolyType a -> Function a -> Function a
-updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
+updateFuncType (PolyType tvs lclTys res) (Function name attrs _ lcls _ body)
   | length lcls == length lclTys =
-      Function name tvs (zipWith updateLocalType lclTys lcls) res body
+      Function name attrs tvs (zipWith updateLocalType lclTys lcls) res body
   | otherwise = ERROR("non-matching type")
 
 

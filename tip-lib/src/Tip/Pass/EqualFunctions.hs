@@ -10,7 +10,7 @@ import Tip.Fresh
 import Data.Traversable
 import Control.Applicative
 import Data.Either
-import Data.List (delete, inits)
+import Data.List (delete, inits, nub)
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -49,7 +49,7 @@ rename d x = case lookup x d of
 -- then we remove @g@ and replace it with @f@ everywhere
 collapseEqual :: forall a . Name a => Theory a -> Theory a
 collapseEqual thy@(Theory{ thy_funcs = fns0 })
-    = fmap (rename renamings) thy{ thy_funcs = survivors }
+    = fmap (rename renamings) thy{ thy_funcs = map (joinAttrs thy renamings) survivors }
   where
     rfs :: [(Function a,Function (Either a Int))]
     rfs = [ (f,renameFn f) | f <- fns0 ]
@@ -83,20 +83,30 @@ renameGlobals rns = transformBi $ \ h0 ->
 removeAliases :: Name a => Theory a -> Theory a
 removeAliases thy@(Theory{thy_funcs=fns0})
     | null renamings = thy
-    | otherwise = removeAliases $ renameGlobals renamings thy{ thy_funcs = survivors }
+    | otherwise = removeAliases $ renameGlobals renamings thy{ thy_funcs = map (joinAttrs thy funcs) survivors }
   where
-    renamings = take 1
-      [ (g,k)
-      | Function g g_tvs vars _ (hd :@: args) <- fns0
+    renamingsAndFuncs = take 1
+      [ (g,k,f)
+      | Function g _ g_tvs vars _ (hd :@: args) <- fns0
       , map Lcl vars == args
-      , k <- case hd of
-                  Builtin{} -> [\ _ -> hd]
+      , (k,f) <- case hd of
+                  Builtin{} -> [(\ _ -> hd, Nothing)]
                   Gbl (Global f pty f_args) | f /= g ->
-                    [\ g_app -> Gbl (Global f pty (map (applyType g_tvs g_app) f_args))]
+                    [(\ g_app -> Gbl (Global f pty (map (applyType g_tvs g_app) f_args)), Just f)]
                   _ -> []
       ]
+    renamings = [(f, x) | (f, x, _) <- renamingsAndFuncs]
+    funcs = [(f, g) | (f, _, Just g) <- renamingsAndFuncs]
 
     remove = map fst renamings
 
     survivors = filter ((`notElem` remove) . func_name) fns0
 
+-- | When two functions are merged, merge their attributes too
+joinAttrs :: Name a => Theory a -> [(a, a)] -> Function a -> Function a
+joinAttrs thy renamings f =
+  f {
+    func_attrs =
+      nub . concat $
+        [ func_attrs g
+        | g <- thy_funcs thy, (func_name g, func_name f) `elem` renamings || f == g] }

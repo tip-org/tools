@@ -55,11 +55,11 @@ instance (PrettyVar a,Pretty a) => Pretty (Head a) where
   pp Z        = ":z"
   pp N        = "n"
 
-declName (SortDecl (Sort t _)) = varStr t
-declName (SigDecl (Signature t _)) = varStr t
-declName (DataDecl (Datatype t _ _)) = varStr t
-declName (FuncDecl (Function t _ _ _ _)) = varStr t
-declName (AssertDecl (Formula r i _ _)) = show r ++ "_" ++ show (fmap (const ()) i)
+declName (SortDecl Sort{sort_name = t}) = varStr t
+declName (SigDecl Signature{sig_name = t}) = varStr t
+declName (DataDecl Datatype{data_name = t}) = varStr t
+declName (FuncDecl Function{func_name = t}) = varStr t
+declName (AssertDecl (Formula r _ i _ _)) = show r ++ "_" ++ show (fmap (const ()) i)
 
 trType :: Type a -> Expr' a
 trType (TyCon tc ts)     = App (Con tc) (map trType ts)
@@ -168,7 +168,7 @@ realFuel e =
 -- Rules
 
 sigRules :: Name a => Signature a -> [Rule' a]
-sigRules (Signature f (PolyType tvs args res)) =
+sigRules (Signature f _ (PolyType tvs args res)) =
      retainFuel
        (usort [ App (Fun f) (map Var tvs) :=> Fin (trType t)
               | t <- res : args
@@ -179,26 +179,26 @@ declRules :: Name a => (a -> Maybe [a]) -> Int -> Decl a -> [Rule' a]
 declRules polyrec fuel d =
   usort $
   case d of
-    SortDecl (Sort t tvs) ->
+    SortDecl (Sort t _ tvs) ->
          retainFuel [ App (Con t) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
       ++ retainFuel [ App (Con t) (map Var tvs) :=> Fin (Var tv) | tv <- tvs ]
       ++ debumpFuel (App (Con t) (map Var tvs))
 
-    SigDecl sig@(Signature f pt@(PolyType tvs _ _)) ->
+    SigDecl sig@(Signature f _ pt@(PolyType tvs _ _)) ->
          retainFuel [ App (Fun f) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
       ++ sigRules sig
 
-    DataDecl dt@(Datatype t tvs cons) ->
+    DataDecl dt@(Datatype t _ tvs cons) ->
          retainFuel [ App (Con t) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
       ++ retainFuel [ App (Con t) (map Var tvs) :=> Fin (Var tv) | tv <- tvs ]
       ++ concat
            [ retainFuel [ App (Con t) (map Var tvs)
                           :=> Fin (App (Fun t) (map Var tvs)) ]
-             ++ sigRules (Signature k (globalType info))
+             ++ sigRules (Signature k [] (globalType info))
            | (k,info) <- dataTypeGlobals dt
            ]
 
-    FuncDecl fn@(Function f tvs _ _ b) ->
+    FuncDecl fn@(Function f _ tvs _ _ b) ->
          retainFuel [ App (Fun f) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
       ++ sigRules (signature fn)
       ++ retainFuel safe
@@ -214,14 +214,14 @@ declRules polyrec fuel d =
                            _                                       -> Right
             ]
 
-    AssertDecl (Formula Prove _ [] b) ->
+    AssertDecl (Formula Prove _ _ [] b) ->
          groundFuel fuel [ Fin (App (Decl d) []) ]
       ++ groundFuel fuel [ Fin r | r <- exprRecords b ]
 
-    AssertDecl (Formula Prove _ (_:_) _) ->
+    AssertDecl (Formula Prove _ _ (_:_) _) ->
       error "Monomorphise: cannot monomorphise with polymorphic goal, run --type-skolem-conjecture"
 
-    AssertDecl (Formula Assert _ tvs b) ->
+    AssertDecl (Formula Assert _ _ tvs b) ->
          retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) (exprGlobalRecords b) ]
       ++ retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs)))
                       [ rec
@@ -267,30 +267,30 @@ renameWith su = transformBi (tyRename su) . transformBi gbl
 renameDecl :: forall a . Name a => Decl a -> [Expr (Head a) Int] -> WriterT [((a,[Type a]),a)] Fresh (Decl a)
 renameDecl d su =
   case d of
-    SortDecl (Sort s tvs)  -> do
+    SortDecl (Sort s attrs tvs)  -> do
         s' <- rename tvs s
-        return (SortDecl (Sort s' []))
-    SigDecl (Signature f pt@(PolyType tvs _ _)) -> do
+        return (SortDecl (Sort s' attrs []))
+    SigDecl (Signature f attrs pt@(PolyType tvs _ _)) -> do
         f' <- rename tvs f
         let (args',res) = applyPolyType pt (ty_args tvs)
-        return (SigDecl (Signature f' (PolyType [] args' res)))
-    AssertDecl (Formula r i tvs b) ->
-        return (ty_inst tvs (AssertDecl (Formula r i [] b)))
+        return (SigDecl (Signature f' attrs (PolyType [] args' res)))
+    AssertDecl (Formula r attrs i tvs b) ->
+        return (ty_inst tvs (AssertDecl (Formula r attrs i [] b)))
 
-    DataDecl (Datatype tc tvs cons) -> do
+    DataDecl (Datatype tc attrs tvs cons) -> do
         tc' <- rename tvs tc
         cons' <- sequence
             [ do k' <- rename tvs k
                  d' <- rename tvs d
                  args' <- sequence [ do p' <- rename tvs p; return (p',t) | (p,t) <- args ]
-                 return (Constructor k' d' args')
-            | Constructor k d args <- cons
+                 return (Constructor k' attrs d' args')
+            | Constructor k attrs d args <- cons
             ]
-        return (ty_inst tvs (DataDecl (Datatype tc' [] cons')))
+        return (ty_inst tvs (DataDecl (Datatype tc' attrs [] cons')))
 
-    FuncDecl fn@(Function f tvs args res body) -> do
+    FuncDecl fn@(Function f attrs tvs args res body) -> do
         f' <- rename tvs f
-        let fn' = Function f' [] args res body
+        let fn' = Function f' attrs [] args res body
         return (ty_inst tvs (FuncDecl fn'))
   where
   ty_args tvs = [ toType e | (tv,e) <- tvs `zip` su ]

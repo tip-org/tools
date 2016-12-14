@@ -51,7 +51,7 @@ lambdaLiftTop e0 =
          let g_args = free e0
          let g_tvs  = freeTyVars e0
          let g_type = map lcl_type lam_args :=>: exprType lam_body
-         let g = Function g_name g_tvs g_args g_type (Lam lam_args lam_body)
+         let g = Function g_name [] g_tvs g_args g_type (Lam lam_args lam_body)
          tell [g]
          return (applyFunction g (map TyVar g_tvs) (map Lcl g_args))
     _ -> return e0
@@ -77,7 +77,7 @@ letLiftTop e0 =
     Let xl@(Local x xt) b e ->
       do let fvs = free b
          let tvs = freeTyVars b
-         let xfn = Function x tvs fvs (exprType b) b
+         let xfn = Function x [] tvs fvs (exprType b) b
          tell [xfn]
          lift ((applyFunction xfn (map TyVar tvs) (map Lcl fvs) // xl) e)
     _ -> return e0
@@ -133,12 +133,12 @@ eliminateLetRecTop p func e = elim e
               | Just new_name <- find gbl_name ->
                 Gbl gbl{
                   gbl_name = new_name,
-                    gbl_type =
-                      gbl_type {
-                        polytype_tvs  = tyenv ++ polytype_tvs gbl_type,
-                        polytype_args = map lcl_type env ++ polytype_args gbl_type },
-                    gbl_args =
-                      map TyVar tyenv ++ gbl_args } :@:
+                  gbl_type =
+                    gbl_type {
+                      polytype_tvs  = tyenv ++ polytype_tvs gbl_type,
+                      polytype_args = map lcl_type env ++ polytype_args gbl_type },
+                  gbl_args =
+                    map TyVar tyenv ++ gbl_args } :@:
                 (map Lcl env ++ args)
             _ -> e0
 
@@ -165,8 +165,8 @@ axLamFunc :: Function a -> Maybe (Signature a,Formula a)
 axLamFunc Function{..} =
   case func_body of
     Lam lam_args e ->
-      let abs = Signature func_name (PolyType func_tvs (map lcl_type func_args) func_res)
-          fm  = Formula Assert (Defunction func_name) func_tvs
+      let abs = Signature func_name func_attrs (PolyType func_tvs (map lcl_type func_args) func_res)
+          fm  = Formula Assert [] (Defunction func_name) func_tvs
                   (mkQuant
                     Forall
                     (func_args ++ lam_args)
@@ -216,7 +216,7 @@ axiomatizeLambdas thy0 = do
     makeArrow n = do
       ty <- freshNamed ("fun" ++ show n)
       tvs <- replicateM (n+1) fresh
-      return (n, Sort ty tvs)
+      return (n, Sort ty [] tvs)
     makeAt arrows n = do
       name <- freshNamed ("apply" ++ show n)
       tvs <- mapM (freshNamed . mkTyVarName) [0..(n-1)]
@@ -224,7 +224,7 @@ axiomatizeLambdas thy0 = do
       let Sort{..} = Map.findWithDefault __ n arrows
           ty          = TyCon sort_name (map TyVar (tvs ++ [tv]))
       return $
-        (n, Signature name (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
+        (n, Signature name [] (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
 
     eliminateArrows arrows (args :=>: res) =
       TyCon sort_name (map (eliminateArrows arrows) (args ++ [res]))
@@ -251,7 +251,7 @@ boolOpTop e0 =
     Builtin x :@: es | x `elem` [And,Or,Implies] ->
       do f <- lift (freshNamed (map toLower (show x)))
          as <- lift (sequence [ (`Local` boolType) <$> fresh | _ <- es ])
-         let fn = Function f [] as boolType (Builtin x :@: map Lcl as)
+         let fn = Function f [] [] as boolType (Builtin x :@: map Lcl as)
          tell [fn]
          return (applyFunction fn [] es)
     _ -> return e0

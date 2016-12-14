@@ -491,7 +491,7 @@ completeTheory prog thy0 =
 
     makeType :: TyCon -> Decl Id
     makeType ty
-      | isAny ty = SortDecl (Sort (typeId prog ty) [])
+      | isAny ty = SortDecl (Sort (typeId prog ty) [] [])
       | otherwise = DataDecl (tipDatatype prog ty)
 
     msg =
@@ -566,7 +566,7 @@ tipType prog = tipTy . expandTypeSynonyms
 -- Translate a Haskell property to TIP.
 tipFormula :: Program -> Var -> CoreExpr -> Tip.Formula Id
 tipFormula prog x t =
-  Formula Prove UserAsserted func_tvs $
+  Formula Prove func_attrs UserAsserted func_tvs $
     freshPass quantify func_body
   where
     Function{..} = tipFunction prog x t
@@ -853,7 +853,7 @@ tipFunction prog x t =
     bindFun :: Context -> Var -> (Context -> Id -> Fresh a) -> Fresh a
     bindFun ctx x k = do
       name <- freshNamed (globalStr prog x)
-      let sig = Signature name (polyType x)
+      let sig = Signature name [] (polyType x)
           f tys = applySignature sig tys []
       bindInlineFun ctx x f (\ctx -> k ctx name)
 
