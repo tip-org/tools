@@ -29,7 +29,7 @@ apply s x = parExpr s [x]
 
 validSMTString :: String -> String
 validSMTString (x:xs)
-  | x `elem` ("-0123456789" :: String) = validSMTString ("id" ++ x:xs)
+  | x `elem` ("-0123456789" :: String) = validSMTString ("x" ++ x:xs)
 validSMTString xs =
   [ x | x <- xs, isAlphaNum x || x `elem` ("~!@$%^&*_-+=<>.?/" :: String) ]
 

@@ -394,8 +394,11 @@ globalStr :: Program -> Var -> String
 globalStr prog x =
   case [ y | Name y <- globalAnnotations prog x ] of
     (y:_) -> y
-    [] | isSystemName (Var.varName x) -> "x"
-       | otherwise -> getOccString x
+    [] | isSystemName (Var.varName x) -> ""
+       | any (`isPrefixOf` str) ["ipv", "ds", "aux"] -> ""
+       | otherwise -> str
+      where
+        str = getOccString x
 
 -- Construct an Id from a global.
 globalId :: Program -> Var -> Id
