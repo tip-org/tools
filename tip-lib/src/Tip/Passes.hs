@@ -9,7 +9,7 @@ module Tip.Passes
   , removeNewtype
   , uncurryTheory
 
-  -- * Simplifyng conjectures
+  -- * Simplifying conjectures
   , module Tip.Pass.Conjecture
   , module Tip.Pass.Concretise
 
@@ -62,6 +62,7 @@ module Tip.Passes
   -- * Miscellaneous
   , uniqLocals
   , dropSuffix
+  , dropAttributes
 
   -- * Building pass pipelines
   , StandardPass(..)
@@ -90,6 +91,7 @@ import Tip.Pass.SelectConjecture
 import Tip.Pass.DropSuffix
 import Tip.Pass.UniqLocals
 import Tip.Pass.Induction
+import Tip.Pass.DropAttributes
 
 import Tip.Fresh
 
@@ -135,6 +137,7 @@ data StandardPass
   | DeleteConjecture Int
   | DropSuffix String
   | UniqLocals
+  | DropAttributes
   | Induction [Int]
   | RecursionInduction Int [Int]
  deriving (Eq,Ord,Show,Read)
@@ -178,6 +181,7 @@ instance Pass StandardPass where
     DeleteConjecture n   -> single $ return . deleteConjecture n
     DropSuffix cs        -> single $ dropSuffix cs
     UniqLocals           -> single $ uniqLocals
+    DropAttributes       -> single $ return . dropAttributes
     Induction coords     -> induction coords
     RecursionInduction fn xsns -> recursionInduction fn xsns
     where single m thy = do x <- m thy; return [x]
@@ -270,6 +274,8 @@ instance Pass StandardPass where
           help "Drop the suffix delimited by some character set",
       unitPass UniqLocals $
         help "Make all local variables unique",
+      unitPass DropAttributes $
+        help "Remove all attributes (e.g. :original-name) from declarations",
       fmap Induction $
         option auto $
           long "induction" <>

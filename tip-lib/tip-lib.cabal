@@ -59,6 +59,7 @@ library
     Tip.Pass.CommuteMatch
     Tip.Pass.Conjecture
     Tip.Pass.CSEMatch
+    Tip.Pass.DropAttributes
     Tip.Pass.DropSuffix
     Tip.Pass.UniqLocals
     Tip.Pass.EliminateDeadCode

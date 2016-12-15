@@ -86,7 +86,7 @@ handle passes mode multipath s =
                   , SimplifyGently, RemoveMatch
                   , SimplifyGently, Monomorphise False ]
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
-                  ++ [ SimplifyGently, NegateConjecture ]
+                  ++ [ SimplifyGently, NegateConjecture, DropAttributes ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory
