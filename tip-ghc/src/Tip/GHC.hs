@@ -60,6 +60,7 @@ import Module
 import Data.List.Split
 import Control.Monad.Trans.State.Strict
 import Data.Maybe
+import System.IO
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -160,10 +161,10 @@ readHaskellFile params@Params{..} name =
       let prog = mconcat [home, builtin, away]
 
       when (PrintCore `elem` param_debug_flags) $
-        liftIO $ putStrLn (showOutputable home)
+        liftIO $ hPutStrLn stderr (showOutputable home)
 
       when (PrintAllCore `elem` param_debug_flags) $
-        liftIO $ putStrLn (showOutputable prog)
+        liftIO $ hPutStrLn stderr (showOutputable prog)
 
       -- Work out an initial set of functions and properties.
       let kept = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
@@ -172,7 +173,7 @@ readHaskellFile params@Params{..} name =
       -- Check that everything got included.
       forM_ (fromMaybe [] param_keep) $ \name ->
         unless (any (isIncluded (Just [name]) mods) kept) $
-          liftIO $ putStrLn $
+          liftIO $ hPutStrLn stderr $
             "Couldn't find function " ++ name ++ " in input file"
 
       let
@@ -184,7 +185,7 @@ readHaskellFile params@Params{..} name =
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
-        liftIO $ putStrLn (ppRender thy)
+        liftIO $ hPutStrLn stderr (ppRender thy)
 
       let
         realName ErrorId = False
