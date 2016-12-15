@@ -112,5 +112,5 @@ Unquoted. Symbol ::= UnquotedSymbol;
 Quoted.   Symbol ::= QuotedSymbol;
 
 position token UnquotedSymbol (letter|["~!@$%^&*_+=<>.?/"])(letter|digit|["~!@$%^&*_-+=<>.?/"])*;
-position token QuotedSymbol '|'(char - '|')*'|';
+position token QuotedSymbol '|'((char - '|') | ('\\' char))*'|';
 token Keyword ':'(letter|digit|["-"])*;

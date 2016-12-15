@@ -60,7 +60,12 @@ symPos (Quoted (QuotedSymbol (p, _))) = p
 
 symStr :: Symbol -> String
 symStr (Unquoted (UnquotedSymbol (_, s))) = s
-symStr (Quoted (QuotedSymbol (_, s))) = tail $ init s
+symStr (Quoted (QuotedSymbol (_, s))) =
+  unescape $ tail $ init s
+  where
+    unescape ('\\':x:xs) = x:unescape xs
+    unescape (x:xs) = x:unescape xs
+    unescape [] = []
 
 ppSym :: Symbol -> Doc
 ppSym sym = text (symStr sym) <+> "(" <> int x <> ":" <> int y <> ")"

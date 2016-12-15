@@ -29,7 +29,7 @@ $u = [\0-\255]          -- universal: any character
 $white+ ;
 @rsyms { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
 ($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) * { tok (\p s -> PT p (eitherResIdent (T_UnquotedSymbol . share) s)) }
-\| ($u # \|)* \| { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
+\| ($u # \| | \\ $u)* \| { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
 \: ($l | $d | [\-]) * { tok (\p s -> PT p (eitherResIdent (T_Keyword . share) s)) }
 
 $l $i*   { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
