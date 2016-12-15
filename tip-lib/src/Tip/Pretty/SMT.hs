@@ -200,10 +200,10 @@ ppBuiltinType Integer = "Int"
 ppBuiltinType Real    = "Real"
 ppBuiltinType Boolean = "Bool"
 
-ppAttrs :: [Attr] -> Doc
+ppAttrs :: [Attribute] -> Doc
 ppAttrs = fsep . map ppAttr
 
-ppAttr :: Attr -> Doc
+ppAttr :: Attribute -> Doc
 ppAttr (name, Nothing) = ppKeyword name
 ppAttr (name, Just x) = ppKeyword name <+> ppVarSMT x
 

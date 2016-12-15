@@ -359,9 +359,9 @@ trType t0 = case t0 of
   A.RealTy     -> return realType
   A.BoolTy     -> return boolType
 
-trAttrs :: [A.Attr] -> [T.Attr]
-trAttrs = map trAttr
+trAttrs :: [A.Attr] -> [T.Attribute]
+trAttrs = nubBy ((==) `on` fst) . map trAttr
 
-trAttr :: A.Attr -> T.Attr
+trAttr :: A.Attr -> T.Attribute
 trAttr (NoValue (Keyword (':':name))) = (name, Nothing)
 trAttr (Value (Keyword (':':name)) value) = (name, Just (symStr value))

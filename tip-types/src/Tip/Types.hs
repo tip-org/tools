@@ -13,7 +13,7 @@ import Data.Data
 import GHC.Generics(Generic)
 import Control.DeepSeq
 
-type Attr = (String, Maybe String)
+type Attribute = (String, Maybe String)
 
 data Head a
   = Gbl (Global a)
@@ -132,7 +132,7 @@ data BuiltinType
 
 data Function a = Function
   { func_name  :: a
-  , func_attrs :: [Attr]
+  , func_attrs :: [Attribute]
   , func_tvs   :: [a]
   , func_args  :: [Local a]
   , func_res   :: Type a
@@ -143,7 +143,7 @@ data Function a = Function
 -- | Uninterpreted function
 data Signature a = Signature
   { sig_name  :: a
-  , sig_attrs :: [Attr]
+  , sig_attrs :: [Attribute]
   , sig_type  :: PolyType a
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
@@ -151,14 +151,14 @@ data Signature a = Signature
 -- | Uninterpreted sort
 data Sort a = Sort
   { sort_name  :: a
-  , sort_attrs :: [Attr]
+  , sort_attrs :: [Attribute]
   , sort_tvs   :: [a] }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Data definition
 data Datatype a = Datatype
   { data_name  :: a
-  , data_attrs :: [Attr]
+  , data_attrs :: [Attribute]
   , data_tvs   :: [a]
   , data_cons  :: [Constructor a]
   }
@@ -167,7 +167,7 @@ data Datatype a = Datatype
 data Constructor a = Constructor
   { con_name    :: a
   -- ^ Constructor name (e.g. @Cons@)
-  , con_attrs   :: [Attr]
+  , con_attrs   :: [Attribute]
   -- ^ Constructor attributes
   , con_discrim :: a
   -- ^ Discriminator name (e.g. @is-Cons@)
@@ -198,7 +198,7 @@ instance Monoid (Theory a) where
 
 data Formula a = Formula
   { fm_role  :: Role
-  , fm_attrs :: [Attr]
+  , fm_attrs :: [Attribute]
   , fm_info  :: Info a
   , fm_tvs   :: [a]
   -- ^ top-level quantified type variables

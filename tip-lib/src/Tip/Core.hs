@@ -18,11 +18,12 @@ import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Generics.Geniplate
 import Data.List ((\\),partition)
+import Data.Maybe
 import Data.Ord
 import Control.Monad
 import qualified Data.Map as Map
 import Control.Applicative ((<|>))
-
+import Text.Read
 
 infix  4 ===
 -- infixr 3 /\
@@ -530,3 +531,82 @@ polyrecursive Theory{..} = (`Map.lookup` m)
       ]
 
   make_groups grps = Map.fromList $ concat [ [ (g,grp) | g <- grp ] | grp <- grps ]
+
+-- * Attributes
+
+class HasAttr a where
+  getAttrs :: a -> [Attribute]
+  putAttrs :: [Attribute] -> a -> a
+
+modifyAttrs ::
+  HasAttr struct => ([Attribute] -> [Attribute]) -> struct -> struct
+modifyAttrs f struct =
+  putAttrs (f (getAttrs struct)) struct
+
+instance HasAttr [Attribute] where
+  getAttrs = id
+  putAttrs attrs _ = attrs
+
+instance HasAttr (Function a) where
+  getAttrs = func_attrs
+  putAttrs attrs x = x { func_attrs = attrs }
+
+instance HasAttr (Signature a) where
+  getAttrs = sig_attrs
+  putAttrs attrs x = x { sig_attrs = attrs }
+
+instance HasAttr (Sort a) where
+  getAttrs = sort_attrs
+  putAttrs attrs x = x { sort_attrs = attrs }
+
+instance HasAttr (Datatype a) where
+  getAttrs = data_attrs
+  putAttrs attrs x = x { data_attrs = attrs }
+
+instance HasAttr (Constructor a) where
+  getAttrs = con_attrs
+  putAttrs attrs x = x { con_attrs = attrs }
+
+instance HasAttr (Formula a) where
+  getAttrs = fm_attrs
+  putAttrs attrs x = x { fm_attrs = attrs }
+
+data Attr a = Attr String (Maybe String -> Maybe a) (a -> Maybe String)
+
+unitAttr :: String -> Attr ()
+unitAttr name = Attr name f g
+  where
+    f Nothing  = Just ()
+    f (Just _) = Nothing
+    g () = Nothing
+
+stringAttr :: String -> Attr String
+stringAttr name = Attr name id Just
+
+mapAttr :: (a -> Maybe b) -> (b -> a) -> Attr a -> Attr b
+mapAttr f g (Attr name f' g') = Attr name (f' >=> f) (g' . g)
+
+readAttr :: (Show a, Read a) => String -> Attr a
+readAttr name = mapAttr readMaybe show (stringAttr name)
+
+delAttr :: HasAttr struct => Attr a -> struct -> struct
+delAttr (Attr name _ _) struct =
+  putAttrs [ attr | attr <- getAttrs struct, fst attr /= name ] struct
+
+getAttr :: HasAttr struct => Attr a -> struct -> Maybe a
+getAttr (Attr name f _) struct = do
+  value <- lookup name (getAttrs struct)
+  f value
+
+putAttr :: HasAttr struct => Attr a -> a -> struct -> struct
+putAttr attr@(Attr name _ g) x struct =
+  modifyAttrs ((name, g x):) (delAttr attr struct)
+
+hasAttr :: HasAttr struct => Attr a -> struct -> Bool
+hasAttr attr struct = isJust (getAttr attr struct)
+
+keep :: Attr ()
+keep = unitAttr "keep"
+
+originalName :: Attr String
+originalName = stringAttr "original-name"

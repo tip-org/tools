@@ -166,17 +166,15 @@ readHaskellFile params@Params{..} name =
         liftIO $ putStrLn (showOutputable prog)
 
       -- Work out an initial set of functions and properties.
-      let keep = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
-          (props, funcs) = partition (isPropType prog . varType) keep
+      let kept = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
+          (props, funcs) = partition (isPropType prog . varType) kept
 
       let
-        kept fun =
-          fun { func_attrs = ("keep", Nothing):func_attrs fun }
         thy =
           completeTheory prog $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
           | prop <- props ] ++
-          [ FuncDecl (kept (tipFunction prog func (global_definition (globalInfo prog func))))
+          [ FuncDecl (putAttr keep () (tipFunction prog func (global_definition (globalInfo prog func))))
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
@@ -910,7 +908,7 @@ tipFunction prog x t =
           applyType tvs tys ty
 
 -- Put the Haskell name of a variable into its attributes.
-nameAttrs :: NamedThing a => a -> [Attr]
+nameAttrs :: NamedThing a => a -> [Attribute]
 nameAttrs x =
   case toHaskellName x of
     Nothing -> []

@@ -16,10 +16,8 @@ eliminateDeadCode = fixpoint elim
         thy_funcs = filter funcAlive thy_funcs }
       where
         live = Set.fromList (map gbl_name (universeBi thy))
-        sigAlive s = Set.member (sig_name s) live || keep (sig_attrs s)
-        funcAlive f = Set.member (func_name f) live || keep (func_attrs f)
-
-        keep attrs = ("keep", Nothing) `elem` attrs
+        sigAlive s = Set.member (sig_name s) live || hasAttr keep s
+        funcAlive f = Set.member (func_name f) live || hasAttr keep f
 
 fixpoint :: Eq a => (a -> a) -> a -> a
 fixpoint f x
