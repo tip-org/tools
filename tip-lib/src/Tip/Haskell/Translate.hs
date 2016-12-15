@@ -369,13 +369,13 @@ trTheory' mode thy@Theory{..} =
     read_head e = Apply (prelude "read") [Apply (prelude "head") [e]]
 
   tr_assert :: Int -> T.Formula a -> ((a,[a]),[Decl a])
-  tr_assert i (T.Formula r _ _ tvs b) =
+  tr_assert i T.Formula{..} =
     ((prop_name,args),
       [ TySig prop_name []
           (foldr TyArr
              (case mode of LazySmallCheck{} -> H.TyCon (lsc "Property") []
                            _                -> H.TyCon (prelude "Bool") [])
-             [ trType (applyType tvs (replicate (length tvs) (intType)) t)
+             [ trType (applyType fm_tvs (replicate (length fm_tvs) (intType)) t)
              | Local _ t <- typed_args ])
       | mode == Feat || isLazySmallCheck mode || mode == Smten ]
       ++
@@ -385,13 +385,13 @@ trTheory' mode thy@Theory{..} =
     prop_name | i == 1    = Exact "prop"
               | otherwise = Exact ("prop" ++ show i)
     (typed_args,body) =
-      case b of
+      case fm_body of
         Quant _ Forall lcls term -> (lcls,term)
-        _                        -> ([],b)
+        _                        -> ([],fm_body)
     args = map lcl_name typed_args
 
     assume e =
-      case r of
+      case fm_role of
         Prove  -> e
         Assert -> e -- Apply (tipDSL "assume") [e]
 

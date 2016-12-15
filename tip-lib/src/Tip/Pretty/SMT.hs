@@ -111,10 +111,10 @@ ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
   parv tyvars (ppVarSMT f $\ ppAttrs attrs $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove attrs _ tvs term)  =
+ppFormula (Formula Prove attrs tvs term)  =
   apply "assert-not" $
     ppAttrs attrs $\ par' tvs (ppExpr term)
-ppFormula (Formula Assert attrs _ tvs term) =
+ppFormula (Formula Assert attrs tvs term) =
   apply "assert" $
    ppAttrs attrs $\ par' tvs (ppExpr term)
 

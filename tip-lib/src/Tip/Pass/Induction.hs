@@ -42,7 +42,7 @@ trTerm (Fun f tms) = Builtin At :@: (Lcl f:map trTerm tms)
 induction :: (Name a,Ord a) => [Int] -> Theory a -> Fresh [Theory a]
 induction coords thy@Theory{..} =
   case goal of
-    Formula Prove attrs i tvs (forallView -> (lcls@(_non:_empty),body))
+    Formula Prove attrs tvs (forallView -> (lcls@(_non:_empty),body))
       | cs@(_:_) <-
           [ x | x <- coords, x >= length lcls || x < 0 ]
           -> error $ unlines
@@ -74,7 +74,7 @@ induction coords thy@Theory{..} =
                   concl <- replace [] concl
                   let body' = hyps ===> concl
                   return
-                    (Formula Prove attrs i tvs
+                    (Formula Prove attrs tvs
                       (mkQuant Forall [ Local v t | (v,t) <- sks] body'))
              | Obligation sks hyps concl <- obligs
              ]

@@ -59,7 +59,7 @@ declName (SortDecl Sort{sort_name = t}) = varStr t
 declName (SigDecl Signature{sig_name = t}) = varStr t
 declName (DataDecl Datatype{data_name = t}) = varStr t
 declName (FuncDecl Function{func_name = t}) = varStr t
-declName (AssertDecl (Formula r _ i _ _)) = show r ++ "_" ++ show (fmap (const ()) i)
+declName (AssertDecl (Formula r i _ _)) = show r ++ "_" ++ show i
 
 trType :: Type a -> Expr' a
 trType (TyCon tc ts)     = App (Con tc) (map trType ts)
@@ -214,14 +214,14 @@ declRules polyrec fuel d =
                            _                                       -> Right
             ]
 
-    AssertDecl (Formula Prove _ _ [] b) ->
+    AssertDecl (Formula Prove _ [] b) ->
          groundFuel fuel [ Fin (App (Decl d) []) ]
       ++ groundFuel fuel [ Fin r | r <- exprRecords b ]
 
-    AssertDecl (Formula Prove _ _ (_:_) _) ->
+    AssertDecl (Formula Prove _ (_:_) _) ->
       error "Monomorphise: cannot monomorphise with polymorphic goal, run --type-skolem-conjecture"
 
-    AssertDecl (Formula Assert _ _ tvs b) ->
+    AssertDecl (Formula Assert _ tvs b) ->
          retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) (exprGlobalRecords b) ]
       ++ retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs)))
                       [ rec
@@ -274,8 +274,8 @@ renameDecl d su =
         f' <- rename tvs f
         let (args',res) = applyPolyType pt (ty_args tvs)
         return (SigDecl (Signature f' attrs (PolyType [] args' res)))
-    AssertDecl (Formula r attrs i tvs b) ->
-        return (ty_inst tvs (AssertDecl (Formula r attrs i [] b)))
+    AssertDecl (Formula r attrs tvs b) ->
+        return (ty_inst tvs (AssertDecl (Formula r attrs [] b)))
 
     DataDecl (Datatype tc attrs tvs cons) -> do
         tc' <- rename tvs tc

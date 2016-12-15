@@ -95,8 +95,8 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
 ppHipsterFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
-ppHipsterFormula explicit_forall (Formula _ role _ _tvs term)  i =
-  ppExprStripTopForall explicit_forall 0 term
+ppHipsterFormula explicit_forall Formula{..}  i =
+  ppExprStripTopForall explicit_forall 0 fm_body
 
 -- Maybe strip away explicit top-level forall quantifiers.
 ppExprStripTopForall :: (PrettyVar a, Ord a) => Bool -> Int -> Expr a -> Doc

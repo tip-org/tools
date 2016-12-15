@@ -141,13 +141,13 @@ lintBinder lcl@Local{..} = do
   newLocal lcl
 
 lintFormula :: (PrettyVar a, Ord a) => Formula a -> ScopeM a ()
-lintFormula form@(Formula _ _ _ tvs expr) =
+lintFormula form@Formula{..} =
   local $ inContext form $ do
-    mapM_ newTyVar tvs
-    lintExpr FormulaKind expr
-    unless (exprType expr == boolType) $
+    mapM_ newTyVar fm_tvs
+    lintExpr FormulaKind fm_body
+    unless (exprType fm_body == boolType) $
       throwError $
-        fsep ["Formula has non-boolean type", nest 2 (pp (exprType expr))]
+        fsep ["Formula has non-boolean type", nest 2 (pp (exprType fm_body))]
 
 data ExprKind = ExprKind | FormulaKind deriving Eq
 

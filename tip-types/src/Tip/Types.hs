@@ -199,24 +199,10 @@ instance Monoid (Theory a) where
 data Formula a = Formula
   { fm_role  :: Role
   , fm_attrs :: [Attribute]
-  , fm_info  :: Info a
   , fm_tvs   :: [a]
   -- ^ top-level quantified type variables
   , fm_body  :: Expr a
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
-
-data Info a
-  = Definition a
-  | IH Int
-  | Lemma Int
-  | Projection a
-  | DataDomain a
-  | DataProjection a
-  | DataDistinct a
-  | Defunction a
-  | UserAsserted
-  | Unknown
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Role = Assert | Prove

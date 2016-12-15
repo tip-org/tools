@@ -139,14 +139,14 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
 ppFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
-ppFormula explicit_forall (Formula role _ _ _tvs term)  i =
-  (ppRole role <+> ("property" <> int i) <+> ":") $\ quote (ppExprStripTopForall explicit_forall 0 term) $$ (ppProofText role)
+ppFormula explicit_forall Formula{..} i =
+  (ppRole fm_role <+> ("property" <> int i) <+> ":") $\ quote (ppExprStripTopForall explicit_forall 0 fm_body) $$ (ppProofText fm_role)
   -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
 
 -- TODO: Make sure library functions gets translated to their Isabelle equivalent names.
 ppHipsterFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
-ppHipsterFormula explicit_forall (Formula role _ _ _tvs term)  i =
-  ppExprStripTopForall explicit_forall 0 term
+ppHipsterFormula explicit_forall Formula{..}  i =
+  ppExprStripTopForall explicit_forall 0 fm_body
 
 ppRole :: Role -> Doc
 ppRole Assert = "lemma" -- Translate to lemma and sorry-proof here.

@@ -636,3 +636,13 @@ keep = unitAttr "keep"
 
 originalName :: Attr String
 originalName = stringAttr "original-name"
+
+definition, dataDomain, dataProjection, dataDistinct, defunction :: Attr ()
+definition = unitAttr "definition"
+dataDomain = unitAttr "data-domain"
+dataProjection = unitAttr "data-projection"
+dataDistinct = unitAttr "data-distinct"
+defunction = unitAttr "defunction"
+
+inductionHypothesis :: Attr Int
+inductionHypothesis = readAttr "induction-hypothesis"

@@ -587,7 +587,7 @@ tipType prog = tipTy . expandTypeSynonyms
 -- Translate a Haskell property to TIP.
 tipFormula :: Program -> Var -> CoreExpr -> Tip.Formula Id
 tipFormula prog x t =
-  Formula Prove func_attrs UserAsserted func_tvs $
+  Formula Prove func_attrs func_tvs $
     freshPass quantify func_body
   where
     Function{..} = tipFunction prog x t

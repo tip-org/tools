@@ -160,7 +160,7 @@ trDecl x =
            mapM newTyVar tvi
            let toRole AssertIt  = T.Assert
                toRole AssertNot = Prove
-           fm <- Formula (toRole role) (trAttrs attrs) UserAsserted tvi <$> trExpr expr
+           fm <- Formula (toRole role) (trAttrs attrs) tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
 
 emptyPar :: Par
