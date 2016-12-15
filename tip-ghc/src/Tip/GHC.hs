@@ -169,6 +169,12 @@ readHaskellFile params@Params{..} name =
       let kept = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
           (props, funcs) = partition (isPropType prog . varType) kept
 
+      -- Check that everything got included.
+      forM_ (fromMaybe [] param_keep) $ \name ->
+        unless (any (isIncluded (Just [name]) mods) kept) $
+          liftIO $ putStrLn $
+            "Couldn't find function " ++ name ++ " in input file"
+
       let
         thy =
           completeTheory prog $ declsToTheory $
