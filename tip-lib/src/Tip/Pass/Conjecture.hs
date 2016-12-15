@@ -32,7 +32,9 @@ skolemiseConjecture' thy =
 
                  sks' <- sequence
                    [ do v' <- refresh v
-                        return (Signature v' [] (PolyType [] [] t))
+                        return $
+                          putAttr skolem () $
+                          Signature v' [] (PolyType [] [] t)
                    | Local v t <- sks
                    ]
 
@@ -92,7 +94,7 @@ typeSkolemConjecture thy =
     let tvs' = replicate (length tvs) tv
     return thy {
       thy_asserts = Formula Prove attrs [] (makeTyCons (zip tvs tvs') form):thy_asserts thy,
-      thy_sorts = [ Sort tv [] [] ] ++ thy_sorts thy }
+      thy_sorts = [ putAttr skolem () $ Sort tv [] [] ] ++ thy_sorts thy }
 
   makeTyCons tvs =
     transformTypeInExpr $ \ty ->

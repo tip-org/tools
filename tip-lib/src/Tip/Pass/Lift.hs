@@ -51,7 +51,9 @@ lambdaLiftTop e0 =
          let g_args = free e0
          let g_tvs  = freeTyVars e0
          let g_type = map lcl_type lam_args :=>: exprType lam_body
-         let g = Function g_name [] g_tvs g_args g_type (Lam lam_args lam_body)
+         let g =
+               putAttr lambda () $
+               Function g_name [] g_tvs g_args g_type (Lam lam_args lam_body)
          tell [g]
          return (applyFunction g (map TyVar g_tvs) (map Lcl g_args))
     _ -> return e0
@@ -77,7 +79,9 @@ letLiftTop e0 =
     Let xl@(Local x xt) b e ->
       do let fvs = free b
          let tvs = freeTyVars b
-         let xfn = Function x [] tvs fvs (exprType b) b
+         let xfn =
+               putAttr letVar () $
+               Function x [] tvs fvs (exprType b) b
          tell [xfn]
          lift ((applyFunction xfn (map TyVar tvs) (map Lcl fvs) // xl) e)
     _ -> return e0
@@ -144,6 +148,7 @@ eliminateLetRecTop p func e = elim e
 
         -- Transform the function declaration itself.
         transformFunc func@Function{..} =
+          putAttr letVar () $
           func {
             func_name = fromMaybe __ (find func_name),
             func_tvs  = tyenv ++ func_tvs,
@@ -166,7 +171,7 @@ axLamFunc Function{..} =
   case func_body of
     Lam lam_args e ->
       let abs = Signature func_name func_attrs (PolyType func_tvs (map lcl_type func_args) func_res)
-          fm  = putAttr defunction () $
+          fm  = putAttr definition () $
                 Formula Assert func_attrs func_tvs
                   (mkQuant
                     Forall
@@ -217,7 +222,7 @@ axiomatizeLambdas thy0 = do
     makeArrow n = do
       ty <- freshNamed ("fun" ++ show n)
       tvs <- replicateM (n+1) fresh
-      return (n, Sort ty [] tvs)
+      return (n, putAttr lambda () $ Sort ty [] tvs)
     makeAt arrows n = do
       name <- freshNamed ("apply" ++ show n)
       tvs <- mapM (freshNamed . mkTyVarName) [0..(n-1)]
@@ -225,7 +230,7 @@ axiomatizeLambdas thy0 = do
       let Sort{..} = Map.findWithDefault __ n arrows
           ty          = TyCon sort_name (map TyVar (tvs ++ [tv]))
       return $
-        (n, Signature name [] (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
+        (n, putAttr lambda () $ Signature name [] (PolyType (tvs ++ [tv]) (ty:map TyVar tvs) (TyVar tv)))
 
     eliminateArrows arrows (args :=>: res) =
       TyCon sort_name (map (eliminateArrows arrows) (args ++ [res]))

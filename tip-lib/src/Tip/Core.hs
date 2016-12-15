@@ -637,13 +637,15 @@ keep = unitAttr "keep"
 originalName :: Attr String
 originalName = stringAttr "original-name"
 
-definition, dataDomain, dataProjection, dataDistinct, defunction, speculatedLemma :: Attr ()
+definition, dataDomain, dataProjection, dataDistinct, speculatedLemma, skolem, lambda, letVar :: Attr ()
 definition = unitAttr "definition"
 dataDomain = unitAttr "data-domain"
 dataProjection = unitAttr "data-projection"
 dataDistinct = unitAttr "data-distinct"
-defunction = unitAttr "defunction"
 speculatedLemma = unitAttr "speculated-lemma"
+skolem = unitAttr "skolem"
+lambda = unitAttr "lambda"
+letVar = unitAttr "let"
 
 inductionHypothesis :: Attr Int
 inductionHypothesis = readAttr "induction-hypothesis"
