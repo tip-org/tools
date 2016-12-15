@@ -534,6 +534,8 @@ polyrecursive Theory{..} = (`Map.lookup` m)
 
 -- * Attributes
 
+-- | A class for things which have a list of attributes attached
+-- (includes e.g. functions, datatypes)
 class HasAttr a where
   getAttrs :: a -> [Attribute]
   putAttrs :: [Attribute] -> a -> a
@@ -571,39 +573,63 @@ instance HasAttr (Formula a) where
   getAttrs = fm_attrs
   putAttrs attrs x = x { fm_attrs = attrs }
 
-data Attr a = Attr String (Maybe String -> Maybe a) (a -> Maybe String)
+-- | A datatype describing how to read and write a particular attribute.
+-- The 'a' is the type of the argument of the attribute.
+-- For attributes which don't take an argument, this will be '()'.
+data Attr a =
+  Attr {
+    -- The name of the attribute.
+    attr_name :: String,
+    -- Conversion to and from "raw" (string) attributes.
+    attr_read :: Maybe String -> Maybe a,
+    attr_show :: a -> Maybe String }
 
+-- | Get the value of a given attribute.
+getAttr :: HasAttr struct => Attr a -> struct -> Maybe a
+getAttr Attr{..} struct = do
+  value <- lookup attr_name (getAttrs struct)
+  attr_read value
+
+-- | Does a structure contain a given attribute?
+hasAttr :: HasAttr struct => Attr a -> struct -> Bool
+hasAttr attr struct = isJust (getAttr attr struct)
+
+-- | Delete a given attribute from a structure.
+delAttr :: HasAttr struct => Attr a -> struct -> struct
+delAttr Attr{..} struct =
+  putAttrs [ attr | attr <- getAttrs struct, fst attr /= attr_name ] struct
+
+-- | Create or update a given attribute in a structure.
+putAttr :: HasAttr struct => Attr a -> a -> struct -> struct
+putAttr attr@Attr{..} x struct =
+  modifyAttrs ((attr_name, attr_show x):) (delAttr attr struct)
+
+-- * Combinators for creating 'Attr's
+
+-- | Construct an 'Attr' which takes no arguments
 unitAttr :: String -> Attr ()
-unitAttr name = Attr name f g
+unitAttr name = Attr name readUnit showUnit
   where
-    f Nothing  = Just ()
-    f (Just _) = Nothing
-    g () = Nothing
+    readUnit Nothing  = Just ()
+    readUnit (Just _) = Nothing
+    showUnit () = Nothing
 
+-- | Construct an 'Attr' which takes a string argument
 stringAttr :: String -> Attr String
 stringAttr name = Attr name id Just
 
+-- | Change the argument type of an 'Attr'
 mapAttr :: (a -> Maybe b) -> (b -> a) -> Attr a -> Attr b
-mapAttr f g (Attr name f' g') = Attr name (f' >=> f) (g' . g)
+mapAttr read show attr@Attr{..} =
+  attr {
+    attr_read = attr_read >=> read,
+    attr_show = attr_show . show }
 
+-- | Construct an 'Attr' which uses 'read' and 'show' to get its argument
 readAttr :: (Show a, Read a) => String -> Attr a
 readAttr name = mapAttr readMaybe show (stringAttr name)
 
-delAttr :: HasAttr struct => Attr a -> struct -> struct
-delAttr (Attr name _ _) struct =
-  putAttrs [ attr | attr <- getAttrs struct, fst attr /= name ] struct
-
-getAttr :: HasAttr struct => Attr a -> struct -> Maybe a
-getAttr (Attr name f _) struct = do
-  value <- lookup name (getAttrs struct)
-  f value
-
-putAttr :: HasAttr struct => Attr a -> a -> struct -> struct
-putAttr attr@(Attr name _ g) x struct =
-  modifyAttrs ((name, g x):) (delAttr attr struct)
-
-hasAttr :: HasAttr struct => Attr a -> struct -> Bool
-hasAttr attr struct = isJust (getAttr attr struct)
+-- * All the attributes which we use at the moment
 
 keep :: Attr ()
 keep = unitAttr "keep"
