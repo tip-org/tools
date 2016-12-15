@@ -43,6 +43,18 @@ data GlobalInfo a =
   | DiscriminatorInfo (Datatype a) (Constructor a)
   deriving Show
 
+instance HasAttr (GlobalInfo a) where
+  getAttrs (FunctionInfo fun) = getAttrs fun
+  getAttrs (ConstructorInfo _ con) = getAttrs con
+  -- Projectors and discriminator don't have their own attributes.
+  getAttrs ProjectorInfo{} = []
+  getAttrs DiscriminatorInfo{} = []
+  putAttrs attrs (FunctionInfo fun) =
+    FunctionInfo (putAttrs attrs fun)
+  putAttrs attrs (ConstructorInfo dt con) =
+    ConstructorInfo dt (putAttrs attrs con)
+  putAttrs _ x = x
+
 globalType :: GlobalInfo a -> PolyType a
 globalType (FunctionInfo ty) = sig_type ty
 globalType (ConstructorInfo dt con) = constructorType dt con
