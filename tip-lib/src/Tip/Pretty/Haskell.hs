@@ -9,8 +9,6 @@ import Tip.Pretty
 import Tip.Fresh
 import Text.PrettyPrint hiding (Mode)
 
-import Data.Map (Map)
-
 ppTheory :: Name a => Mode -> T.Theory a -> Doc
 ppTheory mode = fst . ppTheoryWithRenamings mod_name mode
   where
@@ -102,7 +100,6 @@ instance PrettyHsVar a => Pretty (Expr a) where
 
 instance PrettyHsVar a => Pretty (Stmt a) where
   pp (Bind x e)        = ppHsVar x <+> "<-" $\ pp e
-  pp (BindTyped x t e) = (ppHsVar x <+> "::" $\ pp t <+> "<-") $\ pp e
   pp (Stmt e)          = pp e
 
 instance PrettyHsVar a => Pretty (Pat a) where

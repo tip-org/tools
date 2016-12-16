@@ -12,14 +12,11 @@ module Tip.Core(module Tip.Types, module Tip.Core) where
 import Tip.Types
 import Tip.Fresh
 import Tip.Utils
-import Tip.Pretty
 import Data.Traversable (Traversable)
-import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Generics.Geniplate
 import Data.List ((\\),partition)
 import Data.Maybe
-import Data.Ord
 import Control.Monad
 import qualified Data.Map as Map
 import Control.Applicative ((<|>))
@@ -101,7 +98,7 @@ e1 ==> e2
 xs ===> y = foldr (==>) y xs
 
 mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
-mkQuant q [] e = e
+mkQuant _ [] e = e
 mkQuant q xs e = Quant NoInfo q xs e
 
 bool :: Bool -> Expr a
@@ -219,12 +216,12 @@ patternMatchingView = go . map DeepVarPat
   modDeepPattern l (DeepConPat g nps) = DeepConPat g <$$> modDeepPatterns l nps
   modDeepPattern l (DeepVarPat l') | l == l'   = Just id
                                    | otherwise = Nothing
-  modDeepPattern l (DeepLitPat lit) = Nothing
+  modDeepPattern _ (DeepLitPat _) = Nothing
 
   -- Variable not in patterns: returns Nothing
   modDeepPatterns :: Eq a => Local a -> [DeepPattern a] -> Maybe (DeepPattern a -> [DeepPattern a])
   modDeepPatterns l (np:nps) = ((:nps) <$$> modDeepPattern l np) <|> ((np:) <$$> modDeepPatterns l nps)
-  modDeepPatterns l []       = Nothing
+  modDeepPatterns _ []       = Nothing
 
   deep :: Pattern a -> DeepPattern a
   deep (ConPat g ls) = DeepConPat g (map DeepVarPat ls)
@@ -340,6 +337,7 @@ builtinType NumLe _ = boolType
 builtinType NumWiden _ = realType
 builtinType At ((_  :=>: res):_) = res
 builtinType At _ = ERROR("ill-typed lambda application")
+builtinType _ _ = ERROR("ill-typed built-in")
 
 theoryTypes :: (UniverseBi (t a) (Type a),Ord a) => t a -> [Type a]
 theoryTypes = usort . universeBi

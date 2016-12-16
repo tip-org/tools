@@ -10,9 +10,7 @@ import Induction.Structural
 
 import Tip.Pretty.SMT as SMT
 
-import Control.Applicative
-
-import Data.List (find,partition)
+import Data.List (find)
 
 theoryTyEnv :: Ord a => Theory a -> TyEnv (Head a) (Type a)
 theoryTyEnv Theory{..} (BuiltinType Boolean) =

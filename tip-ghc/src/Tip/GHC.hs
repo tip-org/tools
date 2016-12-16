@@ -7,21 +7,19 @@ import GHC hiding (Id, exprType, DataDecl, Name, typeKind)
 import qualified GHC
 import Tip.Fresh
 import Var hiding (Id)
-import qualified Var
 import Tip.GHC.Annotations hiding (Lit, Cast)
 import qualified Tip.GHC.Annotations as Tip
 import Outputable
 import Tip.Pretty
 import Name hiding (Name, varName)
 import Data.List
-import Tip.Pretty.SMT hiding (apply)
+import Tip.Pretty.SMT()
 import TysPrim
 import TysWiredIn
 import MkCore
 import PrelNames
 import Constants
 import BasicTypes hiding (Inline)
-import Control.Monad.Trans.Writer
 import Data.Char
 import Avail
 import Tip.Utils hiding (Rec, NonRec)
@@ -47,7 +45,6 @@ import Control.Monad
 import UniqFM
 import DynFlags
 import Data.IORef
-import Kind
 import CoreUtils
 import qualified Data.ByteString.Char8 as BS
 import Tip.Passes
@@ -68,7 +65,7 @@ import System.IO
 
 -- Translate a Haskell file into a TIP theory.
 readHaskellFile :: Params -> String -> IO (Theory Id)
-readHaskellFile params@Params{..} name =
+readHaskellFile Params{..} name =
   runGhc (Just libdir) $ do
     -- Set the GHC flags.
     dflags <- getSessionDynFlags
@@ -574,7 +571,7 @@ tipType prog = tipTy . expandTypeSynonyms
         ERROR("Illegal monomorphic type in Haskell program: " ++
               showOutputable ty)
 
-    tipTyCon tc anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
+    tipTyCon _ anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
       BuiltinType ty
     tipTyCon tc _ _ | isAny tc = TyCon (typeId prog tc) []
     tipTyCon tc _ tys =
@@ -597,7 +594,7 @@ tipFormula prog x t =
       Quant NoInfo Forall xs <$> quantify t
     quantify t =
       case Tip.exprType t of
-        args :=>: res -> do
+        args :=>: _res -> do
           xs <- mapM freshLocal args
           Quant NoInfo Forall xs <$>
             quantify (apply t (map Lcl xs))
@@ -620,7 +617,7 @@ tipFunction prog x t =
   where
     fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
     fun attr ctx x t = inContextM (showOutputable msg) $ do
-      let pty@PolyType{..} = polyType x
+      let PolyType{..} = polyType x
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
         Function {
@@ -640,13 +637,13 @@ tipFunction prog x t =
     expr ctx (Var inl `App` Type _ `App` e)
       | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
         expr ctx (inline e)
-    expr ctx e@(Var prim `App` Type ty `App` Lit (MachStr name))
+    expr _ (Var prim `App` Type ty `App` Lit (MachStr name))
       | Special `elem` globalAnnotations prog prim =
         case reads (BS.unpack name) of
           [(spec, "")] ->
-            special ctx (tipType prog ty) spec
+            special (tipType prog ty) spec
           _ -> ERROR("Unknown special " ++ BS.unpack name)
-    expr ctx (Lit l) = return (literal (lit l))
+    expr _   (Lit l) = return (literal (lit l))
     expr ctx (Var x) = var ctx x
     expr ctx (App t u) = app ctx t u
     expr ctx (Lam x e) = lam ctx x e
@@ -667,8 +664,8 @@ tipFunction prog x t =
     lit (LitInteger n _) = Int n
     lit l = ERROR("Unsupported literal: " ++ showOutputable l)
 
-    special :: Context -> Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
-    special ctx ty (Primitive name arity) = do
+    special :: Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
+    special ty (Primitive name arity) = do
       names <- replicateM arity fresh
       let
         funArgs (t :=>: u) = t ++ funArgs u
@@ -680,16 +677,16 @@ tipFunction prog x t =
         foldr (\arg e -> Tip.Lam [arg] e)
           (Builtin name :@: map Lcl args)
           args
-    special ctx ([ty@([argTy] :=>: _)] :=>: _) (QuantSpecial quant) = do
+    special ([ty@([argTy] :=>: _)] :=>: _) (QuantSpecial quant) = do
       -- \p -> Quant quant (\x -> p x)
       pred <- freshLocal ty
       arg  <- freshLocal argTy
       return $
         Tip.Lam [pred] (Quant NoInfo quant [arg] (apply (Lcl pred) [Lcl arg]))
-    special ctx ty Tip.Cast =
+    special ty Tip.Cast =
       return (Lcl (Local CastId ty))
-    special _ ty Error = return (errorTerm ty)
-    special _ ty spec =
+    special ty Error = return (errorTerm ty)
+    special ty spec =
       ERROR("Unsupported special " ++ show spec ++ " :: " ++ ppRender ty)
 
     var :: Context -> Var -> Fresh (Tip.Expr Id)
@@ -705,8 +702,8 @@ tipFunction prog x t =
       | (spec:_) <-
         [spec | SomeSpecial spec <- globalAnnotations prog f] = do
           let ([], ty) = applyPolyType (polyType f) (ctx_types ctx)
-          special ctx ty spec
-    var ctx x
+          special ty spec
+    var _ x
       | (l:_) <- [l | Literal l <- globalAnnotations prog x] =
           return (literal l)
     var ctx x
@@ -837,8 +834,12 @@ tipFunction prog x t =
     caseAlt :: Context -> [Tip.Type Id] -> Alt Var -> Fresh (Tip.Case Id)
     caseAlt ctx _ (DEFAULT, [], e) =
       Tip.Case Default <$> expr ctx e
+    caseAlt _ _ (DEFAULT, _:_, _) =
+      error "default case with arguments"
     caseAlt ctx _ (LitAlt l, [], e) =
       Tip.Case (Tip.LitPat (lit l)) <$> expr ctx e
+    caseAlt _ _ (LitAlt _, _:_, _) =
+      error "literal with arguments"
     caseAlt ctx _ (DataAlt dc, [], e)
       | (x:_) <- [x | Literal x <- globalAnnotations prog (dataConWorkId dc)] =
         Tip.Case (Tip.LitPat x) <$> expr ctx e
@@ -888,7 +889,7 @@ tipFunction prog x t =
     bindMany ::
       (Context -> a -> (Context -> b -> Fresh c) -> Fresh c) ->
       (Context -> [a] -> (Context -> [b] -> Fresh c) -> Fresh c)
-    bindMany bind1 ctx [] k = k ctx []
+    bindMany _ ctx [] k = k ctx []
     bindMany bind1 ctx (x:xs) k =
       bind1 ctx x $ \ctx name ->
         bindMany bind1 ctx xs $ \ctx names ->
@@ -986,12 +987,12 @@ cleanExpr = transformBiM $ \e ->
 
     -- We just pull ErrorId to the top level as far as possible.
     -- If a branch of a case is an ErrorId, that branch is deleted.
-    f :@: args | any isError args -> err
+    _ :@: args | any isError args -> err
     Tip.Lam _ e | isError e -> err
     Tip.Let x t u | isError t -> (t // x) u
-    Tip.Let x t u | isError u -> err
+    Tip.Let _ _ u | isError u -> err
     Tip.Quant _ _ _ e | isError e -> err
-    Tip.Match e alts | isError e -> err
+    Tip.Match e _ | isError e -> err
     Tip.Match e alts ->
       case filter (not . isError . case_rhs) alts of
         [] -> err

@@ -8,7 +8,6 @@ import Tip.Pretty.Why3(Why3Var(..))
 import Tip.Types
 import Tip.Core hiding (apply)
 import Tip.Rename
-import Data.Maybe
 import Data.Char (isAlphaNum)
 
 apply :: Doc -> [Doc] -> Doc
@@ -34,6 +33,7 @@ ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort _ []) =
   clause "type" "type" $
     ppVar sort <+> ":" <+> "$tType"
+ppSort _ = error "polymorphism not supported in TFF"
 
 ppUninterp :: PrettyVar a => Signature a -> Doc
 ppUninterp (Signature f _ (PolyType [] arg_types result_type)) =
@@ -42,6 +42,7 @@ ppUninterp (Signature f _ (PolyType [] arg_types result_type)) =
     case arg_types of
       [] -> ppType result_type
       _  -> sep (punctuate " *" (map ppType arg_types)) <+> ">" <+> ppType result_type
+ppUninterp _ = error "polymorphism not supported in TFF"
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
 ppFormula form =
@@ -106,6 +107,7 @@ ppExpr _ (Quant _ q ls e) =
     (ppQuant q <> brackets (fsep (punctuate "," (map ppLocal ls))) <> ":")
     2
     (ppExpr 1 e)
+ppExpr _ _ = error "unsupported expression in TFF"
 
 ppLocal :: PrettyVar a => Local a -> Doc
 ppLocal Local{..} = ppVar lcl_name <> ":" <> ppType lcl_type
@@ -132,6 +134,7 @@ ppBuiltin NumGe     = "$greatereq"
 ppBuiltin NumLt     = "$less"
 ppBuiltin NumLe     = "$lesseq"
 ppBuiltin NumWiden  = "$to_real"
+ppBuiltin _         = error "unsupported builtin in TFF"
 
 ppLit :: Lit -> Doc
 ppLit (Int i)      = integer i
@@ -142,6 +145,7 @@ ppType :: PrettyVar a => Type a -> Doc
 ppType (TyVar x)        = ppVar x
 ppType (TyCon tc ts)    = apply (ppVar tc) (map ppType ts)
 ppType (BuiltinType bu) = ppBuiltinType bu
+ppType (_ :=>: _)       = error "lambda functions not supported in TFF"
 
 ppBuiltinType :: BuiltinType -> Doc
 ppBuiltinType Integer = "$int"

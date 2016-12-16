@@ -10,9 +10,6 @@ import Tip.Scope
 
 import Data.List (delete, nub, (\\))
 import Data.Generics.Geniplate
-import Control.Applicative
-
-import Tip.Pass.Conjecture
 
 -- | Transforms define-fun to declare-fun in the most straightforward way.
 --   All parts of the right hand side is preserved, including match and if-then-else.
@@ -64,6 +61,7 @@ recursionInduction :: forall a . Name a => Int -> [Int] -> Theory a -> Fresh [Th
 recursionInduction f_num xs_nums thy =
   case theoryGoals thy of
     ([],_) -> return [thy]
+    (Formula{fm_role = Assert}:_, _) -> __
     (Formula Prove attrs tvs body:gs,assums) ->
       do let (vars,e) = forallView body
          let f = nub [ g | g@Global{..} <- universeBi e ] !! f_num

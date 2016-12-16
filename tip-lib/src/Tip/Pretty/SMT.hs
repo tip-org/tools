@@ -4,9 +4,8 @@ module Tip.Pretty.SMT where
 import Text.PrettyPrint
 
 import Tip.Pretty
-import qualified Tip.Pretty
 import Tip.Types
-import Tip.Core (ifView, topsort, neg, exprType, makeGlobal, uses, collectLets)
+import Tip.Core (ifView, topsort, exprType, makeGlobal, uses, collectLets)
 import Tip.Rename
 import Data.Maybe
 import Data.Char (isAlphaNum)
@@ -65,6 +64,7 @@ ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAtt
 ppDatas :: PrettyVar a => [Datatype a] -> Doc
 ppDatas datatypes@(Datatype _ _ tyvars _:_) =
   parExprSep "declare-datatypes" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppData datatypes))]
+ppDatas [] = error "empty scc"
 
 ppData :: PrettyVar a => Datatype a -> Doc
 ppData (Datatype tycon attrs _ datacons) =

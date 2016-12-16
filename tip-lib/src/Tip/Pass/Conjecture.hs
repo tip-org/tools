@@ -9,7 +9,6 @@ import Tip.Core
 import Tip.Fresh
 import Control.Monad
 import Control.Monad.Writer
-import Data.Generics.Geniplate
 
 -- | Splits a theory with many goals into many theories each with one goal
 splitConjecture :: Theory a -> [Theory a]
@@ -95,6 +94,7 @@ typeSkolemConjecture thy =
     return thy {
       thy_asserts = Formula Prove attrs [] (makeTyCons (zip tvs tvs') form):thy_asserts thy,
       thy_sorts = [ putAttr skolem () $ Sort tv [] [] ] ++ thy_sorts thy }
+  ty_skolem1 thy Formula{fm_role = Assert} = error "assertion in goals"
 
   makeTyCons tvs =
     transformTypeInExpr $ \ty ->

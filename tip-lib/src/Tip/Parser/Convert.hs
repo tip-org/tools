@@ -4,15 +4,12 @@ module Tip.Parser.Convert where
 import Tip.Parser.AbsTIP as A -- from A ...
 import Tip.Core          as T -- ... to T
 import Tip.Pretty
-import Tip.Pretty.SMT
+import Tip.Pretty.SMT()
 
 import Text.PrettyPrint
-import Control.Applicative
 import Control.Monad.State
-import Control.Monad.Error
-import Data.Foldable (foldrM)
+import Control.Monad.Except
 
-import qualified Tip.Scope
 import Tip.Scope
 import Tip.Fresh
 
@@ -292,28 +289,24 @@ trHead mgt (A.Const sym) args    =
                       $$ " with polymorphic type " <+> pp pt
        _ -> throwError $ "No type information for:" <+> ppSym sym
 
-trHead _ x args = return (Builtin b :@: args)
- where
-  b = case x of
-    A.At       -> T.At
-    A.And      -> T.And
-    A.Or       -> T.Or
-    A.Not      -> T.Not
-    A.Implies  -> T.Implies
-    A.Equal    -> T.Equal
-    A.Distinct -> T.Distinct
-    A.NumAdd   -> T.NumAdd
-    A.NumSub   -> T.NumSub
-    A.NumMul   -> T.NumMul
-    A.NumDiv   -> T.NumDiv
-    A.IntDiv   -> T.IntDiv
-    A.IntMod   -> T.IntMod
-    A.NumGt    -> T.NumGt
-    A.NumGe    -> T.NumGe
-    A.NumLt    -> T.NumLt
-    A.NumLe    -> T.NumLe
-    A.NumWiden -> T.NumWiden
-
+trHead _ A.At       args = return (Builtin T.At       :@: args)
+trHead _ A.And      args = return (Builtin T.And      :@: args)
+trHead _ A.Or       args = return (Builtin T.Or       :@: args)
+trHead _ A.Not      args = return (Builtin T.Not      :@: args)
+trHead _ A.Implies  args = return (Builtin T.Implies  :@: args)
+trHead _ A.Equal    args = return (Builtin T.Equal    :@: args)
+trHead _ A.Distinct args = return (Builtin T.Distinct :@: args)
+trHead _ A.NumAdd   args = return (Builtin T.NumAdd   :@: args)
+trHead _ A.NumSub   args = return (Builtin T.NumSub   :@: args)
+trHead _ A.NumMul   args = return (Builtin T.NumMul   :@: args)
+trHead _ A.NumDiv   args = return (Builtin T.NumDiv   :@: args)
+trHead _ A.IntDiv   args = return (Builtin T.IntDiv   :@: args)
+trHead _ A.IntMod   args = return (Builtin T.IntMod   :@: args)
+trHead _ A.NumGt    args = return (Builtin T.NumGt    :@: args)
+trHead _ A.NumGe    args = return (Builtin T.NumGe    :@: args)
+trHead _ A.NumLt    args = return (Builtin T.NumLt    :@: args)
+trHead _ A.NumLe    args = return (Builtin T.NumLe    :@: args)
+trHead _ A.NumWiden args = return (Builtin T.NumWiden :@: args)
 
 trBinder :: A.Binder -> [Local Id] -> T.Expr Id -> T.Expr Id
 trBinder b = case b of
@@ -365,3 +358,4 @@ trAttrs = nubBy ((==) `on` fst) . map trAttr
 trAttr :: A.Attr -> T.Attribute
 trAttr (NoValue (Keyword (':':name))) = (name, Nothing)
 trAttr (Value (Keyword (':':name)) value) = (name, Just (symStr value))
+trAttr _ = error "lexical error in keyword"

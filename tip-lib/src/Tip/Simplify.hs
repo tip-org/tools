@@ -9,8 +9,6 @@ import Data.List
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Foldable as F
-import Control.Applicative
-import Control.Monad
 import qualified Data.Map as Map
 import Tip.Writer
 import Tip.Utils
@@ -305,6 +303,7 @@ align ls rs =
       (Just (Case pl el), Just (Case pr er)) -> (pr,su pl pr el,er)
       (Just (Case p e),   Nothing)           -> (p,e,dr)
       (Nothing,           Just (Case p e))   -> (p,dl,e)
+      (Nothing,           Nothing)           -> error "not sure why this case should be impossible"
   | p <- pats
   ]
   where

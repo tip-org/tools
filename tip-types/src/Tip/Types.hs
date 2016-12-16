@@ -7,8 +7,6 @@ module Tip.Types where
 import Data.Generics.Geniplate
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
-import Data.Monoid
-import Data.Ratio
 import Data.Data
 import GHC.Generics(Generic)
 import Control.DeepSeq

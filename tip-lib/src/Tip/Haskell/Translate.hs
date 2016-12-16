@@ -20,8 +20,6 @@ import Data.Maybe (isNothing)
 
 import Tip.CallGraph
 
-import Control.Monad
-
 import qualified Data.Foldable as F
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
@@ -430,6 +428,7 @@ trTheory' mode thy@Theory{..} =
                 [H.Lam [VarPat (lcl_name x)] e])
           (tr_expr Formula b)
           xs
+      T.LetRec{} -> ERROR("letrec not supported")
 
     where
     maybe_ty_sig e@(hd@(Gbl Global{..}) :@: es) he
@@ -514,7 +513,9 @@ trType (ts :=>: t)     = foldr TyArr (trType t) (map trType ts)
 trType (BuiltinType b) = trBuiltinType b
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
-trBuiltinType t | Just ty <- lookup t hsBuiltinTys = H.TyCon ty []
+trBuiltinType t
+  | Just ty <- lookup t hsBuiltinTys = H.TyCon ty []
+  | otherwise = __
 
 withBool :: (a ~ HsId b) => (a -> [c] -> d) -> Bool -> d
 withBool k b = k (prelude (show b)) []
@@ -656,7 +657,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       [(quickSpec "conIsBackground", H.Apply (prelude "True") []) | background]
 
     where
-    (pre,qs_type) = qsType t
+    (_pre,qs_type) = qsType t
     lam = H.Lam [H.ConPat (quickSpec "Dict") []]
 
   instance_decl (_,t) =
@@ -710,7 +711,6 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
   bool_used = Boolean `elem` used_builtin_types
   num_used  = -- Integer `elem` used_builtin_types
               or [ op `elem` map fst builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
-  real_used = Real `elem` used_builtin_types
 
   builtin_decls
     =  [ bool_lit_decl b | bool_used, b <- [False,True] ]

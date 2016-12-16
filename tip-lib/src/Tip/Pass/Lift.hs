@@ -13,7 +13,6 @@ import Data.Char (toLower)
 import Data.Either
 import Data.List
 import Data.Generics.Geniplate
-import Control.Applicative
 import Control.Monad
 import Control.Monad.Writer
 import qualified Data.Map as Map

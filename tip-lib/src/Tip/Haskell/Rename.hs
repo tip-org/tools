@@ -52,6 +52,7 @@ makeUniform s
 initialAlpha :: String -> String
 initialAlpha s@(c:_) | isAlpha c = s
                      | otherwise = 'x':s
+initialAlpha [] = __
 
 disambigHs :: String -> [String]
 disambigHs s
@@ -62,11 +63,13 @@ upper :: String -> String
 upper s@(c:r)
     | isOperator s = if c == ':' then s else ':':s
     | otherwise    = if isUpper c then s else toUpper c:r
+upper [] = __
 
 lower :: String -> String
 lower s@(c:r)
     | isOperator s = if c == ':' then r else s
     | otherwise    = if isLower c then s else toLower c:r
+lower [] = __
 
 isOperator :: String -> Bool
 isOperator = all (`elem` opSyms)

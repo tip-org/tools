@@ -6,14 +6,10 @@ import Tip.Parser
 import Tip.Fresh
 import Tip.Pretty
 import Control.Monad.Writer
-import Control.Applicative
-
-import Data.Monoid
 
 import qualified Data.Foldable as F
 
 import qualified Data.Map as M
-import Data.Map (Map)
 
 import Data.Generics.Geniplate
 

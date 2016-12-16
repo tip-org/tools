@@ -3,27 +3,14 @@ module Main where
 
 import Tip.GHC
 import Tip.GHC.Params
-
-import System.Environment
-import Data.Ord
-
-import Control.Monad
-
-import Tip.Core
 import Tip.Fresh
-import Tip.Simplify
-import Tip.Lint
 import Tip.Passes
-
-import Tip.Utils.Rename
-
-import Tip.Pretty
 import Tip.Pretty.SMT as SMT
 
 import Options.Applicative
-import System.Environment
 import Language.Haskell.TH.Syntax(qRunIO, lift)
 import System.Process
+import System.Environment
 
 main :: IO ()
 main = do

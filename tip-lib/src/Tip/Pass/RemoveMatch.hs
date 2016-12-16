@@ -5,7 +5,6 @@ module Tip.Pass.RemoveMatch where
 import Tip.Core
 import Tip.Fresh
 import Tip.Scope
-import qualified Data.Map as Map
 import Data.Generics.Geniplate
 
 -- | Turn case expressions into @is-Cons@, @head@, @tail@ etc.
@@ -33,6 +32,9 @@ removeMatch thy@Theory{..} = transformBiM go thy
         Match (matches x (gbl_name c))
           [Case Default rest,
            Case (LitPat (Bool True)) clause]
+    match _ [] = ERROR("empty list of cases")
+    match _ (Case Default _:_) = ERROR("default case not first in list of cases")
+    match _ (Case LitPat{} _:_) = __
 
     matches x c =
       Gbl (uncurry discriminator (whichConstructor c scp) args) :@: [Lcl x]

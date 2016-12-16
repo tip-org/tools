@@ -5,7 +5,6 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Utils.Rename (renameWith,disambig)
 import Tip.Rename
 import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
@@ -76,6 +75,7 @@ ppSort (Sort sort _ n) =
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas (d:ds) = vcat (ppData "type" d:map (ppData "with") ds)
+ppDatas [] = error "empty scc"
 
 ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
 ppData header (Datatype tc _ tvs cons) =
@@ -101,6 +101,7 @@ ppUninterp (Signature f  _(PolyType _ arg_types result_type)) =
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
 ppFuncs (fn:fns) = vcat (ppFunc "function" fn:map (ppFunc "with") fns)
+ppFuncs [] = error "empty scc"
 
 ppFunc :: (PrettyVar a, Ord a) => Doc -> Function a -> Doc
 ppFunc header (Function f _attrs _tvs xts t e) =
@@ -137,6 +138,7 @@ ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls (ppExpr 0
 ppExpr i (Match e alts) =
   parIf (i > 0) $ block ("match" $\ ppExpr 0 e $\ "with")
                         (separating vcat (repeat "|") (map ppCase alts))
+ppExpr _ LetRec{} = error "letrec not supported"
 
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Expr a] -> Doc
 ppHead (Gbl gbl)   args = ppVar (gbl_name gbl) $\ fsep (map (ppExpr 1) args)

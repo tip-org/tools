@@ -16,7 +16,7 @@ import Tip.Fresh
 import Tip.Core hiding (Expr, Head)
 import qualified Tip.Core as Tip
 
-import Tip.Scope (dataTypeGlobals, GlobalInfo(..), globalType)
+import Tip.Scope (dataTypeGlobals, globalType)
 
 import qualified Data.Foldable as F
 
@@ -29,8 +29,6 @@ import Control.Monad.Writer
 
 import Data.Generics.Geniplate
 
-import Data.List (union)
-import Data.Maybe (catMaybes)
 import Data.Either
 
 import Debug.Trace
@@ -71,7 +69,7 @@ toType :: Expr (Head a) x -> Type a
 toType (App (Con tc) ts)  = TyCon tc (map toType ts)
 toType (App (Arrow _) ts) = map toType (init ts) :=>: toType (last ts)
 toType (App (Bun bun) []) = BuiltinType bun
-toType (Var _)            = error "Tip.Pass.Monomorphise.toType: variable!"
+toType _                  = error "Tip.Pass.Monomorphise.toType: variable or strange type"
 
 --------------------------------------------------------------------------------
 -- Records

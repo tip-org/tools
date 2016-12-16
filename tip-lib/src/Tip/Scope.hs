@@ -8,7 +8,7 @@ import Tip.Pretty
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Map (Map)
 import Data.Set (Set)
 import qualified Data.Map as M
@@ -123,17 +123,14 @@ whichProjector s = fromMaybe __ . lookupProjector s
 
 -- * The scope monad
 
-newtype ScopeT a m b = ScopeT { unScopeT :: StateT (Scope a) (ErrorT Doc m) b }
+newtype ScopeT a m b = ScopeT { unScopeT :: StateT (Scope a) (ExceptT Doc m) b }
   deriving (Functor, Applicative, Monad, MonadPlus, Alternative, MonadState (Scope a), MonadError Doc)
 
 instance MonadTrans (ScopeT a) where
   lift = ScopeT . lift . lift
 
-instance Error Doc where
-  strMsg = text
-
 runScopeT :: Monad m => ScopeT a m b -> m (Either Doc b)
-runScopeT (ScopeT m) = runErrorT (evalStateT m emptyScope)
+runScopeT (ScopeT m) = runExceptT (evalStateT m emptyScope)
 
 checkScopeT :: Monad m => ScopeT a m b -> m b
 checkScopeT m = runScopeT m >>= check

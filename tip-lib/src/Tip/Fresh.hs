@@ -5,7 +5,6 @@ module Tip.Fresh where
 
 import Tip.Utils
 import Tip.Pretty
-import Control.Applicative hiding (empty)
 import Control.Monad.State.Strict
 import Control.Arrow ((&&&))
 
@@ -52,4 +51,5 @@ instance Name Int where
 
 instance Name a => Name (PPVar a) where
   freshNamed = fmap PPVar . freshNamed
+  getUnique = getUnique . unPPVar
 

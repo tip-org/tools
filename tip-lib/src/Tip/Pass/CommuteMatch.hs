@@ -12,7 +12,6 @@ import Tip.Simplify
 import Tip.Scope
 
 import Data.Generics.Geniplate
-import Control.Applicative
 import Data.Maybe
 import Control.Monad
 

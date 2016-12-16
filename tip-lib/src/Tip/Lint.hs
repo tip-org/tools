@@ -22,7 +22,7 @@ import Tip.Scope
 import Tip.Pretty
 import Tip.Rename
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.State
 import Data.Maybe
 import Text.PrettyPrint
@@ -228,7 +228,6 @@ lintCall hd exprs args =
     throwError (fsep ["Function" <+> pp hd, "which expects arguments of type", nest 2 (vcat (map pp args)), "applied to arguments of type", nest 2 (vcat (map pp (map exprType exprs))), "in", nest 2 (pp (hd :@: exprs))])
 
 lintBuiltin :: (PrettyVar a, Ord a) => Builtin -> [Type a] -> ScopeM a [Type a]
-lintBuiltin At [] = throwError "@ cannot have arity 0"
 lintBuiltin At ((args :=>: res):_) =
   return ((args :=>: res):args)
 lintBuiltin At (ty:_) =
@@ -238,11 +237,9 @@ lintBuiltin And tys = return (replicate (length tys) boolType)
 lintBuiltin Or tys = return (replicate (length tys) boolType)
 lintBuiltin Not _ = return [boolType]
 lintBuiltin Implies _ = return [boolType, boolType]
-lintBuiltin Equal [] = throwError "Nullary ="
 lintBuiltin Equal tys@(ty:_) = return (replicate (length tys) ty)
-lintBuiltin Distinct [] = throwError "Nullary distinct"
 lintBuiltin Distinct tys@(ty:_) = return (replicate (length tys) ty)
-lintBuiltin NumAdd tys = return (replicate (length tys) (head tys))
+lintBuiltin NumAdd tys@(ty:_) = return (replicate (length tys) ty)
 lintBuiltin NumSub (ty:_) = return [ty, ty]
 lintBuiltin NumMul (ty:_) = return [ty, ty]
 lintBuiltin NumDiv (ty:_) = return [ty, ty]
@@ -253,6 +250,8 @@ lintBuiltin NumGe (ty:_) = return [ty, ty]
 lintBuiltin NumLt (ty:_) = return [ty, ty]
 lintBuiltin NumLe (ty:_) = return [ty, ty]
 lintBuiltin NumWiden _ = return [intType]
+lintBuiltin _ [] =
+  throwError "Missing arguments to built-in function"
 
 isExpression :: Builtin -> Bool
 isExpression Equal = True

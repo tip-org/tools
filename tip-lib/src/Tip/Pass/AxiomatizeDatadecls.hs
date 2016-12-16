@@ -8,9 +8,6 @@ import Tip.Fresh
 import Tip.Scope (dataTypeGlobals, GlobalInfo(..), globalType)
 
 import Data.List (tails)
-import Data.Monoid
-
-import qualified Data.Map as M
 
 axiomatizeDatadecls :: Name a => Bool -> Theory a -> Fresh (Theory a)
 axiomatizeDatadecls ueq thy@Theory{..} =

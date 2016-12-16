@@ -5,18 +5,12 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Utils.Rename (renameWith,disambig)
 import Tip.Rename
 import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
 import Data.Char
 import Data.Maybe
-import Data.List (intersperse, partition)
-
-import Data.Generics.Geniplate
-
-import qualified Data.Set as S
-
+import Data.List (partition)
 
 ($-$), block :: Doc -> Doc -> Doc
 d $-$ b = vcat [d,"",b]
@@ -179,6 +173,7 @@ ppExpr i (Match e alts) =
   parIf (i <= 0) $ block ("case" $\ ppExpr 0 e $\ "of")
                          (vcat (intersperseWithPre ($\) "|" (map ppCase
                                   (uncurry (++) (partition ((/= Default).case_pat) alts)))))
+ppExpr _ LetRec{} = error "letrec not supported"
 
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
 ppHead (Gbl gbl)      args                        = ppVar (gbl_name gbl) $\ fsep args

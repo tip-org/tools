@@ -18,7 +18,6 @@ import System.IO.Temp
 
 import Tip.Core hiding (Signature)
 import Tip.Fresh
-import Tip.Utils
 import Data.List
 import GHC.IO.Handle
 import System.IO

@@ -7,8 +7,6 @@ module Tip.Pass.EqualFunctions(collapseEqual, removeAliases) where
 import Tip.Core
 import Tip.Fresh
 
-import Data.Traversable
-import Control.Applicative
 import Data.Either
 import Data.List (delete, inits, nub)
 
