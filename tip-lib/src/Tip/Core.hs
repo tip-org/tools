@@ -632,8 +632,8 @@ readAttr name = mapAttr readMaybe show (stringAttr name)
 keep :: Attr ()
 keep = unitAttr "keep"
 
-originalName :: Attr String
-originalName = stringAttr "original-name"
+source :: Attr String
+source = stringAttr "source"
 
 definition, dataDomain, dataProjection, dataDistinct, speculatedLemma, skolem, lambda, letVar :: Attr ()
 definition = unitAttr "definition"

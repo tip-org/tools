@@ -920,7 +920,7 @@ nameAttrs :: NamedThing a => a -> [Attribute]
 nameAttrs x =
   case toHaskellName x of
     Nothing -> []
-    Just name -> [("original-name", Just name)]
+    Just name -> putAttr source name []
 
 -- Should a given type be erased?
 eraseType :: GHC.Type -> Bool

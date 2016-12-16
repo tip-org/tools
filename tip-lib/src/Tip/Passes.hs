@@ -275,7 +275,7 @@ instance Pass StandardPass where
       unitPass UniqLocals $
         help "Make all local variables unique",
       unitPass DropAttributes $
-        help "Remove all attributes (e.g. :original-name) from declarations",
+        help "Remove all attributes (e.g. :keep) from declarations",
       fmap Induction $
         option auto $
           long "induction" <>
