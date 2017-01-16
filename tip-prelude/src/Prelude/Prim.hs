@@ -12,10 +12,10 @@ special :: Addr# -> a
 special name = unsafeCoerce ()
 
 {-# ANN type Integer (PrimType Integer) #-}
-data Integer = MkInteger Integer
+data Integer = MkInteger Integer | PleaseDoNotUnpackMe1
 
 {-# ANN type Rational (PrimType Real) #-}
-data Rational = MkRational Rational
+data Rational = MkRational Rational | PleaseDoNotUnpackMe2
 
 {-# ANN primEquals Inline #-}
 primEquals :: a -> a -> Bool

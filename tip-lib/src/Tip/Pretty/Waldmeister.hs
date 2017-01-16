@@ -11,13 +11,9 @@ import Tip.Core
 import Tip.Utils.Rename
 import Tip.Utils
 import Data.Generics.Geniplate
-import Data.Maybe
-import Data.Char (isAlphaNum,isDigit)
+import Data.Char (isAlphaNum)
 import Data.List (sortBy)
 import Data.Ord (comparing)
-
-import Control.Monad.State
-import Control.Monad
 
 validChar :: Char -> String
 validChar x
@@ -58,8 +54,10 @@ ppType (TyCon t []) = ppVar t
 ppType t            = error $ "Waldmeister: cannot handle any sophisticated types: " ++ show (SMT.ppType t)
 
 ppSig :: (Ord a,PrettyVar a) => Signature a -> Doc
-ppSig (Signature f (PolyType [] arg_types res_type)) =
+ppSig (Signature f _ (PolyType [] arg_types res_type)) =
   hsep $ [ppVar f,":"] ++ map ppType arg_types ++ ["->",ppType res_type]
+ppSig (Signature _ _ (PolyType (_:_) _ _)) =
+  error "Waldmeister: cannot handle polymorphic types"
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
 ppFormula = ppExpr . snd . forallView . fm_body
@@ -73,6 +71,7 @@ ppExpr Quant{}      = error "Waldmeister: cannot handle nested quantifiers"
 ppExpr Lam{}        = error "Waldmeister: defunctionalize"
 ppExpr Match{}      = error "Waldmeister: axiomatize funcdecls and lift matches"
 ppExpr Let{}        = error "Waldmeister: lift let declarations"
+ppExpr LetRec{}     = error "Waldmeister: cannot handle letrec"
 
 ppHead :: (Ord a, PrettyVar a) => Head a -> Doc
 ppHead (Gbl (Global g _ _)) = ppVar g

@@ -5,8 +5,6 @@ module Tip.Pass.RemoveNewtype where
 import Tip.Core
 import Tip.Fresh
 import Tip.Scope
-import qualified Data.Map as Map
-import qualified Data.Set as Set
 import Data.Generics.Geniplate
 import Data.Maybe
 import Control.Monad

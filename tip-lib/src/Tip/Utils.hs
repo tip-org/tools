@@ -8,11 +8,8 @@ import Data.Maybe
 import Data.Graph hiding (components)
 import Data.List.Split
 import Data.Char
-import Data.Foldable (Foldable)
-import qualified Data.Foldable as F
 import Data.Function (on)
 import Data.Ord
-import Data.Function
 
 -- | Sort and remove duplicates
 usort :: Ord a => [a] -> [a]
@@ -83,8 +80,8 @@ flagifyShow :: Show a => a -> String
 flagifyShow = flagify . show
 
 -- | Calculates the maximum value of a foldable value.
-maximumOn :: forall f a b . (F.Foldable f,Ord b) => (a -> b) -> f a -> b
-maximumOn f = f . F.maximumBy (comparing f)
+maximumOn :: forall f a b . (Foldable f,Ord b) => (a -> b) -> f a -> b
+maximumOn f = f . maximumBy (comparing f)
 
 -- | Pair up a list with its previous elements
 --

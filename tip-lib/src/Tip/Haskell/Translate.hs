@@ -20,8 +20,6 @@ import Data.Maybe (isNothing)
 
 import Tip.CallGraph
 
-import Control.Monad
-
 import qualified Data.Foldable as F
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
@@ -130,7 +128,7 @@ theorySigs Theory{..} = map sig_name thy_sigs
 ufInfo :: Theory (HsId a) -> [H.Type (HsId a)]
 ufInfo Theory{thy_sigs} = imps
   where
-  imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ <- thy_sigs]
+  imps = [TyImp (Derived f "imp") (H.TyCon (Derived f "") []) | Signature f _ _ <- thy_sigs]
 
 data Mode = Feat | QuickCheck
   | LazySmallCheck
@@ -186,9 +184,9 @@ trTheory' mode thy@Theory{..} =
     where d = Exact "d"
 
   tr_datatype :: Datatype a -> [Decl a]
-  tr_datatype (Datatype tc tvs cons) =
+  tr_datatype (Datatype tc _ tvs cons) =
     [ DataDecl tc tvs
-        [ (c,map (trType . snd) args) | Constructor c _ args <- cons ]
+        [ (c,map (trType . snd) args) | Constructor c _ _ args <- cons ]
         (map prelude ["Eq","Ord","Show"]
          ++ [typeable "Typeable" | not (isSmten mode) ])
     ]
@@ -215,7 +213,7 @@ trTheory' mode thy@Theory{..} =
                (\ e _ -> Apply (lsc "><") [e,Apply (lsc "series") []])
                (Apply (lsc "cons") [Apply c []])
                as
-            | Constructor c _ as <- cons
+            | Constructor c _ _ as <- cons
             ])]
     | isLazySmallCheck mode ]
     ++
@@ -236,7 +234,7 @@ trTheory' mode thy@Theory{..} =
                                      [Apply (prelude "-") [var d,H.Int 1]]])
                            (Apply (smtenMonad "return") [Apply c []])
                            args
-                   | Constructor c _ args <- cons
+                   | Constructor c _ _ args <- cons
                    ]])
             ])
         ]
@@ -245,11 +243,11 @@ trTheory' mode thy@Theory{..} =
     ]
 
   tr_sort :: Sort a -> Decl a
-  tr_sort (Sort s i) | null i = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
-  tr_sort (Sort _ _) = error "Haskell.Translate: Poly-kinded abstract sort"
+  tr_sort (Sort s _ i) | null i = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
+  tr_sort (Sort _ _ _) = error "Haskell.Translate: Poly-kinded abstract sort"
 
   tr_sig :: Signature a -> [Decl a]
-  tr_sig (Signature f pt) =
+  tr_sig (Signature f _ pt) =
     -- newtype f_NT = f_Mk (forall tvs . (Arbitrary a, CoArbitrary a) => T)
     [ DataDecl (Derived f "") [] [ (Derived f "Mk",[tr_polyTypeArbitrary pt]) ] []
     , FunDecl (Derived f "get")
@@ -369,13 +367,13 @@ trTheory' mode thy@Theory{..} =
     read_head e = Apply (prelude "read") [Apply (prelude "head") [e]]
 
   tr_assert :: Int -> T.Formula a -> ((a,[a]),[Decl a])
-  tr_assert i (T.Formula r _ tvs b) =
+  tr_assert i T.Formula{..} =
     ((prop_name,args),
       [ TySig prop_name []
           (foldr TyArr
              (case mode of LazySmallCheck{} -> H.TyCon (lsc "Property") []
                            _                -> H.TyCon (prelude "Bool") [])
-             [ trType (applyType tvs (replicate (length tvs) (intType)) t)
+             [ trType (applyType fm_tvs (replicate (length fm_tvs) (intType)) t)
              | Local _ t <- typed_args ])
       | mode == Feat || isLazySmallCheck mode || mode == Smten ]
       ++
@@ -385,13 +383,13 @@ trTheory' mode thy@Theory{..} =
     prop_name | i == 1    = Exact "prop"
               | otherwise = Exact ("prop" ++ show i)
     (typed_args,body) =
-      case b of
+      case fm_body of
         Quant _ Forall lcls term -> (lcls,term)
-        _                        -> ([],b)
+        _                        -> ([],fm_body)
     args = map lcl_name typed_args
 
     assume e =
-      case r of
+      case fm_role of
         Prove  -> e
         Assert -> e -- Apply (tipDSL "assume") [e]
 
@@ -430,6 +428,7 @@ trTheory' mode thy@Theory{..} =
                 [H.Lam [VarPat (lcl_name x)] e])
           (tr_expr Formula b)
           xs
+      T.LetRec{} -> ERROR("letrec not supported")
 
     where
     maybe_ty_sig e@(hd@(Gbl Global{..}) :@: es) he
@@ -514,7 +513,9 @@ trType (ts :=>: t)     = foldr TyArr (trType t) (map trType ts)
 trType (BuiltinType b) = trBuiltinType b
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
-trBuiltinType t | Just ty <- lookup t hsBuiltinTys = H.TyCon ty []
+trBuiltinType t
+  | Just ty <- lookup t hsBuiltinTys = H.TyCon ty []
+  | otherwise = __
 
 withBool :: (a ~ HsId b) => (a -> [c] -> d) -> Bool -> d
 withBool k b = k (prelude (show b)) []
@@ -623,7 +624,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                , let tys = map trType (qsTvs n)
                ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
-               | Signature f _ <- thy_sigs
+               | Signature f _ _ <- thy_sigs
                ])
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
@@ -656,7 +657,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       [(quickSpec "conIsBackground", H.Apply (prelude "True") []) | background]
 
     where
-    (pre,qs_type) = qsType t
+    (_pre,qs_type) = qsType t
     lam = H.Lam [H.ConPat (quickSpec "Dict") []]
 
   instance_decl (_,t) =
@@ -710,7 +711,6 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
   bool_used = Boolean `elem` used_builtin_types
   num_used  = -- Integer `elem` used_builtin_types
               or [ op `elem` map fst builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
-  real_used = Real `elem` used_builtin_types
 
   builtin_decls
     =  [ bool_lit_decl b | bool_used, b <- [False,True] ]

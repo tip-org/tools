@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables, BangPatterns #-}
 module Tip.GHC where
 
 #include "errors.h"
@@ -7,21 +7,19 @@ import GHC hiding (Id, exprType, DataDecl, Name, typeKind)
 import qualified GHC
 import Tip.Fresh
 import Var hiding (Id)
-import qualified Var
 import Tip.GHC.Annotations hiding (Lit, Cast)
 import qualified Tip.GHC.Annotations as Tip
 import Outputable
 import Tip.Pretty
 import Name hiding (Name, varName)
 import Data.List
-import Tip.Pretty.SMT hiding (apply)
+import Tip.Pretty.SMT()
 import TysPrim
 import TysWiredIn
 import MkCore
 import PrelNames
 import Constants
 import BasicTypes hiding (Inline)
-import Control.Monad.Trans.Writer
 import Data.Char
 import Avail
 import Tip.Utils hiding (Rec, NonRec)
@@ -47,7 +45,6 @@ import Control.Monad
 import UniqFM
 import DynFlags
 import Data.IORef
-import Kind
 import CoreUtils
 import qualified Data.ByteString.Char8 as BS
 import Tip.Passes
@@ -59,6 +56,8 @@ import Tip.Lint
 import Module
 import Data.List.Split
 import Control.Monad.Trans.State.Strict
+import Data.Maybe
+import System.IO
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -66,7 +65,7 @@ import Control.Monad.Trans.State.Strict
 
 -- Translate a Haskell file into a TIP theory.
 readHaskellFile :: Params -> String -> IO (Theory Id)
-readHaskellFile params@Params{..} name =
+readHaskellFile Params{..} name =
   runGhc (Just libdir) $ do
     -- Set the GHC flags.
     dflags <- getSessionDynFlags
@@ -125,6 +124,7 @@ readHaskellFile params@Params{..} name =
       Just (AConLike (RealDataCon ratioDataCon)) <-
         lookupGlobalName ratioDataConName
       Just (AnId eqId) <- lookupName eqName
+      Just (AnId unpackCStringId) <- lookupName unpackCStringName
       let builtin =
             Program (Map.fromList builtinTypes)
               (Map.fromList builtinGlobals) Map.empty
@@ -137,6 +137,7 @@ readHaskellFile params@Params{..} name =
             | i <- [0..mAX_TUPLE_SIZE]]
           builtinGlobals =
             [specialFun pAT_ERROR_ID Error,
+             specialFun unpackCStringId Tip.Cast,
              specialFun fromIntegerId Tip.Cast,
              specialFun fromRationalId Tip.Cast,
              specialFun eqId (Primitive Equal 2),
@@ -157,31 +158,37 @@ readHaskellFile params@Params{..} name =
       let prog = mconcat [home, builtin, away]
 
       when (PrintCore `elem` param_debug_flags) $
-        liftIO $ putStrLn (showOutputable home)
+        liftIO $ hPutStrLn stderr (showOutputable home)
 
       when (PrintAllCore `elem` param_debug_flags) $
-        liftIO $ putStrLn (showOutputable prog)
+        liftIO $ hPutStrLn stderr (showOutputable prog)
 
       -- Work out an initial set of functions and properties.
-      let keep = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
-          (props, funcs) = partition (isPropType prog . varType) keep
+      let kept = filter (isIncluded param_keep mods) (Map.keys (prog_globals prog))
+          (props, funcs) = partition (isPropType prog . varType) kept
+
+      -- Check that everything got included.
+      forM_ (fromMaybe [] param_keep) $ \name ->
+        unless (any (isIncluded (Just [name]) mods) kept) $
+          liftIO $ hPutStrLn stderr $
+            "Couldn't find function " ++ name ++ " in input file"
 
       let
         thy =
           completeTheory prog $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
           | prop <- props ] ++
-          [ FuncDecl (tipFunction prog func (global_definition (globalInfo prog func)))
+          [ FuncDecl (putAttr keep () (tipFunction prog func (global_definition (globalInfo prog func))))
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
-        liftIO $ putStrLn (ppRender thy)
+        liftIO $ hPutStrLn stderr (ppRender thy)
 
       let
         realName ErrorId = False
         realName CastId = False
         realName _ = True
-      return $ lint "conversion to TIP" $ clean $ freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy
+      return $ lint "conversion to TIP" $ freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy
     else liftIO $ exitWith (ExitFailure 1)
 
 -- Did the user ask us to include this function or property?
@@ -385,12 +392,7 @@ instance Show Id where
   show = varStr
 
 instance Name Id where
-  fresh = freshNamed "x"
   freshNamed x = fmap (LocalId x) fresh
-
-  refreshNamed s n
-    | "aux" `isPrefixOf` varStr n = freshNamed s
-    | otherwise = freshNamed (s ++ "-" ++ varStr n)
   getUnique (LocalId _ n) = n
   getUnique _ = 0
 
@@ -399,8 +401,11 @@ globalStr :: Program -> Var -> String
 globalStr prog x =
   case [ y | Name y <- globalAnnotations prog x ] of
     (y:_) -> y
-    [] | isSystemName (Var.varName x) -> "x"
-       | otherwise -> getOccString x
+    [] | isSystemName (Var.varName x) -> ""
+       | any (`isPrefixOf` str) ["ipv", "ds", "aux"] -> ""
+       | otherwise -> str
+      where
+        str = getOccString x
 
 -- Construct an Id from a global.
 globalId :: Program -> Var -> Id
@@ -432,6 +437,17 @@ discriminatorId :: Program -> Var -> Id
 discriminatorId prog x =
   DiscriminatorId ("is-" ++ globalStr prog x) x
 
+-- Find out if a variable corresponds to an exported function, and if so,
+-- return the name of that function.
+toHaskellName :: NamedThing a => a -> Maybe String
+toHaskellName name = do
+  mod <- nameModule_maybe (getName name)
+  return (correct (moduleNameString (moduleName mod)) ++ "." ++ getOccString name)
+  where
+    correct mod
+      | "GHC." `isPrefixOf` mod = "Prelude"
+      | otherwise = mod
+
 ----------------------------------------------------------------------
 -- The main translation functions. 
 --
@@ -458,13 +474,17 @@ discriminatorId prog x =
 -- Take a theory which may be missing some function and datatype
 -- definitions, and pull those definitions in from the Haskell program.
 completeTheory :: Program -> Theory Id -> Theory Id
-completeTheory prog thy =
+completeTheory prog thy0 =
   inContext (show msg) $
     if null funcs && null types then thy else
     completeTheory prog $!!
       thy `mappend`
       declsToTheory (map makeFunc funcs ++ map makeType types)
   where
+    -- Note: we interleave cleaning and completing the theory so that
+    -- we don't pull in the String type when the program calls error
+    thy = clean thy0
+
     funcs :: [Var]
     funcs =
       usort
@@ -487,7 +507,7 @@ completeTheory prog thy =
 
     makeType :: TyCon -> Decl Id
     makeType ty
-      | isAny ty = SortDecl (Sort (typeId prog ty) [])
+      | isAny ty = SortDecl (Sort (typeId prog ty) [] [])
       | otherwise = DataDecl (tipDatatype prog ty)
 
     msg =
@@ -499,9 +519,10 @@ completeTheory prog thy =
 tipDatatype :: Program -> TyCon -> Tip.Datatype Id
 tipDatatype prog tc =
   Datatype {
-    data_name = typeId prog tc,
-    data_tvs  = map TyVarId type_tvs,
-    data_cons = map (tipConstructor prog) type_constructors }
+    data_name  = typeId prog tc,
+    data_attrs = nameAttrs tc,
+    data_tvs   = map TyVarId type_tvs,
+    data_cons  = map (tipConstructor prog) type_constructors }
   where
     TypeInfo{..} = typeInfo prog tc
 
@@ -510,6 +531,7 @@ tipConstructor :: Program -> Var -> Tip.Constructor Id
 tipConstructor prog x =
   Constructor {
     con_name    = globalId prog x,
+    con_attrs   = nameAttrs x,
     con_discrim = discriminatorId prog x,
     con_args    = zipWith con [1..] global_args }
   where
@@ -549,7 +571,7 @@ tipType prog = tipTy . expandTypeSynonyms
         ERROR("Illegal monomorphic type in Haskell program: " ++
               showOutputable ty)
 
-    tipTyCon tc anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
+    tipTyCon _ anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
       BuiltinType ty
     tipTyCon tc _ _ | isAny tc = TyCon (typeId prog tc) []
     tipTyCon tc _ tys =
@@ -562,7 +584,7 @@ tipType prog = tipTy . expandTypeSynonyms
 -- Translate a Haskell property to TIP.
 tipFormula :: Program -> Var -> CoreExpr -> Tip.Formula Id
 tipFormula prog x t =
-  Formula Prove UserAsserted func_tvs $
+  Formula Prove func_attrs func_tvs $
     freshPass quantify func_body
   where
     Function{..} = tipFunction prog x t
@@ -572,7 +594,7 @@ tipFormula prog x t =
       Quant NoInfo Forall xs <$> quantify t
     quantify t =
       case Tip.exprType t of
-        args :=>: res -> do
+        args :=>: _res -> do
           xs <- mapM freshLocal args
           Quant NoInfo Forall xs <$>
             quantify (apply t (map Lcl xs))
@@ -591,19 +613,20 @@ data Context =
 -- Translate a Haskell function definition to TIP.
 tipFunction :: Program -> Var -> CoreExpr -> Tip.Function Id
 tipFunction prog x t =
-  runFresh $ fun (Context Map.empty Map.empty []) x t
+  runFreshFrom 0 $ fun True (Context Map.empty Map.empty []) x t
   where
-    fun :: Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
-    fun ctx x t = inContextM (showOutputable msg) $ do
-      let pty@PolyType{..} = polyType x
+    fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
+    fun attr ctx x t = inContextM (showOutputable msg) $ do
+      let PolyType{..} = polyType x
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
         Function {
-          func_name = globalId prog x,
-          func_tvs  = polytype_tvs,
-          func_args = [],
-          func_res  = polytype_res,
-          func_body = body }
+          func_name  = globalId prog x,
+          func_attrs = concat [nameAttrs x | attr],
+          func_tvs   = polytype_tvs,
+          func_args  = [],
+          func_res   = polytype_res,
+          func_body  = body }
       where
         msg =
           vcat [
@@ -614,13 +637,13 @@ tipFunction prog x t =
     expr ctx (Var inl `App` Type _ `App` e)
       | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
         expr ctx (inline e)
-    expr ctx e@(Var prim `App` Type ty `App` Lit (MachStr name))
+    expr _ (Var prim `App` Type ty `App` Lit (MachStr name))
       | Special `elem` globalAnnotations prog prim =
         case reads (BS.unpack name) of
           [(spec, "")] ->
-            special ctx (tipType prog ty) spec
+            special (tipType prog ty) spec
           _ -> ERROR("Unknown special " ++ BS.unpack name)
-    expr ctx (Lit l) = return (literal (lit l))
+    expr _   (Lit l) = return (literal (lit l))
     expr ctx (Var x) = var ctx x
     expr ctx (App t u) = app ctx t u
     expr ctx (Lam x e) = lam ctx x e
@@ -641,8 +664,8 @@ tipFunction prog x t =
     lit (LitInteger n _) = Int n
     lit l = ERROR("Unsupported literal: " ++ showOutputable l)
 
-    special :: Context -> Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
-    special ctx ty (Primitive name arity) = do
+    special :: Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
+    special ty (Primitive name arity) = do
       names <- replicateM arity fresh
       let
         funArgs (t :=>: u) = t ++ funArgs u
@@ -654,16 +677,16 @@ tipFunction prog x t =
         foldr (\arg e -> Tip.Lam [arg] e)
           (Builtin name :@: map Lcl args)
           args
-    special ctx ([ty@([argTy] :=>: _)] :=>: _) (QuantSpecial quant) = do
+    special ([ty@([argTy] :=>: _)] :=>: _) (QuantSpecial quant) = do
       -- \p -> Quant quant (\x -> p x)
       pred <- freshLocal ty
       arg  <- freshLocal argTy
       return $
         Tip.Lam [pred] (Quant NoInfo quant [arg] (apply (Lcl pred) [Lcl arg]))
-    special ctx ty Tip.Cast =
+    special ty Tip.Cast =
       return (Lcl (Local CastId ty))
-    special _ ty Error = return (errorTerm ty)
-    special _ ty spec =
+    special ty Error = return (errorTerm ty)
+    special ty spec =
       ERROR("Unsupported special " ++ show spec ++ " :: " ++ ppRender ty)
 
     var :: Context -> Var -> Fresh (Tip.Expr Id)
@@ -679,8 +702,8 @@ tipFunction prog x t =
       | (spec:_) <-
         [spec | SomeSpecial spec <- globalAnnotations prog f] = do
           let ([], ty) = applyPolyType (polyType f) (ctx_types ctx)
-          special ctx ty spec
-    var ctx x
+          special ty spec
+    var _ x
       | (l:_) <- [l | Literal l <- globalAnnotations prog x] =
           return (literal l)
     var ctx x
@@ -697,7 +720,7 @@ tipFunction prog x t =
           ConInfo{..} -> do
             -- Work out the type of the constructor.
             let
-              TyCon _ tys =
+              !(TyCon _ tys) =
                 applyType (map TyVarId global_tvs) (ctx_types ctx)
                   (tipType prog global_res)
               dt  = tipDatatype prog global_tycon
@@ -768,7 +791,7 @@ tipFunction prog x t =
       -- By inlining all polymorphic let-bindings, we avoid all this
       -- nonsense and hopefully translate partial pattern matching
       -- into partial TIP functions.
-      f <- fun ctx x t
+      f <- fun False ctx x t
       case func_tvs f of
         [] ->
           bindVar ctx x $ \ctx name ->
@@ -788,7 +811,7 @@ tipFunction prog x t =
       bindMany bindFun ctx vars $ \ctx names -> do
         -- Translate all the bodies.
         fs <- sequence $
-          [ do { f <- fun ctx var body; return f { func_name = name } }
+          [ do { f <- fun False ctx var body; return f { func_name = name } }
           | (var, body, name) <- zip3 vars bodies names ]
 
         LetRec fs <$> expr ctx t
@@ -811,8 +834,12 @@ tipFunction prog x t =
     caseAlt :: Context -> [Tip.Type Id] -> Alt Var -> Fresh (Tip.Case Id)
     caseAlt ctx _ (DEFAULT, [], e) =
       Tip.Case Default <$> expr ctx e
+    caseAlt _ _ (DEFAULT, _:_, _) =
+      error "default case with arguments"
     caseAlt ctx _ (LitAlt l, [], e) =
       Tip.Case (Tip.LitPat (lit l)) <$> expr ctx e
+    caseAlt _ _ (LitAlt _, _:_, _) =
+      error "literal with arguments"
     caseAlt ctx _ (DataAlt dc, [], e)
       | (x:_) <- [x | Literal x <- globalAnnotations prog (dataConWorkId dc)] =
         Tip.Case (Tip.LitPat x) <$> expr ctx e
@@ -849,7 +876,7 @@ tipFunction prog x t =
     bindFun :: Context -> Var -> (Context -> Id -> Fresh a) -> Fresh a
     bindFun ctx x k = do
       name <- freshNamed (globalStr prog x)
-      let sig = Signature name (polyType x)
+      let sig = Signature name [] (polyType x)
           f tys = applySignature sig tys []
       bindInlineFun ctx x f (\ctx -> k ctx name)
 
@@ -862,7 +889,7 @@ tipFunction prog x t =
     bindMany ::
       (Context -> a -> (Context -> b -> Fresh c) -> Fresh c) ->
       (Context -> [a] -> (Context -> [b] -> Fresh c) -> Fresh c)
-    bindMany bind1 ctx [] k = k ctx []
+    bindMany _ ctx [] k = k ctx []
     bindMany bind1 ctx (x:xs) k =
       bind1 ctx x $ \ctx name ->
         bindMany bind1 ctx xs $ \ctx names ->
@@ -887,6 +914,13 @@ tipFunction prog x t =
 
         substType ty =
           applyType tvs tys ty
+
+-- Put the Haskell name of a variable into its attributes.
+nameAttrs :: NamedThing a => a -> [Attribute]
+nameAttrs x =
+  case toHaskellName x of
+    Nothing -> []
+    Just name -> putAttr source name []
 
 -- Should a given type be erased?
 eraseType :: GHC.Type -> Bool
@@ -953,12 +987,12 @@ cleanExpr = transformBiM $ \e ->
 
     -- We just pull ErrorId to the top level as far as possible.
     -- If a branch of a case is an ErrorId, that branch is deleted.
-    f :@: args | any isError args -> err
+    _ :@: args | any isError args -> err
     Tip.Lam _ e | isError e -> err
     Tip.Let x t u | isError t -> (t // x) u
-    Tip.Let x t u | isError u -> err
+    Tip.Let _ _ u | isError u -> err
     Tip.Quant _ _ _ e | isError e -> err
-    Tip.Match e alts | isError e -> err
+    Tip.Match e _ | isError e -> err
     Tip.Match e alts ->
       case filter (not . isError . case_rhs) alts of
         [] -> err

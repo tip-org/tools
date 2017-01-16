@@ -5,7 +5,6 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Utils.Rename (renameWith,disambig)
 import Tip.Rename
 import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
@@ -33,7 +32,7 @@ instance PrettyVar a => PrettyVar (Why3Var a) where
 why3VarTheory :: forall a . Ord a => Theory a -> Theory (Why3Var a)
 why3VarTheory thy = fmap mk thy
  where
-  cons = S.fromList [ c | Constructor c _ _ <- universeBi thy ]
+  cons = S.fromList (map con_name (universeBi thy))
   mk x = Why3Var (x `S.member` cons) x
 
 block :: Doc -> Doc -> Doc
@@ -70,20 +69,21 @@ ppTheory (renameAvoiding why3Keywords (filter isAlphaNum) . why3VarTheory -> The
       zipWith ppFormula thy_asserts [0..])
 
 ppSort :: (PrettyVar a, Ord a) => Sort a -> Doc
-ppSort (Sort sort []) = "type" $\ ppVar sort
-ppSort (Sort sort n) =
+ppSort (Sort sort _ []) = "type" $\ ppVar sort
+ppSort (Sort sort _ n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show (length n) ++ " to Why3"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
 ppDatas (d:ds) = vcat (ppData "type" d:map (ppData "with") ds)
+ppDatas [] = error "empty scc"
 
 ppData :: (PrettyVar a, Ord a) => Doc -> Datatype a -> Doc
-ppData header (Datatype tc tvs cons) =
+ppData header (Datatype tc _ tvs cons) =
   header $\ (ppVar tc $\ sep (map ppTyVar tvs) $\
     separating fsep ("=":repeat "|") (map ppCon cons))
 
 ppCon :: (PrettyVar a, Ord a) => Constructor a -> Doc
-ppCon (Constructor c _d as) = ppVar c <+> fsep (map (ppType 1 . snd) as)
+ppCon (Constructor c _ _d as) = ppVar c <+> fsep (map (ppType 1 . snd) as)
 
 ppQuant :: (PrettyVar a, Ord a) => Doc -> [Local a] -> Doc -> Doc
 ppQuant _name [] d = d
@@ -96,14 +96,15 @@ ppLocalBinder :: (PrettyVar a, Ord a) => Local a -> Doc
 ppLocalBinder (Local x t) = ppBinder x t
 
 ppUninterp :: (PrettyVar a, Ord a) => Signature a -> Doc
-ppUninterp (Signature f (PolyType _ arg_types result_type)) =
+ppUninterp (Signature f  _(PolyType _ arg_types result_type)) =
   "function" $\ ppVar f $\ fsep (map (ppType 1) arg_types) $\ (":" <+> ppType 1 result_type)
 
 ppFuncs :: (PrettyVar a, Ord a) => [Function a] -> Doc
 ppFuncs (fn:fns) = vcat (ppFunc "function" fn:map (ppFunc "with") fns)
+ppFuncs [] = error "empty scc"
 
 ppFunc :: (PrettyVar a, Ord a) => Doc -> Function a -> Doc
-ppFunc header (Function f _tvs xts t e) =
+ppFunc header (Function f _attrs _tvs xts t e) =
    ((header $\ ppVar f $\ fsep (map (parens . ppLocalBinder) xts) $\ (":" <+> ppType 0 t <+> "="))
      $\ ppExpr 0 e
    ) $$
@@ -116,8 +117,8 @@ ppDeepPattern (DeepVarPat (Local x _)) = ppVar x
 ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 ppFormula :: (PrettyVar a, Ord a) => Formula a -> Int -> Doc
-ppFormula (Formula role _ _tvs term) i =
-  (ppRole role <+> ("x" <> int i) <+> ":") $\ (ppExpr 0 term)
+ppFormula Formula{..} i =
+  (ppRole fm_role <+> ("x" <> int i) <+> ":") $\ (ppExpr 0 fm_body)
 
 ppRole :: Role -> Doc
 ppRole Assert = "lemma"
@@ -137,6 +138,7 @@ ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls (ppExpr 0
 ppExpr i (Match e alts) =
   parIf (i > 0) $ block ("match" $\ ppExpr 0 e $\ "with")
                         (separating vcat (repeat "|") (map ppCase alts))
+ppExpr _ LetRec{} = error "letrec not supported"
 
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Expr a] -> Doc
 ppHead (Gbl gbl)   args = ppVar (gbl_name gbl) $\ fsep (map (ppExpr 1) args)

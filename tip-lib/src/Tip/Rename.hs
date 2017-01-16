@@ -3,13 +3,11 @@
 module Tip.Rename(renameAvoiding,RenamedId(..)) where
 
 #include "errors.h"
-import Data.Char (isDigit)
 import Tip.Core hiding (globals)
 import Tip.Scope
 import Tip.Pretty
 import Tip.Utils.Rename
 import Data.Traversable (Traversable)
-import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import qualified Data.Map as M
 

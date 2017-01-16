@@ -10,7 +10,6 @@ import Tip.Fresh
 
 
 import Data.List (intercalate)
-import Data.Either (partitionEithers)
 import Control.Monad ((>=>))
 import Options.Applicative
 

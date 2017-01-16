@@ -6,11 +6,7 @@ module Tip.Pass.FillInCases where
 import Tip.Core
 import Tip.Scope
 import Tip.Utils
-import Tip.Fresh
 import Tip.Pretty
-import Tip.Pretty.SMT
-import Debug.Trace
-import Text.PrettyPrint
 
 fillInCases :: (Ord a, PrettyVar a) => (Type a -> Expr a) -> Theory a -> Theory a
 fillInCases def thy =

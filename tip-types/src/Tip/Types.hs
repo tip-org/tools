@@ -7,11 +7,11 @@ module Tip.Types where
 import Data.Generics.Geniplate
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
-import Data.Monoid
-import Data.Ratio
 import Data.Data
 import GHC.Generics(Generic)
 import Control.DeepSeq
+
+type Attribute = (String, Maybe String)
 
 data Head a
   = Gbl (Global a)
@@ -129,38 +129,44 @@ data BuiltinType
   deriving (Eq,Ord,Show,Read,Data,Generic,NFData)
 
 data Function a = Function
-  { func_name :: a
-  , func_tvs  :: [a]
-  , func_args :: [Local a]
-  , func_res  :: Type a
-  , func_body :: Expr a
+  { func_name  :: a
+  , func_attrs :: [Attribute]
+  , func_tvs   :: [a]
+  , func_args  :: [Local a]
+  , func_res   :: Type a
+  , func_body  :: Expr a
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Uninterpreted function
 data Signature a = Signature
-  { sig_name :: a
-  , sig_type :: PolyType a
+  { sig_name  :: a
+  , sig_attrs :: [Attribute]
+  , sig_type  :: PolyType a
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Uninterpreted sort
 data Sort a = Sort
-  { sort_name :: a
-  , sort_tvs  :: [a] }
+  { sort_name  :: a
+  , sort_attrs :: [Attribute]
+  , sort_tvs   :: [a] }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 -- | Data definition
 data Datatype a = Datatype
-  { data_name :: a
-  , data_tvs  :: [a]
-  , data_cons :: [Constructor a]
+  { data_name  :: a
+  , data_attrs :: [Attribute]
+  , data_tvs   :: [a]
+  , data_cons  :: [Constructor a]
   }
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Constructor a = Constructor
   { con_name    :: a
   -- ^ Constructor name (e.g. @Cons@)
+  , con_attrs   :: [Attribute]
+  -- ^ Constructor attributes
   , con_discrim :: a
   -- ^ Discriminator name (e.g. @is-Cons@)
   , con_args    :: [(a,Type a)]
@@ -189,25 +195,12 @@ instance Monoid (Theory a) where
   mappend = joinTheories
 
 data Formula a = Formula
-  { fm_role :: Role
-  , fm_info :: Info a
-  , fm_tvs  :: [a]
+  { fm_role  :: Role
+  , fm_attrs :: [Attribute]
+  , fm_tvs   :: [a]
   -- ^ top-level quantified type variables
-  , fm_body :: Expr a
+  , fm_body  :: Expr a
   }
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
-
-data Info a
-  = Definition a
-  | IH Int
-  | Lemma Int
-  | Projection a
-  | DataDomain a
-  | DataProjection a
-  | DataDistinct a
-  | Defunction a
-  | UserAsserted
-  | Unknown
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable,Generic,NFData)
 
 data Role = Assert | Prove

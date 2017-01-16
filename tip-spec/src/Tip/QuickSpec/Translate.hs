@@ -1,7 +1,8 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE CPP #-}
-module Tip.QuickSpec.Translate (trProperty, backMap) where
+module Tip.QuickSpec.Translate (trProperty, backMap, BackMap, BackEntry(..)) where
 
 #include "errors.h"
 import Data.Map (Map)
@@ -15,8 +16,6 @@ import qualified QuickSpec as QS
 import qualified Twee.Base as Twee
 
 import qualified Data.Foldable as F
-
-import Control.Applicative
 
 import Tip.Pretty.Haskell (varUnqual)
 import Tip.Haskell.Translate (HsId(..),hsBuiltinTys,hsBuiltins,prelude,ratio)
@@ -100,13 +99,14 @@ trProp bm (assums QS.:=>: goal) = map (trLiteral bm) assums Tip.===> trLiteral b
 
 trLiteral :: (Ord a,PrettyVar a) => BackMap a -> QS.Literal (Twee.Term QS.Constant) -> Tip.Expr (V a)
 trLiteral bm (t1 QS.:=: t2) = trTerm bm t1 Tip.=== trTerm bm t2
+trLiteral _ _ = error "unsupported literal"
 
 trTerm :: (Ord a,PrettyVar a) => BackMap a -> Twee.Term QS.Constant -> Tip.Expr (V a)
 trTerm bm tm =
   case tm of
     Twee.App (QS.Id ty) [Twee.Var v] ->
       Tip.Lcl (Tip.Local (Var ty v) (trType Inner bm ty))
-    Twee.App (QS.Apply ty) [t, u] ->
+    Twee.App (QS.Apply _) [t, u] ->
       Tip.Builtin Tip.At Tip.:@: [trTerm bm t, trTerm bm u]
     Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
       let name = QS.conName c
@@ -151,7 +151,8 @@ unV e =
          rename (Orig f)   = f
      let e' = fmap rename e
      return $
-       Tip.Formula Tip.Prove Tip.Unknown (M.elems mtvs) (Tip.mkQuant Tip.Forall (Tip.free e') e')
+       Tip.putAttr Tip.speculatedLemma () $
+       Tip.Formula Tip.Prove [] (M.elems mtvs) (Tip.mkQuant Tip.Forall (Tip.free e') e')
 
 freshMap :: (Ord a,Name b) => [a] -> Fresh (Map a b)
 freshMap xs = M.fromList <$> sequence [ (,) x <$> fresh | x <- xs ]

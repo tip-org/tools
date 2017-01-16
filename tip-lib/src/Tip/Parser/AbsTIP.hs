@@ -7,14 +7,17 @@ module Tip.Parser.AbsTIP where
 
 
 
-newtype Symbol = Symbol ((Int,Int),String)
+newtype UnquotedSymbol = UnquotedSymbol ((Int,Int),String)
   deriving (Eq, Ord, Show, Read)
+newtype QuotedSymbol = QuotedSymbol ((Int,Int),String)
+  deriving (Eq, Ord, Show, Read)
+newtype Keyword = Keyword String deriving (Eq, Ord, Show, Read)
 data Start = Start [Decl]
   deriving (Eq, Ord, Show, Read)
 
 data Decl
     = DeclareDatatypes [Symbol] [Datatype]
-    | DeclareSort Symbol Integer
+    | DeclareSort Symbol [Attr] Integer
     | DeclareConst ConstDecl
     | DeclareConstPar Par ConstDecl
     | DeclareFun FunDecl
@@ -24,8 +27,8 @@ data Decl
     | DefineFunRec FunDef
     | DefineFunRecPar Par FunDef
     | DefineFunsRec [FunDec] [Expr]
-    | Assert Assertion Expr
-    | AssertPar Assertion Par Expr
+    | Assert Assertion [Attr] Expr
+    | AssertPar Assertion [Attr] Par Expr
   deriving (Eq, Ord, Show, Read)
 
 data Assertion = AssertIt | AssertNot
@@ -34,25 +37,25 @@ data Assertion = AssertIt | AssertNot
 data Par = Par [Symbol]
   deriving (Eq, Ord, Show, Read)
 
-data ConstDecl = ConstDecl Symbol Type
+data ConstDecl = ConstDecl Symbol [Attr] Type
   deriving (Eq, Ord, Show, Read)
 
-data FunDecl = FunDecl Symbol [Type] Type
+data FunDecl = FunDecl Symbol [Attr] [Type] Type
   deriving (Eq, Ord, Show, Read)
 
-data FunDef = FunDef Symbol [Binding] Type Expr
+data FunDef = FunDef Symbol [Attr] [Binding] Type Expr
   deriving (Eq, Ord, Show, Read)
 
 data FunDec = ParFunDec Par InnerFunDec | MonoFunDec InnerFunDec
   deriving (Eq, Ord, Show, Read)
 
-data InnerFunDec = InnerFunDec Symbol [Binding] Type
+data InnerFunDec = InnerFunDec Symbol [Attr] [Binding] Type
   deriving (Eq, Ord, Show, Read)
 
-data Datatype = Datatype Symbol [Constructor]
+data Datatype = Datatype Symbol [Attr] [Constructor]
   deriving (Eq, Ord, Show, Read)
 
-data Constructor = Constructor Symbol [Binding]
+data Constructor = Constructor Symbol [Attr] [Binding]
   deriving (Eq, Ord, Show, Read)
 
 data Binding = Binding Symbol Type
@@ -116,3 +119,8 @@ data Head
     | NumWiden
   deriving (Eq, Ord, Show, Read)
 
+data Attr = NoValue Keyword | Value Keyword Symbol
+  deriving (Eq, Ord, Show, Read)
+
+data Symbol = Unquoted UnquotedSymbol | Quoted QuotedSymbol
+  deriving (Eq, Ord, Show, Read)

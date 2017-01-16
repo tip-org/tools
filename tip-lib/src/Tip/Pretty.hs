@@ -5,8 +5,6 @@ module Tip.Pretty where
 
 import Text.PrettyPrint
 
-import Tip.Types
-
 infixl 1 $\
 
 -- | Typeclass for pretty things

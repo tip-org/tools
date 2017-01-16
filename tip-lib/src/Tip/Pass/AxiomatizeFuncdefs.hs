@@ -10,9 +10,6 @@ import Tip.Scope
 
 import Data.List (delete, nub, (\\))
 import Data.Generics.Geniplate
-import Control.Applicative
-
-import Tip.Pass.Conjecture
 
 -- | Transforms define-fun to declare-fun in the most straightforward way.
 --   All parts of the right hand side is preserved, including match and if-then-else.
@@ -28,8 +25,9 @@ axiomatizeFuncdefs thy@Theory{..} =
 
 axiomatize :: forall a . Function a -> (Signature a, Formula a)
 axiomatize fn@Function{..} =
-  ( Signature func_name (funcType fn)
-  , Formula Assert (Definition func_name) func_tvs
+  ( Signature func_name func_attrs (funcType fn)
+  , putAttr definition () $
+    Formula Assert func_attrs func_tvs
      (mkQuant Forall func_args (lhs === func_body))
   )
  where
@@ -50,8 +48,9 @@ axiomatizeFuncdefs2 thy@Theory{..} =
 
 axiomatize2 :: forall a . Ord a => Scope a -> Function a -> (Signature a, [Formula a])
 axiomatize2 scp fn@Function{..} =
-  ( Signature func_name (funcType fn)
-  , [ Formula Assert (Definition func_name) func_tvs $
+  ( Signature func_name func_attrs (funcType fn)
+  , [ putAttr definition () $
+      Formula Assert func_attrs func_tvs $
         mkQuant Forall vars
           (pre ===> applyFunction fn (map TyVar func_tvs) args === body)
     | (vars, pre, args, body) <- functionContexts scp fn
@@ -62,7 +61,8 @@ recursionInduction :: forall a . Name a => Int -> [Int] -> Theory a -> Fresh [Th
 recursionInduction f_num xs_nums thy =
   case theoryGoals thy of
     ([],_) -> return [thy]
-    (Formula Prove i tvs body:gs,assums) ->
+    (Formula{fm_role = Assert}:_, _) -> __
+    (Formula Prove attrs tvs body:gs,assums) ->
       do let (vars,e) = forallView body
          let f = nub [ g | g@Global{..} <- universeBi e ] !! f_num
          let fn:_ = [ h | h@Function{..} <- thy_funcs thy
@@ -86,7 +86,7 @@ recursionInduction f_num xs_nums thy =
              | (qs, pre, p_args, body) <- ctxts
              ]
          return
-           [ thy { thy_asserts = Formula Prove i tvs fm:gs ++ assums }
+           [ thy { thy_asserts = Formula Prove attrs tvs fm:gs ++ assums }
            | fm <- fms
            ]
 
@@ -116,7 +116,7 @@ functionContexts scp Function{..} = go func_args [] (map Lcl func_args) func_bod
     invert_pat s (LitPat lit) = s =/= literal lit
     invert_pat s (ConPat k _) = s =/= (Gbl k :@: [ Gbl (projector dt c i (gbl_args k)) :@: [s] | i <- [0..length cargs-1] ])
       where
-      Just (dt,c@(Constructor _ _ cargs)) = lookupConstructor (gbl_name k) scp
+      Just (dt,c@(Constructor{con_args = cargs})) = lookupConstructor (gbl_name k) scp
 
     go_alts :: Expr a -> [Case a] -> Contexts a
     go_alts s alts = concat [ go_pat s pat rhs | Case pat rhs <- alts ]

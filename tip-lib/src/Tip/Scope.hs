@@ -8,7 +8,7 @@ import Tip.Pretty
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Map (Map)
 import Data.Set (Set)
 import qualified Data.Map as M
@@ -37,14 +37,26 @@ data TypeInfo a =
   deriving (Eq, Show)
 
 data GlobalInfo a =
-    FunctionInfo      (PolyType a)
+    FunctionInfo      (Signature a)
   | ConstructorInfo   (Datatype a) (Constructor a)
   | ProjectorInfo     (Datatype a) (Constructor a) Int (Type a)
   | DiscriminatorInfo (Datatype a) (Constructor a)
   deriving Show
 
+instance HasAttr (GlobalInfo a) where
+  getAttrs (FunctionInfo fun) = getAttrs fun
+  getAttrs (ConstructorInfo _ con) = getAttrs con
+  -- Projectors and discriminator don't have their own attributes.
+  getAttrs ProjectorInfo{} = []
+  getAttrs DiscriminatorInfo{} = []
+  putAttrs attrs (FunctionInfo fun) =
+    FunctionInfo (putAttrs attrs fun)
+  putAttrs attrs (ConstructorInfo dt con) =
+    ConstructorInfo dt (putAttrs attrs con)
+  putAttrs _ x = x
+
 globalType :: GlobalInfo a -> PolyType a
-globalType (FunctionInfo ty) = ty
+globalType (FunctionInfo ty) = sig_type ty
 globalType (ConstructorInfo dt con) = constructorType dt con
 globalType (ProjectorInfo dt _ _ ty) = destructorType dt ty
 globalType (DiscriminatorInfo dt _) = destructorType dt (BuiltinType Boolean)
@@ -74,7 +86,7 @@ lookupDatatype x s = do
   DatatypeInfo dt <- M.lookup x (types s)
   return dt
 
-lookupFunction :: Ord a => a -> Scope a -> Maybe (PolyType a)
+lookupFunction :: Ord a => a -> Scope a -> Maybe (Signature a)
 lookupFunction x s = do
   FunctionInfo ty <- M.lookup x (globals s)
   return ty
@@ -100,7 +112,7 @@ whichLocal :: Ord a => a -> Scope a -> Type a
 whichLocal s = fromMaybe __ . lookupLocal s
 whichGlobal :: Ord a => a -> Scope a -> GlobalInfo a
 whichGlobal s = fromMaybe __ . lookupGlobal s
-whichFunction :: Ord a => a -> Scope a -> PolyType a
+whichFunction :: Ord a => a -> Scope a -> Signature a
 whichFunction s = fromMaybe __ . lookupFunction s
 whichConstructor :: Ord a => a -> Scope a -> (Datatype a, Constructor a)
 whichConstructor s = fromMaybe __ . lookupConstructor s
@@ -111,17 +123,14 @@ whichProjector s = fromMaybe __ . lookupProjector s
 
 -- * The scope monad
 
-newtype ScopeT a m b = ScopeT { unScopeT :: StateT (Scope a) (ErrorT Doc m) b }
+newtype ScopeT a m b = ScopeT { unScopeT :: StateT (Scope a) (ExceptT Doc m) b }
   deriving (Functor, Applicative, Monad, MonadPlus, Alternative, MonadState (Scope a), MonadError Doc)
 
 instance MonadTrans (ScopeT a) where
   lift = ScopeT . lift . lift
 
-instance Error Doc where
-  strMsg = text
-
 runScopeT :: Monad m => ScopeT a m b -> m (Either Doc b)
-runScopeT (ScopeT m) = runErrorT (evalStateT m emptyScope)
+runScopeT (ScopeT m) = runExceptT (evalStateT m emptyScope)
 
 checkScopeT :: Monad m => ScopeT a m b -> m b
 checkScopeT m = runScopeT m >>= check
@@ -200,10 +209,10 @@ newConstructor dt con@Constructor{..} = do
       [(name, ProjectorInfo dt con i ty) | (i, (name, ty)) <- zip [0..] con_args]
 
 newFunction :: (Monad m, Ord a, PrettyVar a) => Signature a -> ScopeT a m ()
-newFunction Signature{..} = do
+newFunction sig@Signature{..} = do
   newName sig_name
   modify $ \s -> s {
-    globals = M.insert sig_name (FunctionInfo sig_type) (globals s) }
+    globals = M.insert sig_name (FunctionInfo sig) (globals s) }
 
 newLocal :: (Monad m, Ord a, PrettyVar a) => Local a -> ScopeT a m ()
 newLocal Local{..} = do

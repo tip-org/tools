@@ -10,9 +10,7 @@ import Induction.Structural
 
 import Tip.Pretty.SMT as SMT
 
-import Control.Applicative
-
-import Data.List (find,partition)
+import Data.List (find)
 
 theoryTyEnv :: Ord a => Theory a -> TyEnv (Head a) (Type a)
 theoryTyEnv Theory{..} (BuiltinType Boolean) =
@@ -42,11 +40,11 @@ trTerm (Fun f tms) = Builtin At :@: (Lcl f:map trTerm tms)
 induction :: (Name a,Ord a) => [Int] -> Theory a -> Fresh [Theory a]
 induction coords thy@Theory{..} =
   case goal of
-    Formula Prove i tvs (forallView -> (lcls@(_non:_empty),body))
+    Formula Prove attrs tvs (forallView -> (lcls@(_non:_empty),body))
       | cs@(_:_) <-
           [ x | x <- coords, x >= length lcls || x < 0 ]
           -> error $ unlines
-               [ "In theory: " ++ show (SMT.ppTheory thy)
+               [ "In theory: " ++ show (SMT.ppTheory [] thy)
                , "Induction coordinates " ++ show cs ++ " out of bounds!"
                , "on goal: " ++ show (SMT.ppFormula goal)
                ]
@@ -74,7 +72,7 @@ induction coords thy@Theory{..} =
                   concl <- replace [] concl
                   let body' = hyps ===> concl
                   return
-                    (Formula Prove i tvs
+                    (Formula Prove attrs tvs
                       (mkQuant Forall [ Local v t | (v,t) <- sks] body'))
              | Obligation sks hyps concl <- obligs
              ]

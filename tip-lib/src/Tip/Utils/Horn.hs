@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# LANGUAGE TypeFamilies, TypeSynonymInstances, FlexibleInstances, CPP, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,20 +9,15 @@ module Tip.Utils.Horn (completeRules, specialiseRules, Expr(..), Rule(..)) where
 import Twee.Base hiding (Var, Fun, App, Pretty)
 import qualified Twee.Base as Twee
 import qualified Twee.Index as Index
-import Twee.Index(Index)
-import Twee.Label
 import Twee.Utils
 import Control.Monad
 import Data.Maybe
 import qualified Data.IntMap.Strict as IntMap
-import Data.IntMap(IntMap)
 import qualified Data.Map.Strict as Map
-import Data.Map(Map)
 import Data.Tuple
 import Data.Foldable as F
 import Data.Generics.Geniplate
 import Tip.Pretty
-import Text.PrettyPrint
 
 data Clause a =
     Fact (Term a)

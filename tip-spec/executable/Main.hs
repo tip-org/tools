@@ -59,5 +59,5 @@ handle params s =
     Left err  -> error $ "Parse failed: " ++ err
     Right thy ->
       do thy' <- exploreTheory params thy
-         print (SMT.ppTheory thy')
+         print (SMT.ppTheory [] thy')
 

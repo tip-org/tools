@@ -28,7 +28,9 @@ $u = [\0-\255]          -- universal: any character
 
 $white+ ;
 @rsyms { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
-($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) * { tok (\p s -> PT p (eitherResIdent (T_Symbol . share) s)) }
+($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) * { tok (\p s -> PT p (eitherResIdent (T_UnquotedSymbol . share) s)) }
+\| ($u # \| | \\ $u)* \| { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
+\: ($l | $d | [\-]) * { tok (\p s -> PT p (eitherResIdent (T_Keyword . share) s)) }
 
 $l $i*   { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
 
@@ -51,7 +53,9 @@ data Tok =
  | TV !String         -- identifiers
  | TD !String         -- double precision float literals
  | TC !String         -- character literals
- | T_Symbol !String
+ | T_UnquotedSymbol !String
+ | T_QuotedSymbol !String
+ | T_Keyword !String
 
  deriving (Eq,Show,Ord)
 
@@ -86,7 +90,9 @@ prToken t = case t of
   PT _ (TV s)   -> s
   PT _ (TD s)   -> s
   PT _ (TC s)   -> s
-  PT _ (T_Symbol s) -> s
+  PT _ (T_UnquotedSymbol s) -> s
+  PT _ (T_QuotedSymbol s) -> s
+  PT _ (T_Keyword s) -> s
 
 
 data BTree = N | B String Tok BTree BTree deriving (Show)

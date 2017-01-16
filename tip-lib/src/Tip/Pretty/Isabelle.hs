@@ -5,18 +5,12 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Utils.Rename (renameWith,disambig)
 import Tip.Rename
 import Tip.Core (ifView, DeepPattern(..), patternMatchingView, topsort, makeGlobal, exprType)
 
 import Data.Char
 import Data.Maybe
-import Data.List (intersperse, partition)
-
-import Data.Generics.Geniplate
-
-import qualified Data.Set as S
-
+import Data.List (partition)
 
 ($-$), block :: Doc -> Doc -> Doc
 d $-$ b = vcat [d,"",b]
@@ -76,7 +70,7 @@ ppHipsterConjs (renameAvoiding isabelleKeywords (filter isAlphaNum) -> Theory{..
 
 ppSort :: (PrettyVar a, Ord a) => Sort a -> Doc
 --ppSort (Sort sort 0) = "type" $\ ppVar sort
-ppSort (Sort sort n) =
+ppSort (Sort sort _ n) =
   error $ "Can't translate abstract sort " ++ show (ppVar sort) ++ " of arity " ++ show (length n) ++ " to Isabelle"
 
 ppDatas :: (PrettyVar a, Ord a) => [Datatype a] -> Doc
@@ -85,7 +79,7 @@ ppDatas dts = "datatype" <+>
     vcat (intersperseWithPre ($\) "and" (map ppData dts))
 
 ppData :: (PrettyVar a, Ord a) => Datatype a -> Doc
-ppData (Datatype tc tvs cons) =
+ppData (Datatype tc _ tvs cons) =
   ppAsTuple tvs ppTyVar $\
     ppVar tc $\ separating fsep ("=":repeat "|") (map ppCon cons)
 --ppDatas (d:ds) = ppData "datatype" d
@@ -93,7 +87,7 @@ ppData (Datatype tc tvs cons) =
         --vcat (ppData "type" d:map (ppData "with") ds)
 
 ppCon :: (PrettyVar a, Ord a) => Constructor a -> Doc
-ppCon (Constructor c _d as) = ppVar c <+> fsep (map (quote . ppType 0 . snd) as)
+ppCon (Constructor c _ _d as) = ppVar c <+> fsep (map (quote . ppType 0 . snd) as)
 
 ppQuant :: (PrettyVar a, Ord a) => Doc -> [Local a] -> Doc -> Doc -> Doc
 ppQuant _name [] _to d = d
@@ -106,7 +100,7 @@ ppLocalBinder :: (PrettyVar a, Ord a) => Local a -> Doc
 ppLocalBinder (Local x t) = ppBinder x t
 
 ppUninterp :: (PrettyVar a, Ord a) => Signature a -> Doc
-ppUninterp (Signature f (PolyType _ arg_types result_type)) =
+ppUninterp (Signature f _ (PolyType _ arg_types result_type)) =
   --"function" $\ ppVar f $\ fsep (map (ppType 1) arg_types) $\ (":" <+> ppType 1 result_type)
   -- XXX: consts maybe?
   error $ "Can't translate uninterpreted function " ++ varStr f
@@ -124,7 +118,7 @@ ppFuncs (fn:fns) = header <+>
                         ([],[]) (fn:fns)
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
-ppFunc (Function f _tvs xts t e) =
+ppFunc (Function f _ _tvs xts t e) =
      (ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
       [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
@@ -139,14 +133,14 @@ ppDeepPattern (DeepLitPat lit) = ppLit lit
 
 
 ppFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
-ppFormula explicit_forall (Formula role _ _tvs term)  i =
-  (ppRole role <+> ("property" <> int i) <+> ":") $\ quote (ppExprStripTopForall explicit_forall 0 term) $$ (ppProofText role)
+ppFormula explicit_forall Formula{..} i =
+  (ppRole fm_role <+> ("property" <> int i) <+> ":") $\ quote (ppExprStripTopForall explicit_forall 0 fm_body) $$ (ppProofText fm_role)
   -- "by (tactic {* Subgoal.FOCUS_PARAMS (K (Tactic_Data.hard_tac @{context})) @{context} 1 *})" convenience
 
 -- TODO: Make sure library functions gets translated to their Isabelle equivalent names.
 ppHipsterFormula :: (PrettyVar a, Ord a) => Bool -> Formula a -> Int -> Doc
-ppHipsterFormula explicit_forall (Formula role _ _tvs term)  i =
-  ppExprStripTopForall explicit_forall 0 term
+ppHipsterFormula explicit_forall Formula{..}  i =
+  ppExprStripTopForall explicit_forall 0 fm_body
 
 ppRole :: Role -> Doc
 ppRole Assert = "lemma" -- Translate to lemma and sorry-proof here.
@@ -179,6 +173,7 @@ ppExpr i (Match e alts) =
   parIf (i <= 0) $ block ("case" $\ ppExpr 0 e $\ "of")
                          (vcat (intersperseWithPre ($\) "|" (map ppCase
                                   (uncurry (++) (partition ((/= Default).case_pat) alts)))))
+ppExpr _ LetRec{} = error "letrec not supported"
 
 ppHead :: (PrettyVar a, Ord a) => Head a -> [Doc] -> Doc
 ppHead (Gbl gbl)      args                        = ppVar (gbl_name gbl) $\ fsep args

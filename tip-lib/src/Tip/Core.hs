@@ -12,17 +12,15 @@ module Tip.Core(module Tip.Types, module Tip.Core) where
 import Tip.Types
 import Tip.Fresh
 import Tip.Utils
-import Tip.Pretty
 import Data.Traversable (Traversable)
-import Data.Foldable (Foldable)
 import qualified Data.Foldable as F
 import Data.Generics.Geniplate
 import Data.List ((\\),partition)
-import Data.Ord
+import Data.Maybe
 import Control.Monad
 import qualified Data.Map as Map
 import Control.Applicative ((<|>))
-
+import Text.Read
 
 infix  4 ===
 -- infixr 3 /\
@@ -100,7 +98,7 @@ e1 ==> e2
 xs ===> y = foldr (==>) y xs
 
 mkQuant :: Quant -> [Local a] -> Expr a -> Expr a
-mkQuant q [] e = e
+mkQuant _ [] e = e
 mkQuant q xs e = Quant NoInfo q xs e
 
 bool :: Bool -> Expr a
@@ -218,12 +216,12 @@ patternMatchingView = go . map DeepVarPat
   modDeepPattern l (DeepConPat g nps) = DeepConPat g <$$> modDeepPatterns l nps
   modDeepPattern l (DeepVarPat l') | l == l'   = Just id
                                    | otherwise = Nothing
-  modDeepPattern l (DeepLitPat lit) = Nothing
+  modDeepPattern _ (DeepLitPat _) = Nothing
 
   -- Variable not in patterns: returns Nothing
   modDeepPatterns :: Eq a => Local a -> [DeepPattern a] -> Maybe (DeepPattern a -> [DeepPattern a])
   modDeepPatterns l (np:nps) = ((:nps) <$$> modDeepPattern l np) <|> ((np:) <$$> modDeepPatterns l nps)
-  modDeepPatterns l []       = Nothing
+  modDeepPatterns _ []       = Nothing
 
   deep :: Pattern a -> DeepPattern a
   deep (ConPat g ls) = DeepConPat g (map DeepVarPat ls)
@@ -261,20 +259,20 @@ occurrences var body = length (filter (== var) (universeBi body))
 
 -- | The signature of a function
 signature :: Function a -> Signature a
-signature func@Function{..} = Signature func_name (funcType func)
+signature func@Function{..} = Signature func_name func_attrs (funcType func)
 
 -- | The type of a function
 funcType :: Function a -> PolyType a
-funcType (Function _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
+funcType (Function _ _ tvs lcls res _) = PolyType tvs (map lcl_type lcls) res
 
 bound, free, locals :: Ord a => Expr a -> [Local a]
 bound e =
   usort $
-    concat [ lcls | Lam lcls _            <- universeBi e ] ++
-           [ lcl  | Let lcl _ _           <- universeBi e ] ++
-    concat [ lcls | Function _ _ lcls _ _ <- universeBi e ] ++
-    concat [ lcls | Quant _ _ lcls _      <- universeBi e ] ++
-    concat [ lcls | ConPat _ lcls         <- universeBi e ]
+    concat [ lcls | Lam lcls _                 <- universeBi e ] ++
+           [ lcl  | Let lcl _ _                <- universeBi e ] ++
+    concat [ lcls | Function{func_args = lcls} <- universeBi e ] ++
+    concat [ lcls | Quant _ _ lcls _           <- universeBi e ] ++
+    concat [ lcls | ConPat _ lcls              <- universeBi e ]
 locals = usort . universeBi
 free e = locals e \\ bound e
 
@@ -339,6 +337,7 @@ builtinType NumLe _ = boolType
 builtinType NumWiden _ = realType
 builtinType At ((_  :=>: res):_) = res
 builtinType At _ = ERROR("ill-typed lambda application")
+builtinType _ _ = ERROR("ill-typed built-in")
 
 theoryTypes :: (UniverseBi (t a) (Type a),Ord a) => t a -> [Type a]
 theoryTypes = usort . universeBi
@@ -401,9 +400,9 @@ updateLocalType :: Type a -> Local a -> Local a
 updateLocalType ty (Local name _) = Local name ty
 
 updateFuncType :: PolyType a -> Function a -> Function a
-updateFuncType (PolyType tvs lclTys res) (Function name _ lcls _ body)
+updateFuncType (PolyType tvs lclTys res) (Function name attrs _ lcls _ body)
   | length lcls == length lclTys =
-      Function name tvs (zipWith updateLocalType lclTys lcls) res body
+      Function name attrs tvs (zipWith updateLocalType lclTys lcls) res body
   | otherwise = ERROR("non-matching type")
 
 
@@ -530,3 +529,121 @@ polyrecursive Theory{..} = (`Map.lookup` m)
       ]
 
   make_groups grps = Map.fromList $ concat [ [ (g,grp) | g <- grp ] | grp <- grps ]
+
+-- * Attributes
+
+-- | A class for things which have a list of attributes attached
+-- (includes e.g. functions, datatypes)
+class HasAttr a where
+  getAttrs :: a -> [Attribute]
+  putAttrs :: [Attribute] -> a -> a
+
+modifyAttrs ::
+  HasAttr struct => ([Attribute] -> [Attribute]) -> struct -> struct
+modifyAttrs f struct =
+  putAttrs (f (getAttrs struct)) struct
+
+instance HasAttr [Attribute] where
+  getAttrs = id
+  putAttrs attrs _ = attrs
+
+instance HasAttr (Function a) where
+  getAttrs = func_attrs
+  putAttrs attrs x = x { func_attrs = attrs }
+
+instance HasAttr (Signature a) where
+  getAttrs = sig_attrs
+  putAttrs attrs x = x { sig_attrs = attrs }
+
+instance HasAttr (Sort a) where
+  getAttrs = sort_attrs
+  putAttrs attrs x = x { sort_attrs = attrs }
+
+instance HasAttr (Datatype a) where
+  getAttrs = data_attrs
+  putAttrs attrs x = x { data_attrs = attrs }
+
+instance HasAttr (Constructor a) where
+  getAttrs = con_attrs
+  putAttrs attrs x = x { con_attrs = attrs }
+
+instance HasAttr (Formula a) where
+  getAttrs = fm_attrs
+  putAttrs attrs x = x { fm_attrs = attrs }
+
+-- | A datatype describing how to read and write a particular attribute.
+-- The 'a' is the type of the argument of the attribute.
+-- For attributes which don't take an argument, this will be '()'.
+data Attr a =
+  Attr {
+    -- The name of the attribute.
+    attr_name :: String,
+    -- Conversion to and from "raw" (string) attributes.
+    attr_read :: Maybe String -> Maybe a,
+    attr_show :: a -> Maybe String }
+
+-- | Get the value of a given attribute.
+getAttr :: HasAttr struct => Attr a -> struct -> Maybe a
+getAttr Attr{..} struct = do
+  value <- lookup attr_name (getAttrs struct)
+  attr_read value
+
+-- | Does a structure contain a given attribute?
+hasAttr :: HasAttr struct => Attr a -> struct -> Bool
+hasAttr attr struct = isJust (getAttr attr struct)
+
+-- | Delete a given attribute from a structure.
+delAttr :: HasAttr struct => Attr a -> struct -> struct
+delAttr Attr{..} struct =
+  putAttrs [ attr | attr <- getAttrs struct, fst attr /= attr_name ] struct
+
+-- | Create or update a given attribute in a structure.
+putAttr :: HasAttr struct => Attr a -> a -> struct -> struct
+putAttr attr@Attr{..} x struct =
+  modifyAttrs ((attr_name, attr_show x):) (delAttr attr struct)
+
+-- * Combinators for creating 'Attr's
+
+-- | Construct an 'Attr' which takes no arguments
+unitAttr :: String -> Attr ()
+unitAttr name = Attr name readUnit showUnit
+  where
+    readUnit Nothing  = Just ()
+    readUnit (Just _) = Nothing
+    showUnit () = Nothing
+
+-- | Construct an 'Attr' which takes a string argument
+stringAttr :: String -> Attr String
+stringAttr name = Attr name id Just
+
+-- | Change the argument type of an 'Attr'
+mapAttr :: (a -> Maybe b) -> (b -> a) -> Attr a -> Attr b
+mapAttr read show attr@Attr{..} =
+  attr {
+    attr_read = attr_read >=> read,
+    attr_show = attr_show . show }
+
+-- | Construct an 'Attr' which uses 'read' and 'show' to get its argument
+readAttr :: (Show a, Read a) => String -> Attr a
+readAttr name = mapAttr readMaybe show (stringAttr name)
+
+-- * All the attributes which we use at the moment
+
+keep :: Attr ()
+keep = unitAttr "keep"
+
+source :: Attr String
+source = stringAttr "source"
+
+definition, dataDomain, dataProjection, dataDistinct, speculatedLemma, skolem, lambda, letVar :: Attr ()
+definition = unitAttr "definition"
+dataDomain = unitAttr "data-domain"
+dataProjection = unitAttr "data-projection"
+dataDistinct = unitAttr "data-distinct"
+speculatedLemma = unitAttr "speculated-lemma"
+skolem = unitAttr "skolem"
+lambda = unitAttr "lambda"
+letVar = unitAttr "let"
+
+inductionHypothesis :: Attr Int
+inductionHypothesis = readAttr "induction-hypothesis"

@@ -9,15 +9,13 @@ packages:
 - location:
     git: git://github.com/nick8325/quickspec
     commit: c63e13992fc3b25909b108eca663e7f7ea7184b2
-- location:
-    git: git://github.com/nick8325/genifunctors
-    commit: 797482d948a00dd80f6c0236ac1d1f28fca56c68
 
 extra-deps:
 - jukebox-0.2.9
 - minisat-0.1.2
 - structural-induction-0.3
 - twee-0.1
+- genifunctors-0.4
 
 flags:
     tip-spec: {stack: True}

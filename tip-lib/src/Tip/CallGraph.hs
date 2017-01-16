@@ -4,7 +4,6 @@
 module Tip.CallGraph where
 
 #include "errors.h"
-import Tip.Scope
 import Tip.Utils
 import Tip.Core
 import Tip.Pretty

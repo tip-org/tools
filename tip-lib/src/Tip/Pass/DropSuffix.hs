@@ -3,7 +3,6 @@
 {-# LANGUAGE PatternGuards #-}
 module Tip.Pass.DropSuffix where
 
-import Data.Traversable
 import Tip.Pretty
 import Tip.Fresh
 import Data.Map (Map)

@@ -4,8 +4,6 @@ module Tip.Pass.AddMatch where
 import Tip.Core
 import Tip.Fresh
 import Tip.Scope
-import qualified Data.Map as Map
-import Data.Map(Map)
 
 -- | Replace SMTLIB-style selector and discriminator functions
 --   (@is-nil@, @head@, @tail@) with case expressions.

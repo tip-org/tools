@@ -4,15 +4,12 @@ module Tip.Parser.Convert where
 import Tip.Parser.AbsTIP as A -- from A ...
 import Tip.Core          as T -- ... to T
 import Tip.Pretty
-import Tip.Pretty.SMT
+import Tip.Pretty.SMT()
 
 import Text.PrettyPrint
-import Control.Applicative
 import Control.Monad.State
-import Control.Monad.Error
-import Data.Foldable (foldrM)
+import Control.Monad.Except
 
-import qualified Tip.Scope
 import Tip.Scope
 import Tip.Fresh
 
@@ -28,7 +25,7 @@ data IdKind = LocalId | GlobalId
 type CM a = ScopeT Id (StateT (Map String (Id,IdKind)) Fresh) a
 
 runCM :: CM a -> Either String a
-runCM m = either (Left . show) Right $ runFresh (evalStateT (runScopeT m) M.empty)
+runCM m = either (Left . show) Right $ runFreshFrom 0 (evalStateT (runScopeT m) M.empty)
 
 -- | Identifiers from parsed Tip syntax
 data Id = Id
@@ -52,33 +49,43 @@ instance Name Id where
   freshNamed n
     = do u <- fresh
          return (Id n u Nothing)
-
-  fresh = freshNamed "x"
-
-  refresh = refreshNamed ""
-
   getUnique (Id _ u _) = u
 
+symPos :: Symbol -> (Int, Int)
+symPos (Unquoted (UnquotedSymbol (p, _))) = p
+symPos (Quoted (QuotedSymbol (p, _))) = p
+
+symStr :: Symbol -> String
+symStr (Unquoted (UnquotedSymbol (_, s))) = s
+symStr (Quoted (QuotedSymbol (_, s))) =
+  unescape $ tail $ init s
+  where
+    unescape ('\\':x:xs) = x:unescape xs
+    unescape (x:xs) = x:unescape xs
+    unescape [] = []
+
 ppSym :: Symbol -> Doc
-ppSym (Symbol ((x,y),s)) = text s <+> "(" <> int x <> ":" <> int y <> ")"
+ppSym sym = text (symStr sym) <+> "(" <> int x <> ":" <> int y <> ")"
+  where
+    (x, y) = symPos sym
 
 lkSym :: Symbol -> CM Id
-lkSym sym@(Symbol (p,s)) =
-  do mik <- lift $ gets (M.lookup s)
+lkSym sym =
+  do mik <- lift $ gets (M.lookup (symStr sym))
      case mik of
-       Just (i,_) -> return $ i { idPos = Just p }
+       Just (i,_) -> return $ i { idPos = Just (symPos sym) }
        Nothing    -> throwError $ "Symbol" <+> ppSym sym <+> "not bound"
 
 addSym :: IdKind -> Symbol -> CM Id
-addSym ik sym@(Symbol (p,s)) =
-  do mik <- lift $ gets (M.lookup s)
+addSym ik sym =
+  do mik <- lift $ gets (M.lookup (symStr sym))
      case mik of
        Just (_,GlobalId)       -> throwError $ "Symbol" <+> ppSym sym <+> "is already globally bound"
        Just _ | ik == GlobalId -> throwError $ "Symbol" <+> ppSym sym <+> "is locally bound, and cannot be overwritten by a global"
        _                       -> return ()
      u <- lift (lift fresh)
-     let i = Id s u (Just p)
-     lift $ modify (M.insert s (i,ik))
+     let i = Id (symStr sym) u (Just (symPos sym))
+     lift $ modify (M.insert (symStr sym) (i,ik))
      return i
 
 trDecls :: [A.Decl] -> CM (Theory Id)
@@ -98,21 +105,21 @@ trDecl x =
            forM_ datatypes $ \dt -> do
              sym <- addSym GlobalId (dataSym dt)
              tvi <- mapM (addSym LocalId) tvs
-             newSort (Sort sym tvi)
+             newSort (Sort sym (trAttrs (dataAttrs dt)) tvi)
            newScope $
              do tvi <- mapM (addSym LocalId) tvs
                 mapM newTyVar tvi
                 ds <- mapM (trDatatype tvi) datatypes
                 return emptyTheory{ thy_datatypes = ds }
 
-      DeclareSort s n ->
+      DeclareSort s attrs n ->
         do i <- addSym GlobalId s
            tvs <- lift . lift $ mapM refresh (replicate (fromInteger n) i)
-           return emptyTheory{ thy_sorts = [Sort i tvs] }
+           return emptyTheory{ thy_sorts = [Sort i (trAttrs attrs) tvs] }
 
       DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
 
-      DeclareConstPar par (ConstDecl s t) -> trDecl (DeclareFunPar par (FunDecl s [] t))
+      DeclareConstPar par (ConstDecl s attrs t) -> trDecl (DeclareFunPar par (FunDecl s attrs [] t))
 
       DeclareFun        decl -> trDecl (DeclareFunPar emptyPar decl)
       DeclareFunPar par decl ->
@@ -120,7 +127,7 @@ trDecl x =
            return emptyTheory{ thy_sigs = [d] }
 
       DefineFun        def -> trDecl (DefineFunPar emptyPar def)
-      DefineFunPar par def@(FunDef f _ _ _) ->
+      DefineFunPar par def@(FunDef f _ _ _ _) ->
         do thy <- trDecl (DefineFunRecPar par def)
            let [fn] = thy_funcs thy
            when (func_name fn `elem` uses fn)
@@ -144,13 +151,13 @@ trDecl x =
                 ]
              return emptyTheory{ thy_funcs = fns }
 
-      A.Assert  role           expr -> trDecl (AssertPar role emptyPar expr)
-      AssertPar role (Par tvs) expr ->
+      A.Assert  role attrs expr -> trDecl (AssertPar role attrs emptyPar expr)
+      AssertPar role attrs (Par tvs) expr ->
         do tvi <- mapM (addSym LocalId) tvs
            mapM newTyVar tvi
            let toRole AssertIt  = T.Assert
                toRole AssertNot = Prove
-           fm <- Formula (toRole role) UserAsserted tvi <$> trExpr expr
+           fm <- Formula (toRole role) (trAttrs attrs) tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
 
 emptyPar :: Par
@@ -159,50 +166,53 @@ emptyPar = Par []
 decToDecl :: FunDec -> (Par,FunDecl)
 decToDecl dec = case dec of
   MonoFunDec inner -> decToDecl (ParFunDec emptyPar inner)
-  ParFunDec par (InnerFunDec fsym bindings res_type) ->
-    (par,FunDecl fsym (map bindingType bindings) res_type)
+  ParFunDec par (InnerFunDec fsym attrs bindings res_type) ->
+    (par,FunDecl fsym attrs (map bindingType bindings) res_type)
 
 defToDecl :: FunDef -> FunDecl
-defToDecl (FunDef fsym bindings res_type _) =
-  FunDecl fsym (map bindingType bindings) res_type
+defToDecl (FunDef fsym attrs bindings res_type _) =
+  FunDecl fsym attrs (map bindingType bindings) res_type
 
 trFunDecl :: Par -> FunDecl -> CM (T.Signature Id)
-trFunDecl (Par tvs) (FunDecl fsym args res) =
+trFunDecl (Par tvs) (FunDecl fsym attrs args res) =
     newScope $
       do f <- addSym GlobalId fsym
          tvi <- mapM (addSym LocalId) tvs
          mapM newTyVar tvi
          pt <- PolyType tvi <$> mapM trType args <*> trType res
-         return (Signature f pt)
+         return (Signature f (trAttrs attrs) pt)
 
 decToDef :: FunDec -> A.Expr -> (Par,FunDef)
 decToDef dec body = case dec of
   MonoFunDec inner -> decToDef (ParFunDec emptyPar inner) body
-  ParFunDec par (InnerFunDec fsym bindings res_type) ->
-    (par,FunDef fsym bindings res_type body)
+  ParFunDec par (InnerFunDec fsym attrs bindings res_type) ->
+    (par,FunDef fsym attrs bindings res_type body)
 
 trFunDef :: Par -> FunDef -> CM (T.Function Id)
-trFunDef (Par tvs) (FunDef fsym bindings res_type body) =
+trFunDef (Par tvs) (FunDef fsym attrs bindings res_type body) =
   newScope $
     do f <- lkSym fsym
        tvi <- mapM (addSym LocalId) tvs
        mapM newTyVar tvi
        args <- mapM trLocalBinding bindings
-       Function f tvi args <$> trType res_type <*> trExpr body
+       Function f (trAttrs attrs) tvi args <$> trType res_type <*> trExpr body
 
 dataSym :: A.Datatype -> Symbol
-dataSym (A.Datatype sym _) = sym
+dataSym (A.Datatype sym _ _) = sym
+
+dataAttrs :: A.Datatype -> [A.Attr]
+dataAttrs (A.Datatype _ attrs _) = attrs
 
 trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
-trDatatype tvs (A.Datatype sym constructors) =
+trDatatype tvs (A.Datatype sym attrs constructors) =
   do x <- lkSym sym
-     T.Datatype x tvs <$> mapM trConstructor constructors
+     T.Datatype x (trAttrs attrs) tvs <$> mapM trConstructor constructors
 
 trConstructor :: A.Constructor -> CM (T.Constructor Id)
-trConstructor (A.Constructor name@(Symbol (p,s)) args) =
+trConstructor (A.Constructor name attrs args) =
   do c <- addSym GlobalId name
-     is_c <- addSym GlobalId (Symbol (p,"is-" ++ s))
-     T.Constructor c is_c <$> mapM (trBinding GlobalId) args
+     is_c <- addSym GlobalId (Unquoted (UnquotedSymbol (symPos name, "is-" ++ symStr name)))
+     T.Constructor c (trAttrs attrs) is_c <$> mapM (trBinding GlobalId) args
 
 bindingType :: Binding -> A.Type
 bindingType (Binding _ t) = t
@@ -279,28 +289,24 @@ trHead mgt (A.Const sym) args    =
                       $$ " with polymorphic type " <+> pp pt
        _ -> throwError $ "No type information for:" <+> ppSym sym
 
-trHead _ x args = return (Builtin b :@: args)
- where
-  b = case x of
-    A.At       -> T.At
-    A.And      -> T.And
-    A.Or       -> T.Or
-    A.Not      -> T.Not
-    A.Implies  -> T.Implies
-    A.Equal    -> T.Equal
-    A.Distinct -> T.Distinct
-    A.NumAdd   -> T.NumAdd
-    A.NumSub   -> T.NumSub
-    A.NumMul   -> T.NumMul
-    A.NumDiv   -> T.NumDiv
-    A.IntDiv   -> T.IntDiv
-    A.IntMod   -> T.IntMod
-    A.NumGt    -> T.NumGt
-    A.NumGe    -> T.NumGe
-    A.NumLt    -> T.NumLt
-    A.NumLe    -> T.NumLe
-    A.NumWiden -> T.NumWiden
-
+trHead _ A.At       args = return (Builtin T.At       :@: args)
+trHead _ A.And      args = return (Builtin T.And      :@: args)
+trHead _ A.Or       args = return (Builtin T.Or       :@: args)
+trHead _ A.Not      args = return (Builtin T.Not      :@: args)
+trHead _ A.Implies  args = return (Builtin T.Implies  :@: args)
+trHead _ A.Equal    args = return (Builtin T.Equal    :@: args)
+trHead _ A.Distinct args = return (Builtin T.Distinct :@: args)
+trHead _ A.NumAdd   args = return (Builtin T.NumAdd   :@: args)
+trHead _ A.NumSub   args = return (Builtin T.NumSub   :@: args)
+trHead _ A.NumMul   args = return (Builtin T.NumMul   :@: args)
+trHead _ A.NumDiv   args = return (Builtin T.NumDiv   :@: args)
+trHead _ A.IntDiv   args = return (Builtin T.IntDiv   :@: args)
+trHead _ A.IntMod   args = return (Builtin T.IntMod   :@: args)
+trHead _ A.NumGt    args = return (Builtin T.NumGt    :@: args)
+trHead _ A.NumGe    args = return (Builtin T.NumGe    :@: args)
+trHead _ A.NumLt    args = return (Builtin T.NumLt    :@: args)
+trHead _ A.NumLe    args = return (Builtin T.NumLe    :@: args)
+trHead _ A.NumWiden args = return (Builtin T.NumWiden :@: args)
 
 trBinder :: A.Binder -> [Local Id] -> T.Expr Id -> T.Expr Id
 trBinder b = case b of
@@ -346,3 +352,10 @@ trType t0 = case t0 of
   A.RealTy     -> return realType
   A.BoolTy     -> return boolType
 
+trAttrs :: [A.Attr] -> [T.Attribute]
+trAttrs = nubBy ((==) `on` fst) . map trAttr
+
+trAttr :: A.Attr -> T.Attribute
+trAttr (NoValue (Keyword (':':name))) = (name, Nothing)
+trAttr (Value (Keyword (':':name)) value) = (name, Just (symStr value))
+trAttr _ = error "lexical error in keyword"

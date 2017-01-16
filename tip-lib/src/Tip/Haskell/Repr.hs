@@ -44,14 +44,6 @@ data Type a
   | TyImp a (Type a)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
-modTyCon :: (a -> a) -> Type a -> Type a
-modTyCon f t0 =
-  case t0 of
-    TyCon t ts  -> TyCon (f t) (map (modTyCon f) ts)
-    TyVar x     -> TyVar x
-    TyTup ts    -> TyTup (map (modTyCon f) ts)
-    TyArr t1 t2 -> TyArr (modTyCon f t1) (modTyCon f t2)
-
 data Expr a
   = Apply a [Expr a]
   | ImpVar a
@@ -97,6 +89,6 @@ var x = Apply x []
 data Pat a = VarPat a | ConPat a [Pat a] | TupPat [Pat a] | WildPat | IntPat Integer
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
-data Stmt a = Bind a (Expr a) | BindTyped a (Type a) (Expr a) | Stmt (Expr a)
+data Stmt a = Bind a (Expr a) | Stmt (Expr a)
   deriving (Eq,Ord,Show,Functor,Traversable,Foldable)
 
