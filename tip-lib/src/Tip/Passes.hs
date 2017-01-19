@@ -98,6 +98,7 @@ import Tip.Fresh
 import Tip.Pass.Pipeline
 
 import Options.Applicative
+import Data.Monoid ((<>))
 
 -- | The passes in the standard Tip distribution
 data StandardPass
