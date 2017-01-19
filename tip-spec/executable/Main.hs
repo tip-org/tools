@@ -17,6 +17,7 @@ import System.Process
 
 import qualified Tip.Pretty.SMT as SMT
 import Data.List.Split
+import Data.Monoid
 
 parseParams :: Parser QuickSpecParams
 parseParams =
