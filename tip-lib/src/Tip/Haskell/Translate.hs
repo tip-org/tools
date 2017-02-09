@@ -725,7 +725,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
            -- [ b      | bool_used, b <- [And,Or,Not] ]
            -- [ IntAdd | int_used ]
            -- [ Equal  | bool_used && int_used ]
-              [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
+              [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b ]
        , Just s <- [lookup b hsBuiltins]
        ]
 
