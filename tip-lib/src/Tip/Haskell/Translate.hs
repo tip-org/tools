@@ -505,7 +505,7 @@ arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
 arbitrary ts =
   [ TyCon tc [t]
   | t <- ts
-  , tc <- [quickCheck "Arbitrary", quickCheck "CoArbitrary", prelude "Ord"]
+  , tc <- [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
   ]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
