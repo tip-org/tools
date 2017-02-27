@@ -198,7 +198,9 @@ trTheory' mode thy@Theory{..} =
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
-                  (Apply (quickCheck "sized") [Apply (feat "uniform") []])]
+                  (Do [Bind (Exact "k") (Apply (quickCheck "sized") [Apply (prelude "return") []]),
+                       Bind (Exact "n") (Apply (quickCheck "choose") [Tup [H.Int 0, Apply (Exact "k") []]])]
+                      (Apply (feat "uniform") [Apply (Exact "n") []]))]
     | case mode of { QuickCheck -> True; QuickSpec _ -> True; _ -> False } ]
     ++
     [ InstDecl
