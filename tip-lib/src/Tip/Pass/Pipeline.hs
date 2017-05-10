@@ -11,6 +11,7 @@ import Tip.Fresh
 
 import Data.List (intercalate)
 import Control.Monad ((>=>))
+import Data.Monoid ((<>))
 import Options.Applicative
 
 class Pass p where

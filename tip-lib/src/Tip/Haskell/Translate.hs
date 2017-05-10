@@ -198,7 +198,9 @@ trTheory' mode thy@Theory{..} =
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
-                  (Apply (quickCheck "sized") [Apply (feat "uniform") []])]
+                  (Do [Bind (Exact "k") (Apply (quickCheck "sized") [Apply (prelude "return") []]),
+                       Bind (Exact "n") (Apply (quickCheck "choose") [Tup [H.Int 0, Apply (Exact "k") []]])]
+                      (Apply (feat "uniform") [Apply (Exact "n") []]))]
     | case mode of { QuickCheck -> True; QuickSpec _ -> True; _ -> False } ]
     ++
     [ InstDecl
@@ -503,7 +505,7 @@ arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
 arbitrary ts =
   [ TyCon tc [t]
   | t <- ts
-  , tc <- [quickCheck "Arbitrary", quickCheck "CoArbitrary", prelude "Ord"]
+  , tc <- [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
   ]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -725,7 +727,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
            -- [ b      | bool_used, b <- [And,Or,Not] ]
            -- [ IntAdd | int_used ]
            -- [ Equal  | bool_used && int_used ]
-              [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b || eqRelatedBuiltin b ]
+              [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b ]
        , Just s <- [lookup b hsBuiltins]
        ]
 

@@ -5,6 +5,7 @@ import Options.Applicative
 import Tip.Utils
 
 import Data.List.Split
+import Data.Monoid
 
 -- | Parameters
 data Params = Params

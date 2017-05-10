@@ -8,9 +8,12 @@ import Tip.Passes
 import Tip.Pretty.SMT as SMT
 
 import Options.Applicative
+import Data.Monoid
+#ifdef STACK
 import Language.Haskell.TH.Syntax(qRunIO, lift)
 import System.Process
 import System.Environment
+#endif
 
 main :: IO ()
 main = do

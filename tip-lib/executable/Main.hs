@@ -22,6 +22,7 @@ import Tip.Core
 import System.FilePath
 import Options.Applicative
 import Control.Monad
+import Data.Monoid ((<>))
 
 data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | TIP | TFF | Waldmeister
 
