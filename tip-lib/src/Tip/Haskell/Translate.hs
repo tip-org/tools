@@ -585,7 +585,9 @@ typesOfBuiltin b = case b of
 
 data QuickSpecParams =
   QuickSpecParams {
-    background_functions :: [String] }
+    background_functions :: [String],
+    observer_module :: String, 
+    observers :: [(String, String, String)]} -- type that needs observer, observable type, and corresponding obs. func.
   deriving (Eq, Ord, Show)
 
 makeSig :: forall a . (PrettyVar a,Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
@@ -627,7 +629,8 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
-               ])
+               ] ++ (map obs_decl observers)
+            )
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
@@ -674,6 +677,17 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
 
       pairPat x y = H.TupPat [x,y]
       tyPair x y = H.TyTup [x,y]
+
+  obs_decl (obsFun, expT, obsT) =
+    Apply (quickSpec "makeInstance") [H.Lam [H.ConPat (quickSpec "Dict") []]
+                            (Apply (quickSpec "observe") [Apply obs []]) :::
+                  H.TyArr x (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]
+    where
+      x = H.TyCon (quickSpec "A") []
+      obs = Qualified obsMod Nothing obsFun
+      t = Qualified obsMod Nothing expT
+      t' = Qualified obsMod Nothing obsT
+      obsMod = observer_module
 
   int_lit_decl x =
     Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
