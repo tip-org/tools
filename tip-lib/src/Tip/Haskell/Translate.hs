@@ -30,6 +30,8 @@ import Data.Generics.Geniplate
 
 import Data.List (nub,partition)
 
+import Tip.Haskell.Observers
+
 prelude :: String -> HsId a
 prelude = Qualified "Prelude" (Just "P")
 
@@ -586,8 +588,10 @@ typesOfBuiltin b = case b of
 data QuickSpecParams =
   QuickSpecParams {
     background_functions :: [String],
-    observer_module :: String, 
-    observers :: [(String, String, String)]} -- type that needs observer, observable type, and corresponding obs. func.
+    exploration_type :: [String], -- type that needs observer
+    observation_type :: [String], -- observable type
+    observation_fun :: [String] -- corresponding observation function
+    }
   deriving (Eq, Ord, Show)
 
 makeSig :: forall a . (PrettyVar a,Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
@@ -629,7 +633,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
-               ] ++ (map obs_decl observers)
+               ] ++ obs_decl
             )
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
@@ -678,16 +682,21 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       pairPat x y = H.TupPat [x,y]
       tyPair x y = H.TyTup [x,y]
 
-  obs_decl (obsFun, expT, obsT) =
-    Apply (quickSpec "makeInstance") [H.Lam [H.ConPat (quickSpec "Dict") []]
-                            (Apply (quickSpec "observe") [Apply obs []]) :::
-                  H.TyArr x (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]
+  obs_decl
+    | length (exploration_type ++ observation_type ++ observation_fun) < 3 = []
+    | otherwise = [Apply (quickSpec "makeInstance") [H.Lam [H.ConPat (quickSpec "Dict") []]
+                            (Apply (quickSpec "observe") [obs]) :::
+                  H.TyArr d (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]]
     where
+      d = H.TyCon (quickSpec "Dict") [H.TyTup [H.TyCon (prelude "Ord") [x], H.TyCon (feat "Enumerable") [x], H.TyCon (quickCheck "Arbitrary") [x]]]
       x = H.TyCon (quickSpec "A") []
-      obs = Qualified obsMod Nothing obsFun
-      t = Qualified obsMod Nothing expT
-      t' = Qualified obsMod Nothing obsT
-      obsMod = observer_module
+      obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
+      ofun = head obsFun
+      t = head explType
+      t' = head obsType
+      explType = filter (\t -> (varStr t == head exploration_type)) (map fst type_univ)
+      obsType = filter (\t -> (varStr t == head observation_type)) (map fst type_univ)
+      obsFun = filter (\f -> (varStr f == head observation_fun)) (map fst func_constants)
 
   int_lit_decl x =
     Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])

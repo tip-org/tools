@@ -23,19 +23,16 @@ parseParams :: Parser QuickSpecParams
 parseParams =
   QuickSpecParams <$>
     backgroundFuns <*>
-    obsModule <*>
-    observerFuns
+    explType <*>
+    obsType <*>
+    obsFun
   where
     backgroundFuns =
       commaSep <$>
       many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
-    obsModule = strOption (long "obs-module" <> short 'm' <> metavar "MODULE-NAME" <> help "Module containing observer functions")
-    observerFuns =
-      commaSep <$>
-      many (explType, obsType, obsFun)
-    explType = strOption (long "explType" <> short 'e' <> metavar "TYPE" <> help "Type that requires observer")
-    obsType = strOption (long "obsType" <> short 'o' <> metavar "TYPE" <> help "Observable type")
-    obsFun = strOption (long "obsfun" <> short 'f' <> metavar "FUN" <> help "Observer function")
+    explType = many (strOption (long "explType" <> short 'e' <> metavar "TYPE" <> help "Type that requires observer"))
+    obsType = many (strOption (long "obsType" <> short 'o' <> metavar "TYPE" <> help "Observable type"))
+    obsFun = many (strOption (long "obsfun" <> short 'f' <> metavar "FUN" <> help "Observer function"))
 
 commaSep :: [String] -> [String]
 commaSep = concatMap (splitOn ",")

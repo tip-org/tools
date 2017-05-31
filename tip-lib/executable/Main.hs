@@ -35,7 +35,7 @@ parseOutputMode =
   <|> flag' (Haskell (HS.LazySmallCheck False False)) (long "haskell-lazysc-simple" <> help "Haskell output with LazySmallCheck tests, with parallel operators only in the property")
   <|> flag' (Haskell (HS.LazySmallCheck True  True))  (long "haskell-lazysc-depth"  <> help "Haskell output with LazySmallCheck tests up to some depth (given on command line)")
   <|> flag' (Haskell HS.Smten)                  (long "haskell-smten"        <> help "Haskell output with Smten (depth given on command line)")
-  <|> flag' (Haskell (HS.QuickSpec (HS.QuickSpecParams {background_functions = [], observer_module = "", observers = []})))      (long "haskell-spec"   <> help "Haskell output with QuickSpec signature (Feat generators)")
+  <|> flag' (Haskell (HS.QuickSpec (HS.QuickSpecParams {background_functions = [], exploration_type = [], observation_type = [], observation_fun = []})))      (long "haskell-spec"   <> help "Haskell output with QuickSpec signature (Feat generators)")
   <|> flag' Why3 (long "why" <> help "WhyML output")
   <|> flag' (SMTLIB False) (long "smtlib" <> help "SMTLIB output")
   <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
