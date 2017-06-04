@@ -507,8 +507,8 @@ arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
 arbitrary ts =
   [ TyCon tc [t]
   | t <- ts
-  , tc <- [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
-  ]
+  , tc <- [prelude "Ord"]]
+      --quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
 trType (T.TyVar x)     = H.TyVar x
@@ -688,7 +688,8 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                             (Apply (quickSpec "observe") [obs]) :::
                   H.TyArr d (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]]
     where
-      d = H.TyCon (quickSpec "Dict") [H.TyTup [H.TyCon (prelude "Ord") [x], H.TyCon (feat "Enumerable") [x], H.TyCon (quickCheck "Arbitrary") [x]]]
+      d = H.TyCon (quickSpec "Dict") [H.TyCon (prelude "Ord") [x]]
+      --[H.TyTup [H.TyCon (prelude "Ord") [x], H.TyCon (feat "Enumerable") [x], H.TyCon (quickCheck "Arbitrary") [x]]]
       x = H.TyCon (quickSpec "A") []
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
       ofun = head obsFun
