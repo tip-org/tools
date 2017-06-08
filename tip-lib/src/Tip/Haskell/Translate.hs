@@ -508,6 +508,7 @@ arbitrary ts =
   [ TyCon tc [t]
   | t <- ts
   , tc <- [prelude "Ord"]]
+
       --quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -626,9 +627,10 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
-               , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
-                              (feat "Enumerable", feat "Enumerable"),
-                              (feat "Enumerable",quickCheck "Arbitrary")]
+               , (c1, c2) <- [(prelude "Ord", prelude "Ord")--,
+                              --(feat "Enumerable", feat "Enumerable"),
+                              --(feat "Enumerable",quickCheck "Arbitrary")
+                             ]
                , let tys = map trType (qsTvs n)
                ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
