@@ -603,7 +603,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
     Tup
       [ List
           [ Tup
-              [ constant_decl (varStr (fst ft) `elem` background_functions) ft
+              [ constant_decl (varStr (fst ft) `elem` (map readName background_functions)) ft
               , List $
                   if use_cg
                     then
@@ -708,12 +708,13 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       explType = filter (\t -> (varStr t == (readName $ head exploration_type))) (map fst type_univ)
       obsType = filter (\t -> (varStr t == (readName $ head observation_type))) (map fst type_univ)
       obsFun = filter (\f -> (varStr f == (readName $ head observation_fun))) (map fst func_constants)
-      -- This is an ugly workaround because the parameters have all this extra junk
-      -- when passed to bash via Isabelle
-      readName s = case isAlphaNum $ head s of
-        True -> s
-        False -> drop ((last $ elemIndices '\ENQ' s') + 1) s'
-          where s' = (take (length s - 3) s)
+
+  -- This is a workaround because the parameters have all this extra junk
+  -- when passed to bash via Isabelle
+  readName s = case isAlphaNum $ head s of
+               True -> s
+               False -> drop ((last $ elemIndices '\ENQ' s') + 1) s'
+                 where s' = (take (length s - 3) s)
 
 
   int_lit_decl x =
