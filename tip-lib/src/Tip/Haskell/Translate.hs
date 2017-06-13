@@ -28,7 +28,9 @@ import qualified Data.Map as M
 
 import Data.Generics.Geniplate
 
-import Data.List (nub,partition)
+import Data.List (nub,partition,elemIndices)
+
+import Data.Char (isAlphaNum)
 
 import Tip.Haskell.Observers
 
@@ -694,12 +696,25 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       --[H.TyTup [H.TyCon (prelude "Ord") [x], H.TyCon (feat "Enumerable") [x], H.TyCon (quickCheck "Arbitrary") [x]]]
       x = H.TyCon (quickSpec "A") []
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
-      ofun = head obsFun
-      t = head explType
-      t' = head obsType
-      explType = filter (\t -> (varStr t == head exploration_type)) (map fst type_univ)
-      obsType = filter (\t -> (varStr t == head observation_type)) (map fst type_univ)
-      obsFun = filter (\f -> (varStr f == head observation_fun)) (map fst func_constants)
+      ofun = case obsFun of
+        [] -> prelude (readName $ head observation_fun)
+        _ -> head obsFun
+      t = case explType of
+        [] -> prelude (readName $ head exploration_type)
+        _ -> head explType
+      t' = case obsType of
+        [] -> prelude (readName $ head observation_type)
+        _ -> head obsType
+      explType = filter (\t -> (varStr t == (readName $ head exploration_type))) (map fst type_univ)
+      obsType = filter (\t -> (varStr t == (readName $ head observation_type))) (map fst type_univ)
+      obsFun = filter (\f -> (varStr f == (readName $ head observation_fun))) (map fst func_constants)
+      -- This is an ugly workaround because the parameters have all this extra junk
+      -- when passed to bash via Isabelle
+      readName s = case isAlphaNum $ head s of
+        True -> s
+        False -> drop ((last $ elemIndices '\ENQ' s') + 1) s'
+          where s' = (take (length s - 3) s)
+
 
   int_lit_decl x =
     Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
