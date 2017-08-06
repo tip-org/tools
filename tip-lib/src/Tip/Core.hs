@@ -635,12 +635,12 @@ keep = unitAttr "keep"
 source :: Attr String
 source = stringAttr "source"
 
-definition, dataDomain, dataProjection, dataDistinct, speculatedLemma, skolem, lambda, letVar :: Attr ()
+definition, dataDomain, dataProjection, dataDistinct, lemma, skolem, lambda, letVar :: Attr ()
 definition = unitAttr "definition"
 dataDomain = unitAttr "data-domain"
 dataProjection = unitAttr "data-projection"
 dataDistinct = unitAttr "data-distinct"
-speculatedLemma = unitAttr "speculated-lemma"
+lemma = unitAttr "lemma"
 skolem = unitAttr "skolem"
 lambda = unitAttr "lambda"
 letVar = unitAttr "let"
