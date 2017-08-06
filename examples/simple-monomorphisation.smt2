@@ -1,5 +1,4 @@
 (declare-sort sk 0)
 (declare-const y sk)
 (define-fun (par (a) (id ((x a)) a x)))
-(assert-not (= (id y) (id y)))
-(check-sat)
+(prove (= (id y) (id y)))

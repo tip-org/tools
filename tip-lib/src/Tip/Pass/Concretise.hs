@@ -60,8 +60,7 @@ Right nat_theory =
     "(define-fun-rec imod ((x Nat) (y Nat)) Nat",
     "  (match (lt x y)",
     "    (case true x)",
-    "    (case default (imod (minus x y) y))))",
-    "(check-sat)"]
+    "    (case default (imod (minus x y) y))))"]
 
 renameWrt :: (Ord a,PrettyVar a,Name b) => Theory a -> f b -> Fresh (Theory b)
 renameWrt thy _wrt =
