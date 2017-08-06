@@ -150,7 +150,7 @@ instance Pass StandardPass where
     SimplifyAggressively -> single $ simplifyTheory aggressively
     RemoveNewtype        -> single $ return . removeNewtype
     UncurryTheory        -> single $ uncurryTheory
-    NegateConjecture     -> single $ negateConjecture
+    NegateConjecture     -> (return . splitConjecture) `followedBy` single negateConjecture
     TypeSkolemConjecture -> single $ typeSkolemConjecture
     IntToNat             -> single $ intToNat
     SortsToNat           -> single $ sortsToNat
@@ -163,16 +163,16 @@ instance Pass StandardPass where
     AddMatch             -> single $ addMatch
     CommuteMatch         -> single $ commuteMatchTheory
     RemoveMatch          -> single $ removeMatch
-    CollapseEqual        -> single $ return . collapseEqual
+    CollapseEqual        -> single $ return . removeAliases . collapseEqual
     RemoveAliases        -> single $ return . removeAliases
     LambdaLift           -> single $ lambdaLift
     LetLift              -> single $ letLift
-    AxiomatizeLambdas    -> single $ axiomatizeLambdas
+    AxiomatizeLambdas    -> single lambdaLift `followedBy` single axiomatizeLambdas
     AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
     AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2
     AxiomatizeDatadecls    -> single $ axiomatizeDatadecls False
     AxiomatizeDatadeclsUEQ -> single $ axiomatizeDatadecls True
-    Monomorphise b       -> single $ monomorphise b
+    Monomorphise b       -> single typeSkolemConjecture `followedBy` single (monomorphise b)
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> single $ return . eliminateDeadCode
@@ -185,7 +185,12 @@ instance Pass StandardPass where
     DropAttributes       -> single $ return . dropAttributes
     Induction coords     -> induction coords
     RecursionInduction fn xsns -> recursionInduction fn xsns
-    where single m thy = do x <- m thy; return [x]
+    where
+      single m thy = do x <- m thy; return [x]
+      f `followedBy` g = \thy -> do
+        thys <- f thy
+        fmap concat (mapM g thys)
+      
   parsePass =
     foldr (<|>) empty [
       unitPass SimplifyGently $
@@ -231,7 +236,7 @@ instance Pass StandardPass where
       unitPass LetLift $
         help "Lift let-expressions to the top level",
       unitPass AxiomatizeLambdas $
-        help "Eliminate lambdas by axiomatisation (requires --lambda-lift)",
+        help "Eliminate lambdas by axiomatisation",
       unitPass AxiomatizeFuncdefs $
         help "Transform function definitions to axioms in the most straightforward way",
       unitPass AxiomatizeFuncdefs2 $
