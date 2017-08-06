@@ -1,7 +1,7 @@
 (declare-datatypes (a) ((unit (value))))
 (define-funs-rec
   ((par (a) (make-unit () (unit a))))
-  ((as value (unit a))))
+  ((_ value a)))
 (prove
-  (= (as make-unit (unit Int))
-     (as value (unit Int))))
+  (= (_ make-unit Int)
+     (_ value Int)))
