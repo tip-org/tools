@@ -39,7 +39,7 @@ inductive_e() {
     dir=$(mktemp -d)
     # Use TIP to generate proof obligations for doing induction
     # on the nth variable. Fails if n is out of bounds.
-    if echo "$file"|tip --induction "[$n]" - $dir >& /dev/null; then
+    if echo "$file"|tip --induction "[$n]" - $dir/ >& /dev/null; then
       # Use E to discharge the proof obligations.
       if dir_e $dir $1; then
         # Success!

@@ -126,7 +126,7 @@ handle passes mode multipath s =
             _     -> error "Multiple theories, specify an output path"
         Just d ->
           sequence_
-            [ do putStrLn $ d </> show n <.> ext
-                 writeFile (d </> show n <.> ext) (show (pretty thy) ++ "\n")
+            [ do putStrLn $ d ++ show n <.> ext
+                 writeFile (d ++ show n <.> ext) (show (pretty thy) ++ "\n")
             | (n, thy) <- [(0 :: Int)..] `zip` thys
             ]
