@@ -29,6 +29,7 @@ import Tip.Parser.ErrM
 %name pCase Case
 %name pPattern Pattern
 %name pHead Head
+%name pPolySymbol PolySymbol
 %name pAttr Attr
 %name pListLetDecl ListLetDecl
 %name pListCase ListCase
@@ -63,8 +64,8 @@ import Tip.Parser.ErrM
   'Bool' { PT _ (TS _ 14) }
   'Int' { PT _ (TS _ 15) }
   'Real' { PT _ (TS _ 16) }
-  'and' { PT _ (TS _ 17) }
-  'as' { PT _ (TS _ 18) }
+  '_' { PT _ (TS _ 17) }
+  'and' { PT _ (TS _ 18) }
   'assert' { PT _ (TS _ 19) }
   'case' { PT _ (TS _ 20) }
   'declare-const' { PT _ (TS _ 21) }
@@ -155,8 +156,7 @@ Type : Symbol { Tip.Parser.AbsTIP.TyVar $1 }
      | 'Real' { Tip.Parser.AbsTIP.RealTy }
      | 'Bool' { Tip.Parser.AbsTIP.BoolTy }
 Expr :: { Expr }
-Expr : Symbol { Tip.Parser.AbsTIP.Var $1 }
-     | '(' 'as' Expr Type ')' { Tip.Parser.AbsTIP.As $3 $4 }
+Expr : PolySymbol { Tip.Parser.AbsTIP.Var $1 }
      | '(' Head ListExpr ')' { Tip.Parser.AbsTIP.App $2 (reverse $3) }
      | '(' 'match' Expr ListCase ')' { Tip.Parser.AbsTIP.Match $3 (reverse $4) }
      | '(' 'let' '(' ListLetDecl ')' Expr ')' { Tip.Parser.AbsTIP.Let (reverse $4) $6 }
@@ -179,7 +179,7 @@ Pattern : 'default' { Tip.Parser.AbsTIP.Default }
         | Symbol { Tip.Parser.AbsTIP.SimplePat $1 }
         | Lit { Tip.Parser.AbsTIP.LitPat $1 }
 Head :: { Head }
-Head : Symbol { Tip.Parser.AbsTIP.Const $1 }
+Head : PolySymbol { Tip.Parser.AbsTIP.Const $1 }
      | '@' { Tip.Parser.AbsTIP.At }
      | 'ite' { Tip.Parser.AbsTIP.IfThenElse }
      | 'and' { Tip.Parser.AbsTIP.And }
@@ -199,6 +199,9 @@ Head : Symbol { Tip.Parser.AbsTIP.Const $1 }
      | '<' { Tip.Parser.AbsTIP.NumLt }
      | '<=' { Tip.Parser.AbsTIP.NumLe }
      | 'to_real' { Tip.Parser.AbsTIP.NumWiden }
+PolySymbol :: { PolySymbol }
+PolySymbol : Symbol { Tip.Parser.AbsTIP.NoAs $1 }
+           | '(' '_' Symbol ListType ')' { Tip.Parser.AbsTIP.As $3 (reverse $4) }
 Attr :: { Attr }
 Attr : Keyword { Tip.Parser.AbsTIP.NoValue $1 }
      | Keyword Symbol { Tip.Parser.AbsTIP.Value $1 $2 }

@@ -120,8 +120,8 @@ ppFormula (Formula Assert attrs tvs term) =
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
 ppExpr e@(hd@(Gbl Global{..}) :@: es)
-  | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing)
-      = exprSep "as" [exprSep (ppHead hd) (map ppExpr es), ppType (exprType e)]
+  | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
+    exprSep (exprSep "_" (ppHead hd:map ppType gbl_args)) (map ppExpr es)
 ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVarSMT (lcl_name l)
 ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]

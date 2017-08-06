@@ -243,21 +243,30 @@ trLetDecls (LetDecl s expr:bs) e
             rest <- trLetDecls bs e
             return (T.Let l body rest)
 
+polySym :: A.PolySymbol -> A.Symbol
+polySym (A.As x _) = x
+polySym (A.NoAs x) = x
+
+polyTys :: A.PolySymbol -> CM (Maybe [T.Type Id])
+polyTys (A.As _ tys) = Just <$> mapM trType tys
+polyTys (A.NoAs _) = return Nothing
+
 trExpr :: A.Expr -> CM (T.Expr Id)
 trExpr e0 = case e0 of
   A.Var sym ->
-    do x <- lkSym sym
+    do x <- lkSym (polySym sym)
        ml <- gets (lookupLocal x)
        case ml of
-         Just t -> return (Lcl (Local x t))
+         Just t -> do
+           tys <- polyTys sym
+           case tys of
+             Just (_:_) ->
+               throwError $ "Local variable" <+> ppSym (polySym sym) <+> "should not be given type arguments"
+             _ ->
+               return (Lcl (Local x t))
          _      -> trExpr (A.App (A.Const sym) [])
 
-  A.As (A.Var sym) ty -> trExpr (A.As (A.App (A.Const sym) []) ty)
-  A.As (A.App head exprs) ty -> do ty' <- trType ty
-                                   trHead (Just ty') head =<< mapM trExpr exprs
-  A.As e _ -> trExpr e
-
-  A.App head exprs           -> trHead Nothing head =<< mapM trExpr exprs
+  A.App head exprs           -> trHead head =<< mapM trExpr exprs
 
   A.Match expr cases  -> do e <- trExpr expr
                             cases' <- sort <$> mapM (trCase (exprType e)) cases
@@ -272,41 +281,51 @@ trLit (A.LitNegInt n) = T.Int (negate n)
 trLit A.LitTrue = T.Bool True
 trLit A.LitFalse = T.Bool False
 
-trHead :: Maybe (T.Type Id) -> A.Head -> [T.Expr Id] -> CM (T.Expr Id)
-trHead mgt A.IfThenElse  [c,t,f] = return (makeIf c t f)
-trHead mgt A.IfThenElse  args    = throwError $ "if-then-else with " <+> int (length args) <+> " arguments!"
-trHead mgt (A.Const sym) args    =
-  do x <- lkSym sym
+trHead :: A.Head -> [T.Expr Id] -> CM (T.Expr Id)
+trHead A.IfThenElse  [c,t,f] = return (makeIf c t f)
+trHead A.IfThenElse  args    = throwError $ "if-then-else with " <+> int (length args) <+> " arguments!"
+trHead (A.Const sym) args    =
+  do x <- lkSym (polySym sym)
+     mtys <- polyTys sym
      mt <- gets (fmap globalType . lookupGlobal x)
      case mt of
-       Just pt
-         | Just gbl <- makeGlobal x pt (map exprType args) mgt
-         -> return (Gbl gbl :@: args)
-         | otherwise
-         -> throwError $ "Not a well-applied global:" <+> ppSym sym
-                      $$ " with goal type " <+> case mgt of Nothing -> "Nothing"; Just t -> pp t
-                      $$ " with argument types " <+> fsep (punctuate "," (map (pp . exprType) args))
-                      $$ " with polymorphic type " <+> pp pt
-       _ -> throwError $ "No type information for:" <+> ppSym sym
+       Nothing -> throwError $ "No type information for:" <+> ppSym (polySym sym)
+       Just pt ->
+         case mtys of
+           Just tys ->
+             if length tys == length (polytype_tvs pt) then
+               return (Gbl (Global x pt tys) :@: args)
+             else
+               throwError $
+                 "Global applied to wrong number of type arguments:" <+> ppSym (polySym sym) $$
+                 " expected" <+> pp (length (polytype_tvs pt)) <> ":" <+> sep (punctuate comma (map ppVar (polytype_tvs pt))) $$
+                 " but got" <+> pp (length tys) <> ":" <+> sep (punctuate comma (map pp tys))
+           Nothing ->
+             case makeGlobal x pt (map exprType args) Nothing of
+               Just gbl -> return (Gbl gbl :@: args)
+               Nothing ->
+                 throwError $ "Not a well-applied global:" <+> ppSym (polySym sym)
+                   $$ " with argument types " <+> fsep (punctuate "," (map (pp . exprType) args))
+                   $$ " with polymorphic type " <+> pp pt
 
-trHead _ A.At       args = return (Builtin T.At       :@: args)
-trHead _ A.And      args = return (Builtin T.And      :@: args)
-trHead _ A.Or       args = return (Builtin T.Or       :@: args)
-trHead _ A.Not      args = return (Builtin T.Not      :@: args)
-trHead _ A.Implies  args = return (Builtin T.Implies  :@: args)
-trHead _ A.Equal    args = return (Builtin T.Equal    :@: args)
-trHead _ A.Distinct args = return (Builtin T.Distinct :@: args)
-trHead _ A.NumAdd   args = return (Builtin T.NumAdd   :@: args)
-trHead _ A.NumSub   args = return (Builtin T.NumSub   :@: args)
-trHead _ A.NumMul   args = return (Builtin T.NumMul   :@: args)
-trHead _ A.NumDiv   args = return (Builtin T.NumDiv   :@: args)
-trHead _ A.IntDiv   args = return (Builtin T.IntDiv   :@: args)
-trHead _ A.IntMod   args = return (Builtin T.IntMod   :@: args)
-trHead _ A.NumGt    args = return (Builtin T.NumGt    :@: args)
-trHead _ A.NumGe    args = return (Builtin T.NumGe    :@: args)
-trHead _ A.NumLt    args = return (Builtin T.NumLt    :@: args)
-trHead _ A.NumLe    args = return (Builtin T.NumLe    :@: args)
-trHead _ A.NumWiden args = return (Builtin T.NumWiden :@: args)
+trHead A.At       args = return (Builtin T.At       :@: args)
+trHead A.And      args = return (Builtin T.And      :@: args)
+trHead A.Or       args = return (Builtin T.Or       :@: args)
+trHead A.Not      args = return (Builtin T.Not      :@: args)
+trHead A.Implies  args = return (Builtin T.Implies  :@: args)
+trHead A.Equal    args = return (Builtin T.Equal    :@: args)
+trHead A.Distinct args = return (Builtin T.Distinct :@: args)
+trHead A.NumAdd   args = return (Builtin T.NumAdd   :@: args)
+trHead A.NumSub   args = return (Builtin T.NumSub   :@: args)
+trHead A.NumMul   args = return (Builtin T.NumMul   :@: args)
+trHead A.NumDiv   args = return (Builtin T.NumDiv   :@: args)
+trHead A.IntDiv   args = return (Builtin T.IntDiv   :@: args)
+trHead A.IntMod   args = return (Builtin T.IntMod   :@: args)
+trHead A.NumGt    args = return (Builtin T.NumGt    :@: args)
+trHead A.NumGe    args = return (Builtin T.NumGe    :@: args)
+trHead A.NumLt    args = return (Builtin T.NumLt    :@: args)
+trHead A.NumLe    args = return (Builtin T.NumLe    :@: args)
+trHead A.NumWiden args = return (Builtin T.NumWiden :@: args)
 
 trBinder :: A.Binder -> [Local Id] -> T.Expr Id -> T.Expr Id
 trBinder b = case b of

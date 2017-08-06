@@ -74,8 +74,7 @@ data Type
   deriving (Eq, Ord, Show, Read)
 
 data Expr
-    = Var Symbol
-    | As Expr Type
+    = Var PolySymbol
     | App Head [Expr]
     | Match Expr [Case]
     | Let [LetDecl] Expr
@@ -97,7 +96,7 @@ data Pattern
   deriving (Eq, Ord, Show, Read)
 
 data Head
-    = Const Symbol
+    = Const PolySymbol
     | At
     | IfThenElse
     | And
@@ -117,6 +116,9 @@ data Head
     | NumLt
     | NumLe
     | NumWiden
+  deriving (Eq, Ord, Show, Read)
+
+data PolySymbol = NoAs Symbol | As Symbol [Type]
   deriving (Eq, Ord, Show, Read)
 
 data Attr = NoValue Keyword | Value Keyword Symbol

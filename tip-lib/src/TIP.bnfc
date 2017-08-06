@@ -47,8 +47,7 @@ IntTy.   Type ::= "Int";
 RealTy.  Type ::= "Real";
 BoolTy.  Type ::= "Bool";
 
-Var.       Expr ::= Symbol;
-As.        Expr ::= "(" "as" Expr Type ")";
+Var.       Expr ::= PolySymbol;
 App.       Expr ::= "(" Head [Expr] ")";
 Match.     Expr ::= "(" "match" Expr [Case] ")";
 Let.       Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
@@ -71,7 +70,7 @@ ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
 SimplePat.  Pattern ::= Symbol;
 LitPat.     Pattern ::= Lit;
 
-Const.      Head ::= Symbol;
+Const.      Head ::= PolySymbol;
 At.         Head ::= "@";
 IfThenElse. Head ::= "ite";
 And.        Head ::= "and";
@@ -91,6 +90,9 @@ NumGe.      Head ::= ">=";
 NumLt.      Head ::= "<";
 NumLe.      Head ::= "<=";
 NumWiden.   Head ::= "to_real";
+
+NoAs. PolySymbol ::= Symbol;
+As.   PolySymbol ::= "(" "_" Symbol [Type] ")";
 
 NoValue. Attr ::= Keyword;
 Value.   Attr ::= Keyword Symbol;
