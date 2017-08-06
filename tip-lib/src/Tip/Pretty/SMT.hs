@@ -52,8 +52,7 @@ ppTheory keywords thy =
     map ppDatas (topsort thy_datatypes) ++
     map ppUninterp thy_sigs ++
     map ppFuncs (topsort thy_funcs) ++
-    map ppFormula thy_asserts ++
-    ["(check-sat)"]
+    map ppFormula thy_asserts
   where
     Theory{..} =
       renameAvoiding (tipKeywords ++ keywords) id thy
@@ -112,7 +111,7 @@ ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
 
 ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
 ppFormula (Formula Prove attrs tvs term)  =
-  apply "assert-not" $
+  apply "prove" $
     ppAttrs attrs $$ par' tvs (ppExpr term)
 ppFormula (Formula Assert attrs tvs term) =
   apply "assert" $

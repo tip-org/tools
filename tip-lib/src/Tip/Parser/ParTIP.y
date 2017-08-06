@@ -66,32 +66,31 @@ import Tip.Parser.ErrM
   'and' { PT _ (TS _ 17) }
   'as' { PT _ (TS _ 18) }
   'assert' { PT _ (TS _ 19) }
-  'assert-not' { PT _ (TS _ 20) }
-  'case' { PT _ (TS _ 21) }
-  'check-sat' { PT _ (TS _ 22) }
-  'declare-const' { PT _ (TS _ 23) }
-  'declare-datatypes' { PT _ (TS _ 24) }
-  'declare-fun' { PT _ (TS _ 25) }
-  'declare-sort' { PT _ (TS _ 26) }
-  'default' { PT _ (TS _ 27) }
-  'define-fun' { PT _ (TS _ 28) }
-  'define-fun-rec' { PT _ (TS _ 29) }
-  'define-funs-rec' { PT _ (TS _ 30) }
-  'distinct' { PT _ (TS _ 31) }
-  'div' { PT _ (TS _ 32) }
-  'exists' { PT _ (TS _ 33) }
-  'false' { PT _ (TS _ 34) }
-  'forall' { PT _ (TS _ 35) }
-  'ite' { PT _ (TS _ 36) }
-  'lambda' { PT _ (TS _ 37) }
-  'let' { PT _ (TS _ 38) }
-  'match' { PT _ (TS _ 39) }
-  'mod' { PT _ (TS _ 40) }
-  'not' { PT _ (TS _ 41) }
-  'or' { PT _ (TS _ 42) }
-  'par' { PT _ (TS _ 43) }
-  'to_real' { PT _ (TS _ 44) }
-  'true' { PT _ (TS _ 45) }
+  'case' { PT _ (TS _ 20) }
+  'declare-const' { PT _ (TS _ 21) }
+  'declare-datatypes' { PT _ (TS _ 22) }
+  'declare-fun' { PT _ (TS _ 23) }
+  'declare-sort' { PT _ (TS _ 24) }
+  'default' { PT _ (TS _ 25) }
+  'define-fun' { PT _ (TS _ 26) }
+  'define-fun-rec' { PT _ (TS _ 27) }
+  'define-funs-rec' { PT _ (TS _ 28) }
+  'distinct' { PT _ (TS _ 29) }
+  'div' { PT _ (TS _ 30) }
+  'exists' { PT _ (TS _ 31) }
+  'false' { PT _ (TS _ 32) }
+  'forall' { PT _ (TS _ 33) }
+  'ite' { PT _ (TS _ 34) }
+  'lambda' { PT _ (TS _ 35) }
+  'let' { PT _ (TS _ 36) }
+  'match' { PT _ (TS _ 37) }
+  'mod' { PT _ (TS _ 38) }
+  'not' { PT _ (TS _ 39) }
+  'or' { PT _ (TS _ 40) }
+  'par' { PT _ (TS _ 41) }
+  'prove' { PT _ (TS _ 42) }
+  'to_real' { PT _ (TS _ 43) }
+  'true' { PT _ (TS _ 44) }
 
 L_integ  { PT _ (TI $$) }
 L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
@@ -109,8 +108,7 @@ Keyword    :: { Keyword} : L_Keyword { Keyword ($1)}
 Start :: { Start }
 Start : ListDecl { Tip.Parser.AbsTIP.Start $1 }
 ListDecl :: { [Decl] }
-ListDecl : '(' 'check-sat' ')' { [] }
-         | '(' Decl ')' ListDecl { (:) $2 $4 }
+ListDecl : {- empty -} { [] } | '(' Decl ')' ListDecl { (:) $2 $4 }
 Decl :: { Decl }
 Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
      | 'declare-sort' Symbol ListAttr Integer { Tip.Parser.AbsTIP.DeclareSort $2 (reverse $3) $4 }
@@ -123,11 +121,11 @@ Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.
      | 'define-fun-rec' FunDef { Tip.Parser.AbsTIP.DefineFunRec $2 }
      | 'define-fun-rec' '(' Par '(' FunDef ')' ')' { Tip.Parser.AbsTIP.DefineFunRecPar $3 $5 }
      | 'define-funs-rec' '(' ListFunDec ')' '(' ListExpr ')' { Tip.Parser.AbsTIP.DefineFunsRec (reverse $3) (reverse $6) }
-     | Assertion ListAttr Expr { Tip.Parser.AbsTIP.Assert $1 (reverse $2) $3 }
-     | Assertion ListAttr '(' Par Expr ')' { Tip.Parser.AbsTIP.AssertPar $1 (reverse $2) $4 $5 }
+     | Assertion ListAttr Expr { Tip.Parser.AbsTIP.Formula $1 (reverse $2) $3 }
+     | Assertion ListAttr '(' Par Expr ')' { Tip.Parser.AbsTIP.FormulaPar $1 (reverse $2) $4 $5 }
 Assertion :: { Assertion }
-Assertion : 'assert' { Tip.Parser.AbsTIP.AssertIt }
-          | 'assert-not' { Tip.Parser.AbsTIP.AssertNot }
+Assertion : 'assert' { Tip.Parser.AbsTIP.Assert }
+          | 'prove' { Tip.Parser.AbsTIP.Prove }
 Par :: { Par }
 Par : 'par' '(' ListSymbol ')' { Tip.Parser.AbsTIP.Par (reverse $3) }
 ConstDecl :: { ConstDecl }
@@ -257,3 +255,4 @@ happyError ts =
 
 myLexer = tokens
 }
+

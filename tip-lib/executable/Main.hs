@@ -23,6 +23,7 @@ import System.FilePath
 import Options.Applicative
 import Control.Monad
 import Data.Monoid ((<>))
+import Text.PrettyPrint hiding ((<>))
 
 data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | TIP | TFF | Waldmeister
 
@@ -79,7 +80,7 @@ handle passes mode multipath s =
       let (pretty,pipeline,ext) =
             case mode of
               SMTLIB ax_func_decls ->
-                ( SMT.ppTheory SMT.smtKeywords
+                ( \t -> SMT.ppTheory SMT.smtKeywords t $$ text "(check-sat)"
                 , passes ++
                   [ TypeSkolemConjecture, Monomorphise False
                   , LambdaLift, AxiomatizeLambdas
@@ -87,7 +88,7 @@ handle passes mode multipath s =
                   , SimplifyGently, RemoveMatch
                   , SimplifyGently, Monomorphise False ]
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
-                  ++ [ SimplifyGently, NegateConjecture, DropAttributes ]
+                  ++ [ SimplifyGently, SplitConjecture, NegateConjecture, DropAttributes ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory

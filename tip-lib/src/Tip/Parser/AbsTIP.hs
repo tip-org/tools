@@ -27,11 +27,11 @@ data Decl
     | DefineFunRec FunDef
     | DefineFunRecPar Par FunDef
     | DefineFunsRec [FunDec] [Expr]
-    | Assert Assertion [Attr] Expr
-    | AssertPar Assertion [Attr] Par Expr
+    | Formula Assertion [Attr] Expr
+    | FormulaPar Assertion [Attr] Par Expr
   deriving (Eq, Ord, Show, Read)
 
-data Assertion = AssertIt | AssertNot
+data Assertion = Assert | Prove
   deriving (Eq, Ord, Show, Read)
 
 data Par = Par [Symbol]
@@ -124,3 +124,4 @@ data Attr = NoValue Keyword | Value Keyword Symbol
 
 data Symbol = Unquoted UnquotedSymbol | Quoted QuotedSymbol
   deriving (Eq, Ord, Show, Read)
+

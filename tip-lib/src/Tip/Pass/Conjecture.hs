@@ -72,11 +72,15 @@ skolemise = go True
 --   introduce skolem types in case the goal is polymorphic.
 --   (runs 'typeSkolemConjecture')
 negateConjecture :: Name a => Theory a -> Fresh (Theory a)
-negateConjecture = fmap (declsPass (map neg1)) . typeSkolemConjecture
+negateConjecture = fmap checkOneGoal . fmap (declsPass (map neg1)) . typeSkolemConjecture
   where
   neg1 (AssertDecl (Formula Prove attrs [] form))
       = AssertDecl (Formula Assert attrs [] (gentleNeg form))
   neg1 d0 = d0
+
+  checkOneGoal thy
+    | length (fst (theoryGoals thy)) <= 1 = thy
+    | otherwise = error "negateConjecture: more than one conjecture (try --split-conjecture first)"
 
 -- | Introduce skolem types in case the goal is polymorphic.
 typeSkolemConjecture :: Name a => Theory a -> Fresh (Theory a)

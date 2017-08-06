@@ -151,13 +151,13 @@ trDecl x =
                 ]
              return emptyTheory{ thy_funcs = fns }
 
-      A.Assert  role attrs expr -> trDecl (AssertPar role attrs emptyPar expr)
-      AssertPar role attrs (Par tvs) expr ->
+      A.Formula role attrs expr -> trDecl (FormulaPar role attrs emptyPar expr)
+      FormulaPar role attrs (Par tvs) expr ->
         do tvi <- mapM (addSym LocalId) tvs
            mapM newTyVar tvi
-           let toRole AssertIt  = T.Assert
-               toRole AssertNot = Prove
-           fm <- Formula (toRole role) (trAttrs attrs) tvi <$> trExpr expr
+           let toRole A.Assert = T.Assert
+               toRole A.Prove = T.Prove
+           fm <- T.Formula (toRole role) (trAttrs attrs) tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
 
 emptyPar :: Par

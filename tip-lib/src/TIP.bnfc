@@ -1,7 +1,7 @@
 comment ";";
 Start. Start ::= [Decl];
 
-[].  [Decl] ::= "(" "check-sat" ")";
+[].  [Decl] ::= ;
 (:). [Decl] ::= "(" Decl ")"  [Decl];
 
 DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
@@ -15,11 +15,11 @@ DefineFunPar.     Decl ::= "define-fun" "(" Par "(" FunDef ")" ")";
 DefineFunRec.     Decl ::= "define-fun-rec" FunDef;
 DefineFunRecPar.  Decl ::= "define-fun-rec" "(" Par "(" FunDef ")" ")";
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
-Assert.           Decl ::= Assertion [Attr] Expr;
-AssertPar.        Decl ::= Assertion [Attr] "(" Par Expr ")";
+Formula.          Decl ::= Assertion [Attr] Expr;
+FormulaPar.       Decl ::= Assertion [Attr] "(" Par Expr ")";
 
-AssertIt.  Assertion ::= "assert";
-AssertNot. Assertion ::= "assert-not";
+Assert. Assertion ::= "assert";
+Prove.  Assertion ::= "prove";
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
