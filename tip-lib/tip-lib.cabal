@@ -52,8 +52,9 @@ library
     Tip.Utils.SetCover
 
     Tip.Pass.Booleans
-
+    Tip.Haskell.GenericArbitrary
     Tip.Haskell.Observers
+
   other-modules:
     Tip.Pass.AddMatch
     Tip.Pass.AxiomatizeFuncdefs

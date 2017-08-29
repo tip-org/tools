@@ -30,7 +30,8 @@ import Data.Generics.Geniplate
 
 import Data.List (nub,partition)
 
-import Tip.Haskell.Observers
+import qualified GHC.Generics as G
+import Tip.Haskell.GenericArbitrary
 
 prelude :: String -> HsId a
 prelude = Qualified "Prelude" (Just "P")
@@ -79,6 +80,9 @@ lsc = Qualified "Test.LazySmallCheck" (Just "L")
 typeable :: String -> HsId a
 typeable = Qualified "Data.Typeable" (Just "T")
 
+generic :: String -> HsId a
+generic = Qualified "GHC.Generics" (Just "G")
+
 data HsId a
     = Qualified
          { qual_module       :: String
@@ -103,7 +107,7 @@ instance PrettyVar a => PrettyVar (HsId a) where
 
 addHeader :: String -> Decls a -> Decls a
 addHeader mod_name (Decls ds) =
-    Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators","ImplicitParams","RankNTypes"] ++ Module mod_name : ds)
+    Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators","ImplicitParams","RankNTypes","DeriveGeneric"] ++ Module mod_name : ds)
 
 addImports :: Ord a => Decls (HsId a) -> Decls (HsId a)
 addImports d@(Decls ds) = Decls (QualImport "Text.Show.Functions" Nothing : imps ++ ds)
@@ -186,10 +190,11 @@ trTheory' mode thy@Theory{..} =
     where d = Exact "d"
 
   tr_datatype :: Datatype a -> [Decl a]
-  tr_datatype (Datatype tc _ tvs cons) =
+  tr_datatype dt@(Datatype tc _ tvs cons) =
     [ DataDecl tc tvs
         [ (c,map (trType . snd) args) | Constructor c _ _ args <- cons ]
         (map prelude ["Eq","Ord","Show"]
+         ++ [generic "Generic"]
          ++ [typeable "Typeable" | not (isSmten mode) ])
     ]
     ++
@@ -203,7 +208,14 @@ trTheory' mode thy@Theory{..} =
                   (Do [Bind (Exact "k") (Apply (quickCheck "sized") [Apply (prelude "return") []]),
                        Bind (Exact "n") (Apply (quickCheck "choose") [Tup [H.Int 0, Apply (Exact "k") []]])]
                       (Apply (feat "uniform") [Apply (Exact "n") []]))]
-    | case mode of { QuickCheck -> True; QuickSpec _ -> True; _ -> False } ]
+    | case mode of { QuickCheck -> True; QuickSpec qspms -> not (isCodatatype dt qspms); _ -> False } ]
+    ++
+    [ InstDecl [H.TyTup ([H.TyCon (typeable "Typeable") [H.TyVar a] | a <- tvs] ++ [H.TyCon (quickCheck "Arbitrary") [H.TyVar a] | a <- tvs] ++ [H.TyCon (generic "Generic") [H.TyVar a] | a <- tvs])]
+               (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
+               [funDecl
+                  (quickCheck "arbitrary") [] (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
+
+    | case mode of { QuickSpec qspms -> (isCodatatype dt qspms); _ -> False } ]
     ++
     [ InstDecl
         [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
@@ -245,6 +257,10 @@ trTheory' mode thy@Theory{..} =
     | let d = Exact "d"
     , isSmten mode
     ]
+    where isCodatatype :: Datatype a -> QuickSpecParams -> Bool
+          isCodatatype dt qspms@QuickSpecParams{..} = (not $ codatafree qspms) &&
+            (lookup (head exploration_type) (map (\(x,y) -> (varStr x, y)) ( (M.toList (types $ scope thy))))) == Just (DatatypeInfo dt)
+
 
   tr_sort :: Sort a -> Decl a
   tr_sort (Sort s _ i) | null i = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
@@ -594,8 +610,12 @@ data QuickSpecParams =
     }
   deriving (Eq, Ord, Show)
 
+codatafree :: QuickSpecParams -> Bool
+codatafree QuickSpecParams{..} =
+  and $ map null [exploration_type, observation_type, observation_fun]
+
 makeSig :: forall a . (PrettyVar a,Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
-makeSig QuickSpecParams{..} thy@Theory{..} =
+makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $
     Tup
       [ List
@@ -627,8 +647,15 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
-                              (feat "Enumerable", feat "Enumerable"),
-                              (feat "Enumerable",quickCheck "Arbitrary")]
+                              (feat "Enumerable", feat "Enumerable")]
+               , let tys = map trType (qsTvs n)
+               ] ++
+               [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
+               | (t,n) <- type_univ, varStr t /= codataT
+               , let tys = map trType (qsTvs n)
+               ] ++
+               [ mk_inst ((map (mk_class (typeable "Typeable")) tys) ++ (map (mk_class (quickCheck "Arbitrary")) tys) ++ (map (mk_class (generic "Generic")) tys) ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
+               | (t,n) <- type_univ, varStr t == codataT
                , let tys = map trType (qsTvs n)
                ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
@@ -637,7 +664,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
             )
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
-          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
+          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000000])
           ]
       ]
   where
@@ -683,12 +710,12 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
       tyPair x y = H.TyTup [x,y]
 
   obs_decl
-    | length (exploration_type ++ observation_type ++ observation_fun) < 3 = []
-    | otherwise = [Apply (quickSpec "makeInstance") [H.Lam [H.ConPat (quickSpec "Dict") []]
+    | codatafree qspms = []
+    | otherwise = [Apply (quickSpec "makeInstance") [H.Lam [H.TupPat (replicate 3 (H.ConPat (quickSpec "Dict") []))]
                             (Apply (quickSpec "observe") [obs]) :::
                   H.TyArr d (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]]
     where
-      d = H.TyCon (quickSpec "Dict") [H.TyTup [H.TyCon (prelude "Ord") [x], H.TyCon (feat "Enumerable") [x], H.TyCon (quickCheck "Arbitrary") [x]]]
+      d = H.TyTup [H.TyCon (quickSpec "Dict") [H.TyCon (quickCheck "Arbitrary") [x]], H.TyCon (quickSpec "Dict") [H.TyCon (feat "Enumerable") [x]], H.TyCon (quickSpec "Dict") [H.TyCon (prelude "Ord") [x]]]
       x = H.TyCon (quickSpec "A") []
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
       ofun = head obsFun
@@ -720,6 +747,8 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
     [ (data_name, length data_tvs)
     | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
     ]
+
+  codataT = if (codatafree qspms) then "" else (head exploration_type)
 
   -- builtins
 
