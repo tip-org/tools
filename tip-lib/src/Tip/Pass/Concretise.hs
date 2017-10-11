@@ -18,49 +18,82 @@ import Tip.Utils
 nat_theory :: Theory Id
 Right nat_theory =
   parse $ unlines [
-    "(declare-datatypes () ((Nat (Z) (S (p Nat)))))",
-    "(define-fun-rec lt ((x Nat) (y Nat)) Bool",
+    "(declare-datatypes () ((Nat (zero) (succ (p Nat)))))",
+    "(define-fun-rec lt :definition :source |<|",
+    "  ((x Nat) (y Nat)) Bool",
     "  (match y",
-    "    (case Z false)",
-    "    (case (S z)",
+    "    (case zero false)",
+    "    (case (succ z)",
     "      (match x",
-    "        (case Z true)",
-    "        (case (S n) (lt n z))))))",
-    "(define-fun-rec le ((x Nat) (y Nat)) Bool",
+    "        (case zero true)",
+    "        (case (succ n) (lt n z))))))",
+    "(define-fun-rec leq :definition :source |<=|",
+    "  ((x Nat) (y Nat)) Bool",
     "  (match x",
-    "    (case Z true)",
-    "    (case (S z)",
+    "    (case zero true)",
+    "    (case (succ z)",
     "      (match y",
-    "        (case Z false)",
-    "        (case (S x2) (le z x2))))))",
-    "(define-fun-rec gt ((x Nat) (y Nat)) Bool",
+    "        (case zero false)",
+    "        (case (succ x2) (leq z x2))))))",
+    "(define-fun-rec gt :definition :source |>|",
+    "  ((x Nat) (y Nat)) Bool",
     "  (lt y x))",
-    "(define-fun-rec ge ((x Nat) (y Nat)) Bool",
-    "  (le y x))",
-    "(define-fun-rec plus ((x Nat) (y Nat)) Nat",
+    "(define-fun-rec geq :definition :source |>=|",
+    "  ((x Nat) (y Nat)) Bool",
+    "  (leq y x))",
+    "(define-fun-rec plus :definition :source |+|",
+    "  ((x Nat) (y Nat)) Nat",
     "  (match x",
-    "    (case Z y)",
-    "    (case (S x) (S (plus x y)))))",
-    -- 0 - S(x) is left undefined to better correspond to
+    "    (case zero y)",
+    "    (case (succ x) (succ (plus x y)))))",
+    -- 0 - succ(x) is left undefined to better correspond to
     -- integer subtraction
-    "(define-fun-rec minus ((x Nat) (y Nat)) Nat",
+    "(define-fun-rec minus :definition :source |-|",
+    "  ((x Nat) (y Nat)) Nat",
     "  (match x",
-    "    (case Z Z)",
-    "    (case (S x)",
+    "    (case zero zero)",
+    "    (case (succ x)",
     "      (match y",
-    "        (case (S y) (minus x y))))))",
-    "(define-fun-rec times ((x Nat) (y Nat)) Nat",
+    "        (case (succ y) (minus x y))))))",
+    "(define-fun-rec times :definition :source |*|",
+    "  ((x Nat) (y Nat)) Nat",
     "  (match x",
-    "    (case Z Z)",
-    "    (case (S x) (plus y (times x y)))))",
-    "(define-fun-rec idiv ((x Nat) (y Nat)) Nat",
+    "    (case zero zero)",
+    "    (case (succ x) (plus y (times x y)))))",
+    "(define-fun-rec idiv :definition :source |div|",
+    "  ((x Nat) (y Nat)) Nat",
     "  (match (lt x y)",
-    "    (case true Z)",
-    "    (case default (S (idiv (minus x y) y)))))",
-    "(define-fun-rec imod ((x Nat) (y Nat)) Nat",
+    "    (case true zero)",
+    "    (case default (succ (idiv (minus x y) y)))))",
+    "(define-fun-rec imod :definition :source |mod|",
+    "  ((x Nat) (y Nat)) Nat",
     "  (match (lt x y)",
     "    (case true x)",
-    "    (case default (imod (minus x y) y))))"]
+    "    (case default (imod (minus x y) y))))",
+    "(assert :axiom |commutativity of +|",
+    "  (forall ((x Nat) (y Nat)) (= (plus x y) (plus y x))))",
+    "(assert :axiom |associativity of +|",
+    "  (forall ((x Nat) (y Nat) (z Nat)) (= (plus x (plus y z)) (plus (plus x y) z))))",
+    "(assert :axiom |identity for +|",
+    "  (forall ((x Nat)) (= (plus x zero) x)))",
+    "(assert :axiom |identity for +|",
+    "  (forall ((x Nat)) (= (plus zero x) x)))",
+    "(assert :axiom |commutativity of *|",
+    "  (forall ((x Nat) (y Nat)) (= (times x y) (times y x))))",
+    "(assert :axiom |associativity of *|",
+    "  (forall ((x Nat) (y Nat) (z Nat)) (= (times x (times y z)) (times (times x y) z))))",
+    "(assert :axiom |identity for *|",
+    "  (forall ((x Nat)) (= (times x (succ zero)) x)))",
+    "(assert :axiom |identity for *|",
+    "  (forall ((x Nat)) (= (times (succ zero) x) x)))",
+    "(assert :axiom |zero for *|",
+    "  (forall ((x Nat)) (= (times x zero) zero)))",
+    "(assert :axiom |zero for *|",
+    "  (forall ((x Nat)) (= (times zero x) zero)))",
+    "(assert :axiom |distributivity|",
+    "  (forall ((x Nat) (y Nat) (z Nat)) (= (times x (plus y z)) (plus (times x y) (times x z)))))",
+    "(assert :axiom |distributivity|",
+    "  (forall ((x Nat) (y Nat) (z Nat)) (= (times (plus x y) z) (plus (times x z) (times y z)))))"]
 
 renameWrt :: (Ord a,PrettyVar a,Name b) => Theory a -> f b -> Fresh (Theory b)
 renameWrt thy _wrt =
@@ -111,6 +144,13 @@ replaceInt replacement_thy thy
             pred e = Gbl (projector nat succCon 0 []) :@: [e]
 
         let [lt,le,gt,ge,plus,minus,times,div,mod] = thy_funcs nat_thy
+            [plus1, plus2, plus3, plus4,
+             times1, times2, times3, times4, times5, times6, times7, times8] =
+              thy_asserts nat_thy
+            plus_ax =
+              [plus1, plus2, plus3, plus4]
+            times_ax =
+              [times1, times2, times3, times4, times5, times6, times7, times8]
 
         let replaceE :: Expr a -> WriterT [Decl a] Fresh (Expr a)
             replaceE (Builtin NumAdd :@: [e, one]) | one == succ zero =
@@ -125,23 +165,53 @@ replaceInt replacement_thy thy
             replaceE (Builtin NumGe :@: [_, z]) | z == zero = return (bool True)
             replaceE e0@(Builtin b :@: (es@(e1:_)))
               | exprType e1 `elem` [BuiltinType Integer, TyCon (data_name nat) []] =
-              case b of
-                NumLt -> ret lt
-                NumLe -> ret le
-                NumGt -> tell [FuncDecl lt] >> ret gt
-                NumGe -> tell [FuncDecl le] >> ret ge
-                NumAdd -> ret plus
-                NumSub -> ret minus
-                NumMul -> tell [FuncDecl plus] >> ret times
-                IntDiv -> tell [FuncDecl lt, FuncDecl minus] >> ret div
-                IntMod -> tell [FuncDecl lt, FuncDecl minus] >> ret mod
-                _ -> return e0
-              where
-              ret :: Function a -> WriterT [Decl a] Fresh (Expr a)
-              ret op = tell [FuncDecl op] >> return (applyFunction op [] es)
+                case builtinOp b of
+                  Nothing ->
+                    return e0
+                  Just f -> do
+                    builtin b
+                    return (applyFunction f [] es)
+
             replaceE (Builtin (Lit (Int n)) :@: []) =
               return (foldr (const succ) zero [1..n])
             replaceE e0 = return e0
+
+            builtin :: Builtin -> WriterT [Decl a] Fresh ()
+            builtin b = do
+              builtinSpecial b
+              case builtinOp b of
+                Nothing -> return ()
+                Just f -> tell [FuncDecl f]
+
+            builtinSpecial :: Builtin -> WriterT [Decl a] Fresh ()
+            builtinSpecial NumGt =
+              builtin NumLt
+            builtinSpecial NumGe =
+              builtin NumLe
+            builtinSpecial NumAdd =
+              tell (map AssertDecl plus_ax)
+            builtinSpecial NumMul = do
+              builtin NumAdd
+              tell (map AssertDecl times_ax)
+            builtinSpecial IntDiv = do
+              builtin NumLt
+              builtin NumSub
+            builtinSpecial IntMod = do
+              builtin NumLt
+              builtin NumSub
+            builtinSpecial _ = return ()
+
+            builtinOp :: Builtin -> Maybe (Function a)
+            builtinOp NumLt = Just lt
+            builtinOp NumLe = Just le
+            builtinOp NumGt = Just gt
+            builtinOp NumGe = Just ge
+            builtinOp NumAdd = Just plus
+            builtinOp NumSub = Just minus
+            builtinOp NumMul = Just times
+            builtinOp IntDiv = Just div
+            builtinOp IntMod = Just mod
+            builtinOp _ = Nothing
 
         let replaceT :: Type a -> Writer Any (Type a)
             replaceT (BuiltinType Integer) = tell (Any True) >> return (TyCon (data_name nat) [])

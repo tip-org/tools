@@ -632,8 +632,9 @@ readAttr name = mapAttr readMaybe show (stringAttr name)
 keep :: Attr ()
 keep = unitAttr "keep"
 
-source :: Attr String
+source, axiom :: Attr String
 source = stringAttr "source"
+axiom = stringAttr "axiom"
 
 definition, dataDomain, dataProjection, dataDistinct, lemma, skolem, lambda, letVar :: Attr ()
 definition = unitAttr "definition"
