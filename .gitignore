@@ -1,0 +1,4 @@
+.stack-work/
+*.o
+*.hi
+*.sw*
