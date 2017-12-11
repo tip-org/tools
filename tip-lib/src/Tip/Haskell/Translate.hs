@@ -209,10 +209,13 @@ trTheory' mode thy@Theory{..} =
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
-                  (Do [Bind (Exact "k") (Apply (quickCheck "sized") [Apply (prelude "return") []]),
-                       Bind (Exact "n") (Apply (quickCheck "choose") [Tup [H.Int 0, Apply (Exact "k") []]])]
+                  (Do [Bind (Exact "k") (Apply (quickCheck "sized")
+                                         [Apply (prelude "return") []]),
+                       Bind (Exact "n") (Apply (quickCheck "choose")
+                                         [Tup [H.Int 0, Apply (Exact "k") []]])]
                       (Apply (feat "uniform") [Apply (Exact "n") []]))]
-    | case mode of { QuickCheck -> True; QuickSpec qspms -> not (isCodatatype dt qspms); _ -> False } ]
+    | case mode of { QuickCheck -> True; QuickSpec _ -> not (isCodatatype' dt);
+                     _ -> False } ]
     ++
     [ InstDecl [H.TyTup ([H.TyCon (typeable "Typeable") [H.TyVar a] | a <- tvs]
                          ++ [H.TyCon (quickCheck "Arbitrary") [H.TyVar a] | a <- tvs]
@@ -221,7 +224,7 @@ trTheory' mode thy@Theory{..} =
                [funDecl
                   (quickCheck "arbitrary") []
                   (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
-    | case mode of { QuickSpec qspms -> (isCodatatype dt qspms); _ -> False } ]
+    | case mode of { QuickSpec _ -> (isCodatatype' dt); _ -> False } ]
     ++
     [ InstDecl
         [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
@@ -263,12 +266,43 @@ trTheory' mode thy@Theory{..} =
     | let d = Exact "d"
     , isSmten mode
     ]
+    ++ (obsType dt)
     where isCodatatype :: Datatype a -> QuickSpecParams -> Bool
           isCodatatype dt qspms@QuickSpecParams{..} = (not $ codatafree qspms) &&
             (lookup (readName $ head exploration_type)
              (map (\(x,y) -> (varStr x, y)) ((M.toList (types $ scope thy))))
             ) == Just (DatatypeInfo dt)
-
+          isCodatatype' :: Datatype a -> Bool
+          isCodatatype' dt@(Datatype _ _ _ cons) =
+            all (\x -> not $ null x) [args | Constructor _ _ _ args <- cons]
+          obsType :: Datatype a -> [Decl a]
+          obsType dt@(Datatype tc _ tvs cons) =
+            case mode of QuickSpec _ -> if (isCodatatype' dt) then
+                           [DataDecl (Derived tc "Obs") tvs
+                            ([ (Derived c "Obs", map ((trObsType tc) . snd) args)
+                             | Constructor c _ _ args <- cons ]
+                             ++ [(Exact "NullCons",[])]) -- add nullary constructor
+                            (map prelude ["Eq","Ord","Show"]
+                             ++ [generic "Generic"]
+                             ++ [typeable "Typeable"])
+                           ]
+                           ++
+                           [ TH (Apply (feat "deriveEnumerable")
+                                 [QuoteTyCon (Derived tc "Obs")])]
+                           ++
+                           [ InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
+                             (H.TyCon (quickCheck "Arbitrary") [H.TyCon (Derived tc "Obs")
+                                                                (map H.TyVar tvs)])
+                             [funDecl
+                              (quickCheck "arbitrary") []
+                              (Do [Bind (Exact "k") (Apply (quickCheck "sized")
+                                            [Apply (prelude "return") []]),
+                                   Bind (Exact "n") (Apply (quickCheck "choose")
+                                            [Tup [H.Int 0, Apply (Exact "k") []]])]
+                               (Apply (feat "uniform") [Apply (Exact "n") []]))]
+                           ]
+                           else []
+                         _ -> []
 
   tr_sort :: Sort a -> Decl a
   tr_sort (Sort s _ i) | null i = TypeDef (TyCon s []) (TyCon (prelude "Int") [])
@@ -540,6 +574,12 @@ trType (T.TyVar x)     = H.TyVar x
 trType (T.TyCon tc ts) = H.TyCon tc (map trType ts)
 trType (ts :=>: t)     = foldr TyArr (trType t) (map trType ts)
 trType (BuiltinType b) = trBuiltinType b
+
+trObsType :: (a ~ HsId b) => a -> T.Type a -> H.Type a
+trObsType tn (T.TyCon tc ts) = case tc of
+  tn -> H.TyCon (Derived tc "Obs") (map (trObsType tc) ts)
+  _  -> H.TyCon tc (map (trObsType tc) ts)
+trObsType _ t = trType t
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
 trBuiltinType t
