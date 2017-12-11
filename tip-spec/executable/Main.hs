@@ -22,8 +22,17 @@ import Data.Monoid
 parseParams :: Parser QuickSpecParams
 parseParams =
   QuickSpecParams <$>
-  commaSep <$>
-  many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
+    backgroundFuns <*>
+    explType <*>
+    obsType <*>
+    obsFun
+  where
+    backgroundFuns =
+      commaSep <$>
+      many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
+    explType = many (strOption (long "explType" <> short 'e' <> metavar "TYPE" <> help "Type that requires observer"))
+    obsType = many (strOption (long "obsType" <> short 'o' <> metavar "TYPE" <> help "Observable type"))
+    obsFun = many (strOption (long "obsfun" <> short 'f' <> metavar "FUN" <> help "Observer function"))
 
 commaSep :: [String] -> [String]
 commaSep = concatMap (splitOn ",")
