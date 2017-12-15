@@ -28,7 +28,7 @@ import qualified Data.Map as M
 
 import Data.Generics.Geniplate
 
-import Data.List (nub,partition,elemIndices)
+import Data.List (nub,partition,elemIndices,mapAccumL)
 
 import Data.Char (isAlphaNum)
 
@@ -278,8 +278,8 @@ trTheory' mode thy@Theory{..} =
           obsType :: Datatype a -> [Decl a]
           obsType dt@(Datatype tc _ tvs cons) =
             case mode of QuickSpec _ -> if (isCodatatype' dt) then
-                           [DataDecl (Derived tc "Obs") tvs
-                            ([ (Derived c "Obs", map ((trObsType tc) . snd) args)
+                           [DataDecl (obsName tc) tvs
+                            ([ (obsName c, map ((trObsType tc) . snd) args)
                              | Constructor c _ _ args <- cons ]
                              ++ [(Exact "NullCons",[])]) -- add nullary constructor
                             (map prelude ["Eq","Ord","Show"]
@@ -288,7 +288,7 @@ trTheory' mode thy@Theory{..} =
                            ]
                            ++
                            [ TH (Apply (feat "deriveEnumerable")
-                                 [QuoteTyCon (Derived tc "Obs")])]
+                                 [QuoteTyCon (obsName tc)])]
                            ++
                            [ InstDecl [H.TyCon (feat "Enumerable") [H.TyVar a] | a <- tvs]
                              (H.TyCon (quickCheck "Arbitrary") [H.TyCon (Derived tc "Obs")
@@ -301,6 +301,7 @@ trTheory' mode thy@Theory{..} =
                                             [Tup [H.Int 0, Apply (Exact "k") []]])]
                                (Apply (feat "uniform") [Apply (Exact "n") []]))]
                            ]
+                           ++ (obsFunc dt)
                            else []
                          _ -> []
 
@@ -577,9 +578,45 @@ trType (BuiltinType b) = trBuiltinType b
 
 trObsType :: (a ~ HsId b) => a -> T.Type a -> H.Type a
 trObsType tn (T.TyCon tc ts) = case tc of
-  tn -> H.TyCon (Derived tc "Obs") (map (trObsType tc) ts)
+  tn -> H.TyCon (obsName tc) (map (trObsType tc) ts)
   _  -> H.TyCon tc (map (trObsType tc) ts)
 trObsType _ t = trType t
+
+obsName :: HsId a -> HsId a
+obsName c = Derived c "Obs"
+
+obsFunc :: (a ~ HsId b) => Datatype a -> [Decl a]
+obsFunc dt@(Datatype tc _ tvs cons) =
+  [TySig obFuName [] (obFuType tc tvs)
+  , FunDecl obFuName cases]
+  where
+    obFuName = Derived tc "obsFun"
+    obFuType c vs = TyArr (TyVar $ prelude "Int") (TyArr (TyCon c cs) (TyCon (obsName c) vs)) -- need arguments for type constructors here
+    cases = [([H.VarPat (Exact "0"), H.VarPat (Exact "_")], Apply (Exact "NullCons") [])
+            ,([H.VarPat n, H.VarPat x],
+               H.Case (Apply (prelude "<") [var n, H.Int 0])
+               [(H.ConPat (prelude "True") [],
+                 Apply obFuName [Apply (prelude "negate") [var n], var x])
+               ,(H.ConPat (prelude "False") [],
+                  H.Case (var x) $
+                  [(H.ConPat c (snd $ mapAccumL (\k z -> (k + 1, mkVar k z)) 0 (map snd args)),
+                    approx c args)
+                  | Constructor c _ _ args <- cons]
+                  ++
+                  [(H.VarPat (Exact "_"),
+                     Apply (Exact "NullCons") [])]
+                )
+               ]
+             )]
+    n = Exact "n"
+    x = Exact "x"
+    approx c _ = String c
+    mkVar n (T.TyVar _)   = H.VarPat (Exact $ "x" ++ (show n))
+    mkVar n (T.TyCon tc ts)  = H.ConPat (Exact $ "x" ++ (show n)) []
+    mkVar n (BuiltinType b)
+      | Just ty <- lookup b hsBuiltinTys = H.ConPat (Exact $ "x" ++ (show n)) []
+      | otherwise = __
+    mkVar _ _ = WildPat
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
 trBuiltinType t
@@ -662,7 +699,6 @@ data QuickSpecParams =
 codatafree :: QuickSpecParams -> Bool
 codatafree QuickSpecParams{..} =
   and $ map null [exploration_type, observation_type, observation_fun]
-
 
 -- This is a workaround because the parameters have all this extra junk
 -- when passed to bash via Isabelle
