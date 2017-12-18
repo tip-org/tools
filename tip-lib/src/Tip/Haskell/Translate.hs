@@ -28,7 +28,7 @@ import qualified Data.Map as M
 
 import Data.Generics.Geniplate
 
-import Data.List (nub,partition,elemIndices,mapAccumL)
+import Data.List (nub,partition,elemIndices)
 
 import Data.Char (isAlphaNum)
 
@@ -585,13 +585,14 @@ trObsType _ t = trType t
 obsName :: HsId a -> HsId a
 obsName c = Derived c "Obs"
 
-obsFunc :: (a ~ HsId b) => Datatype a -> [Decl a]
+-- TODO: clean this up!
+obsFunc :: (a ~ HsId b, Eq b) => Datatype a -> [Decl a]
 obsFunc dt@(Datatype tc _ tvs cons) =
   [TySig obFuName [] (obFuType tc tvs)
   , FunDecl obFuName cases]
   where
     obFuName = Derived tc "obsFun"
-    obFuType c vs = TyArr (TyVar $ prelude "Int") (TyArr (TyCon c cs) (TyCon (obsName c) vs)) -- need arguments for type constructors here
+    obFuType c vs = TyArr (TyVar $ prelude "Int") (TyArr (TyCon c (map (\x -> TyVar x) vs)) (TyCon (obsName c) (map (\x -> TyVar x) vs)))
     cases = [([H.VarPat (Exact "0"), H.VarPat (Exact "_")], Apply (Exact "NullCons") [])
             ,([H.VarPat n, H.VarPat x],
                H.Case (Apply (prelude "<") [var n, H.Int 0])
@@ -599,7 +600,7 @@ obsFunc dt@(Datatype tc _ tvs cons) =
                  Apply obFuName [Apply (prelude "negate") [var n], var x])
                ,(H.ConPat (prelude "False") [],
                   H.Case (var x) $
-                  [(H.ConPat c (snd $ mapAccumL (\k z -> (k + 1, mkVar k z)) 0 (map snd args)),
+                  [(H.ConPat c $ varNames args,
                     approx c args)
                   | Constructor c _ _ args <- cons]
                   ++
@@ -610,7 +611,19 @@ obsFunc dt@(Datatype tc _ tvs cons) =
              )]
     n = Exact "n"
     x = Exact "x"
-    approx c _ = String c
+    approx c as = Apply (obsName c) $ map ((thingy as). snd) as
+    thingy as t@(T.TyCon c s) = case c of
+      tc -> Apply obFuName [
+        Apply (prelude "-") [var n, H.Int 1]
+        , varName as t] --- FIXME
+      _ -> varName as t
+    thingy as t = varName as t
+    varName as t = case lookup t (ips as) of
+      Just k -> var (Exact $ "x" ++ (show k))
+      _      -> __
+    varNames as = map (\(a,b) -> mkVar b a) $ ips as
+    ips as = zip (map snd as) [0..]
+    -- óþarflega flókið?
     mkVar n (T.TyVar _)   = H.VarPat (Exact $ "x" ++ (show n))
     mkVar n (T.TyCon tc ts)  = H.ConPat (Exact $ "x" ++ (show n)) []
     mkVar n (BuiltinType b)
