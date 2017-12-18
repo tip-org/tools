@@ -6,11 +6,10 @@ packages:
 - tip-ghc/
 - tip-spec/
 - tip-prelude/
-- location:
-    git: git://github.com/nick8325/quickspec
-    commit: 9612ec5f3c9a1f5d6c869608713e242cbc92cca0
 
 extra-deps:
+- git: git://github.com/nick8325/quickspec
+  commit: 9612ec5f3c9a1f5d6c869608713e242cbc92cca0
 - jukebox-0.2.10
 - minisat-0.1.2
 - structural-induction-0.3
