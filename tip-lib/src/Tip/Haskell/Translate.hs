@@ -749,10 +749,11 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
                | (t,n) <- type_univ, t `notElem` (map (\(a,b,c) -> a) obsTriples)
                , let tys = map trType (qsTvs n)
-               ] ++ -- ADD INSTANCES FOR OBSTYPES?
-               [ mk_inst ((map (mk_class (typeable "Typeable")) tys) ++ (map (mk_class (quickCheck "Arbitrary")) tys)
+               ] ++
+               [ mk_inst ((map (mk_class (typeable "Typeable")) tys)
+                          ++ (map (mk_class (quickCheck "Arbitrary")) tys)
                           ++ (map (mk_class (generic "Generic")) tys) ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
-               | (t,n) <- type_univ, (t,_,_) <- obsTriples
+               | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
                , let tys = map trType (qsTvs n)
                ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
@@ -761,7 +762,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
             )
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
-          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
+          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
           ]
       ]
   where
@@ -814,7 +815,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       d = H.TyTup [H.TyCon (quickSpec "Dict") [H.TyCon (quickCheck "Arbitrary") [x]],
                    H.TyCon (quickSpec "Dict") [H.TyCon (feat "Enumerable") [x]],
                    H.TyCon (quickSpec "Dict") [H.TyCon (prelude "Ord") [x]]]
-      x = H.TyCon (quickSpec "A") []
+      x = H.TyCon (quickSpec "A") [] -- fix, use qsTvs?
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
   int_lit_decl x =
     Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
@@ -839,7 +840,6 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
     | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
     ]
 
-  -- codataT = if (codatafree qspms) then "" else (readName $ head exploration_type)
   obsTriples =
     [(data_name, obsName data_name, obFuName data_name)
     | (_,DatatypeInfo dt@Datatype{..}) <- M.toList (types scp),
