@@ -547,7 +547,7 @@ arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
 arbitrary ts =
   [ TyCon tc [t]
   | t <- ts
-  , tc <- [prelude "Ord"]]
+  , tc <- [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]]
 
       --quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
