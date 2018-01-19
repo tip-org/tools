@@ -11,64 +11,64 @@ infixr 2 .&&.
 infixr 1 .||.
 infixr 0 ==>
 
-{-# ANN type Prop PropType #-}
-{-# ANN type Prop (PrimType Boolean) #-}
-data Prop = MkProp Prop
+{-# ANN type Property PropType #-}
+{-# ANN type Property (PrimType Boolean) #-}
+data Property = MkProp Property
 
-type Equality a = Prop
-type a :=>: b = Prop
-type And a b = Prop
-type Or a b = Prop
-type Neg a = Prop
-type Forall a b = Prop
-type Exists a b = Prop
+type Equality a = Property
+type a :=>: b = Property
+type And a b = Property
+type Or a b = Property
+type Neg a = Property
+type Forall a b = Property
+type Exists a b = Property
 
 class Testable a where
 instance Testable Prelude.Bool
-instance Testable Prop
+instance Testable Property
 
 {-# ANN property Inline #-}
-property :: Testable prop => prop -> Prop
+property :: Testable prop => prop -> Property
 property = special "Cast"#
 
 {-# ANN bool Inline #-}
-bool :: Prelude.Bool -> Prop
+bool :: Prelude.Bool -> Property
 bool = special "Cast"#
 
 {-# ANN (===) Inline #-}
-(===) :: a -> a -> Prop
+(===) :: a -> a -> Property
 (===) = special "Primitive Equal 2"#
 
 {-# ANN (=/=) Inline #-}
-(=/=) :: a -> a -> Prop
+(=/=) :: a -> a -> Property
 (=/=) = special "Primitive Distinct 2"#
 
 {-# ANN (.&&.) Inline #-}
-(.&&.) :: (Testable p, Testable q) => p -> q -> Prop
+(.&&.) :: (Testable p, Testable q) => p -> q -> Property
 (.&&.) = special "Primitive And 2"#
 
 {-# ANN (.||.) Inline #-}
-(.||.) :: (Testable p, Testable q) => p -> q -> Prop
+(.||.) :: (Testable p, Testable q) => p -> q -> Property
 (.||.) = special "Primitive Or 2"#
 
 {-# ANN (==>) Inline #-}
-(==>) :: (Testable p, Testable q) => p -> q -> Prop
+(==>) :: (Testable p, Testable q) => p -> q -> Property
 (==>) = special "Primitive Implies 2"#
 
 {-# ANN neg Inline #-}
-neg :: Testable prop => prop -> Prop
+neg :: Testable prop => prop -> Property
 neg = special "Primitive Not 1"#
 
 {-# ANN question Inline #-}
-question :: Testable prop => prop -> Prop
+question :: Testable prop => prop -> Property
 question = neg
 
 {-# ANN forAll Inline #-}
-forAll :: Testable prop => (a -> prop) -> Prop
+forAll :: Testable prop => (a -> prop) -> Property
 forAll = special "QuantSpecial Forall"#
 
 {-# ANN exists Inline #-}
-exists :: Testable prop => (a -> prop) -> Prop
+exists :: Testable prop => (a -> prop) -> Property
 exists = special "QuantSpecial Exists"#
 
 {-# ANN inline (SomeSpecial InlineIt) #-}
