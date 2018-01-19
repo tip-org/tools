@@ -38,7 +38,7 @@ theorySignature params thy =
          setCurrentDirectory dir
          r <- runInterpreter $
            do unsafeSetGhcOption "-hide-package QuickCheck"
-              unsafeSetGhcOption "-package QuickCheck-2.8.2"
+              unsafeSetGhcOption "-package QuickCheck-2.10.1"
               loadModules ["A"]
               setImports ["A","QuickSpec.Signature","QuickSpec.Term","Prelude"]
               sig <- interpret "sig" (undefined :: ChoppedSignature)
