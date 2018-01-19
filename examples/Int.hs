@@ -14,10 +14,10 @@ z p q = h p q
 
 prop_abc = g (f (h (z 0 1) 2) 3) 4 === (2 :: Int)
 
-prop_int :: Int -> Prop
+prop_int :: Int -> Property
 prop_int x = i x + x === 1
 
-prop_int2 :: Int -> Prop
+prop_int2 :: Int -> Property
 prop_int2 x = i x > x === i x < x
 
 apa :: Int -> [Int]
@@ -26,5 +26,5 @@ apa n = n:apa (n-1)
 
 prop_apa n = [] === apa n
 
-prop_div_mod :: Int -> Prop
+prop_div_mod :: Int -> Property
 prop_div_mod x = x `div` 2 === x `mod` 2
