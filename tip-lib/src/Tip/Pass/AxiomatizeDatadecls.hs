@@ -72,7 +72,7 @@ trDatatype ueq dt@Datatype{..} =
 datatypeSigs :: Name a => Datatype a -> [Decl a]
 datatypeSigs dt@Datatype{..} =
      [ SortDecl (Sort data_name data_attrs data_tvs) ]
-  ++ [ SigDecl (Signature gbl [] (globalType gbl_info))
+  ++ [ SigDecl (Signature gbl (getAttrs gbl_info) (globalType gbl_info))
      | (gbl,gbl_info) <- dataTypeGlobals dt
      , case gbl_info of
          DiscriminatorInfo{} -> False

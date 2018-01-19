@@ -36,6 +36,14 @@ data TypeInfo a =
   | SortInfo (Sort a)
   deriving (Eq, Show)
 
+instance HasAttr (TypeInfo a) where
+  getAttrs TyVarInfo = []
+  getAttrs (DatatypeInfo dt) = getAttrs dt
+  getAttrs (SortInfo s) = getAttrs s
+  putAttrs _ TyVarInfo = TyVarInfo
+  putAttrs attrs (DatatypeInfo dt) = DatatypeInfo (putAttrs attrs dt)
+  putAttrs attrs (SortInfo s) = SortInfo (putAttrs attrs s)
+
 data GlobalInfo a =
     FunctionInfo      (Signature a)
   | ConstructorInfo   (Datatype a) (Constructor a)
