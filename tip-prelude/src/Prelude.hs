@@ -32,7 +32,7 @@ module Prelude(
   Read(..), Show(..)) where
 
 import qualified "base" Prelude as P
-import "base" Prelude(Bool(..), Read(..), Show(..), String, Eq, Ord)
+import "base" Prelude(Bool(..), Read(..), Show(..), String, Eq, Ord, Ordering(..))
 import Tip.GHC.Annotations
 import Prelude.Prim
 import Tip
@@ -49,11 +49,11 @@ type Float = Rational
 type Double = Rational
 
 instance Eq Integer where
-  (==) = (P.==)
-  (/=) = (P./=)
+  (==) = primEquals
+  (/=) = primDistinct
 instance Eq Rational where
-  (==) = (P.==)
-  (/=) = (P./=)
+  (==) = primEquals
+  (/=) = primDistinct
 
 {-# ANN (==) Inline #-}
 {-# ANN (/=) Inline #-}
@@ -62,9 +62,9 @@ instance Eq Rational where
 (/=) = primDistinct
 
 instance Ord Integer where
-  compare = P.compare
+  compare = compare
 instance Ord Rational where
-  compare = P.compare
+  compare = compare
 
 {-# ANN (<=) Inline #-}
 {-# ANN (<) Inline #-}
@@ -80,19 +80,19 @@ class (P.Num a, Ord a) => Num a where
 instance Num Integer
 instance Num Rational
 instance P.Num Integer where
-  fromInteger = P.fromInteger
-  (+) = (P.+)
-  (-) = (P.-)
-  (*) = (P.*)
-  abs = P.abs
-  signum = P.signum
+  fromInteger = primCast
+  (+) = (+)
+  (-) = (-)
+  (*) = (*)
+  abs = abs
+  signum = signum
 instance P.Num Rational where
-  fromInteger = P.fromInteger
-  (+) = (P.+)
-  (-) = (P.-)
-  (*) = (P.*)
-  abs = P.abs
-  signum = P.signum
+  fromInteger = primCast
+  (+) = (+)
+  (-) = (-)
+  (*) = (*)
+  abs = abs
+  signum = signum
 
 -- All uses of fromInteger MUST be monomorphic or inlined.
 -- This is because tip-ghc looks at the source and target types
@@ -385,10 +385,6 @@ either f g (Left x)  =  f x
 either f g (Right y) =  g y
 
 -- Ordering type
-
-
-data  Ordering  =  LT | EQ | GT
-          deriving (Eq, Ord, Read, Show)
 
 
 {-# ANN fst Inline #-}
