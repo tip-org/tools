@@ -51,16 +51,19 @@ quickCheckUnsafe :: String -> HsId a
 quickCheckUnsafe = Qualified "Test.QuickCheck.Gen.Unsafe" (Just "QU")
 
 quickCheckAll :: String -> HsId a
-quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
+quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QA")
 
 quickSpec :: String -> HsId a
 quickSpec = Qualified "QuickSpec" (Just "QS")
 
 quickSpecTerm :: String -> HsId a
-quickSpecTerm = Qualified "QuickSpec.Term" (Just "QS")
+quickSpecTerm = Qualified "QuickSpec.Term" (Just "QT")
+
+quickSpecSig :: String -> HsId a
+quickSpecSig = Qualified "QuickSpec.Signature" (Just "QG")
 
 constraints :: String -> HsId a
-constraints = Qualified "Data.Constraint" (Just "QS")
+constraints = Qualified "Data.Constraint" (Just "QD")
 
 sysEnv :: String -> HsId a
 sysEnv = Qualified "System.Environment" (Just "Env")
@@ -818,13 +821,16 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
   obs_decl (t, t', ofun) =
     Apply (quickSpec "makeInstance") [H.Lam [H.TupPat (replicate 3 (H.ConPat (constraints "Dict") []))]
-                            (Apply (quickSpec "observe") [obs]) :::
-                  H.TyArr d (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]
+                            (H.Apply (quickSpec "observe") [obs]) :::
+                  TyArr d (TyCon (quickSpecSig "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
     where
-      d = H.TyTup [H.TyCon (constraints "Dict") [H.TyCon (quickCheck "Arbitrary") [x]],
-                   H.TyCon (constraints "Dict") [H.TyCon (feat "Enumerable") [x]],
-                   H.TyCon (constraints "Dict") [H.TyCon (prelude "Ord") [x]]]
-      x = H.TyCon (quickSpec "A") [] -- fix, use qsTvs?
+      d = H.TyTup [TyCon (constraints "Dict") [TyCon (quickCheck "Arbitrary") tys],
+                   TyCon (constraints "Dict") [TyCon (feat "Enumerable") tys],
+                   TyCon (constraints "Dict") [TyCon (prelude "Ord") tys]]
+      tys = map trType (qsTvs n)-- fix, use qsTvs?
+      n = case lookup t type_univ of
+        Just k -> k
+        Nothing -> 0
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
   int_lit_decl x =
     Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
