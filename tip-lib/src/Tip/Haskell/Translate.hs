@@ -762,7 +762,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
             )
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
-          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
+          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
           ]
       ]
   where
