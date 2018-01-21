@@ -614,18 +614,18 @@ obsFun dt@(Datatype tc _ tvs cons) =
         ])]
     n = Exact "n"
     x = Exact "x"
-    approx c as = Apply (obsName c) $ map ((appstep as). snd) as
-    appstep as t@(T.TyCon c s) = case c of
+    approx c as = Apply (obsName c) $ map (appstep as) as
+    appstep as a@(b, t@(T.TyCon c s)) = case c of
       -- make recursive function call if constructor is recursive
       tc -> Apply (obFuName tc) [
-        Apply (prelude "-") [var n, H.Int 1], varName as t]
-      _ -> varName as t
-    appstep as t = varName as t
-    varName as t = case lookup t (ips as) of
+        Apply (prelude "-") [var n, H.Int 1], varName as a]
+      _ -> varName as a
+    appstep as a = varName as a
+    varName as a = case lookup a (numPairs as) of
       Just k -> var (Exact $ "x" ++ (show k))
       _      -> __
-    ips as = zip (map snd as) [0..]
-    varNames as = map (\(a,b) -> mkVar b a) $ ips as
+    numPairs as = zip as [0..]
+    varNames as = map (\((c,a),b) -> mkVar b a) $ numPairs as
     mkVar n (T.TyVar _)   = H.VarPat (Exact $ "x" ++ (show n))
     mkVar n (T.TyCon tc ts)  = H.ConPat (Exact $ "x" ++ (show n)) []
     mkVar n (BuiltinType b)
@@ -713,21 +713,13 @@ data QuickSpecParams =
     }
   deriving (Eq, Ord, Show)
 
--- This is a workaround because the parameters have all this extra junk
--- when passed to bash via Isabelle
-readName :: String -> String
-readName s = case isAlphaNum $ head s of
-  True -> s
-  False -> drop ((last $ elemIndices '\ENQ' s') + 1) s'
-  where s' = (take (length s - 3) s)
-
-makeSig :: forall a . (PrettyVar a,Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
+makeSig :: forall a . (PrettyVar a, Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
 makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $
     Tup
       [ List
           [ Tup
-              [ constant_decl (varStr (fst ft) `elem` (map readName background_functions)) ft
+              [ constant_decl (varStr (fst ft) `elem` background_functions) ft
               , List $
                   if use_cg
                     then
@@ -818,16 +810,18 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
       pairPat x y = H.TupPat [x,y]
       tyPair x y = H.TyTup [x,y]
-
   obs_decl (t, t', ofun) =
-    Apply (quickSpec "makeInstance") [H.Lam [H.TupPat (replicate 3 (H.ConPat (constraints "Dict") []))]
+    Apply (quickSpec "makeInstance") [H.Lam [H.TupPat args]
                             (H.Apply (quickSpec "observe") [obs]) :::
                   TyArr d (TyCon (quickSpecSig "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
     where
+      -- Hacky quick-fix to a super weird bug, if we don't call fmap id here
+      -- the "Dict" strings get garbled into random nonsense!
+      args = replicate 3 (fmap id $ H.ConPat (constraints "Dict") [])
       d = H.TyTup [TyCon (constraints "Dict") [TyCon (quickCheck "Arbitrary") tys],
                    TyCon (constraints "Dict") [TyCon (feat "Enumerable") tys],
                    TyCon (constraints "Dict") [TyCon (prelude "Ord") tys]]
-      tys = map trType (qsTvs n)-- fix, use qsTvs?
+      tys = map trType (qsTvs n)
       n = case lookup t type_univ of
         Just k -> k
         Nothing -> 0
