@@ -633,11 +633,6 @@ obsFun dt@(Datatype tc _ tvs cons) =
       | otherwise = __
     mkVar _ _ = WildPat
 
--- Checks whether the given type has a nullary constructor
--- isCodatatype :: Datatype a -> Bool
--- isCodatatype dt@(Datatype _ _ _ cons) =
---   all (\x -> not $ null x) [args | Constructor _ _ _ args <- cons]
-
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
 trBuiltinType t
   | Just ty <- lookup t hsBuiltinTys = H.TyCon ty []
