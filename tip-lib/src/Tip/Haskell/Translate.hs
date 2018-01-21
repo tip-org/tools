@@ -218,8 +218,7 @@ trTheory' mode thy@Theory{..} =
                      _ -> False } ]
     ++
     [ InstDecl [H.TyTup ([H.TyCon (typeable "Typeable") [H.TyVar a] | a <- tvs]
-                         ++ [H.TyCon (quickCheck "Arbitrary") [H.TyVar a] | a <- tvs]
-                         ++ [H.TyCon (generic "Generic") [H.TyVar a] | a <- tvs])]
+                         ++ [H.TyCon (quickCheck "Arbitrary") [H.TyVar a] | a <- tvs])]
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
@@ -279,10 +278,9 @@ trTheory' mode thy@Theory{..} =
                             [(nullConsName tc,[])]
                            )
                            (map prelude ["Eq","Ord","Show"]
-                             ++ [generic "Generic"]
                              ++ [typeable "Typeable"])
                          ]
-                         ++ (obsFunc dt)
+                         ++ (obsFun dt)
                        else []
                      _ -> []
 
@@ -563,41 +561,53 @@ trObsType tn (T.TyCon tc ts) = case tc of
   _  -> H.TyCon tc (map (trObsType tc) ts)
 trObsType _ t = trType t
 
+-- Name of generated observer type
+-- obsName T_name = ObsT_name
 obsName :: HsId a -> HsId a
 obsName c = Derived c "Obs"
 
-obFuName :: HsId a -> HsId a
-obFuName c = Derived c "obsFun"
-
+-- Name of nullary constructor for generated observer type
+-- nullConsName T_name = NullConsT_name
 nullConsName :: HsId a -> HsId a
 nullConsName c = Derived c "NullCons"
 
-obsFunc :: (a ~ HsId b, Eq b) => Datatype a -> [Decl a]
-obsFunc dt@(Datatype tc _ tvs cons) =
+-- Name of generated observer function
+-- obFuName T_name = obsFunT_name
+obFuName :: HsId a -> HsId a
+obFuName c = Derived c "obsFun"
+
+-- Generate observer function for the given type
+obsFun :: (a ~ HsId b, Eq b) => Datatype a -> [Decl a]
+obsFun dt@(Datatype tc _ tvs cons) =
   [TySig (obFuName tc) [] (obFuType tc tvs)
   , FunDecl (obFuName tc) cases]
   where
-    obFuType c vs = TyArr (TyVar $ prelude "Int") (TyArr (TyCon c (map (\x -> TyVar x) vs)) (TyCon (obsName c) (map (\x -> TyVar x) vs)))
-    cases = [([H.VarPat (Exact "0"), H.VarPat (Exact "_")], Apply (nullConsName tc) [])
-            ,([H.VarPat n, H.VarPat x],
-               H.Case (Apply (prelude "<") [var n, H.Int 0])
-               [(H.ConPat (prelude "True") [],
-                 Apply (obFuName tc) [Apply (prelude "negate") [var n], var x])
-               ,(H.ConPat (prelude "False") [],
-                  H.Case (var x) $
-                  [(H.ConPat c $ varNames args,
-                    approx c args)
-                  | Constructor c _ _ args <- cons]
-                  ++
-                  [(H.VarPat (Exact "_"),
-                     Apply (nullConsName tc) [])]
-                )
-               ]
-             )]
+    obFuType c vs =
+      -- Int -> dt -> obs_dt
+      TyArr (TyVar $ prelude "Int") (TyArr (TyCon c (map (\x -> TyVar x) vs))
+                                     (TyCon (obsName c) (map (\x -> TyVar x) vs)))
+    cases = [
+      -- if counter is down to 0 call nullary constructor on rhs
+      ([H.VarPat (Exact "0"),
+        H.VarPat (Exact "_")], Apply (nullConsName tc) [])
+      ,([H.VarPat n, H.VarPat x],
+        H.Case (Apply (prelude "<") [var n, H.Int 0])
+        -- if n is negative use -n instead
+        [(H.ConPat (prelude "True") [],
+           Apply (obFuName tc) [Apply (prelude "negate") [var n], var x])
+        ,(H.ConPat (prelude "False") [],
+           H.Case (var x) $
+           [(H.ConPat c $ varNames args, approx c args)
+           | Constructor c _ _ args <- cons]
+           ++
+           [(H.VarPat (Exact "_"), Apply (nullConsName tc) [])]
+         )
+        ])]
     n = Exact "n"
     x = Exact "x"
     approx c as = Apply (obsName c) $ map ((appstep as). snd) as
     appstep as t@(T.TyCon c s) = case c of
+      -- make recursive function call if constructor is recursive
       tc -> Apply (obFuName tc) [
         Apply (prelude "-") [var n, H.Int 1], varName as t]
       _ -> varName as t
@@ -691,17 +701,9 @@ typesOfBuiltin b = case b of
 data QuickSpecParams =
   QuickSpecParams {
     background_functions :: [String]
-    --exploration_type :: [String], -- type that needs observer
-    --observation_type :: [String], -- observable type
-    --observation_fun :: [String] -- corresponding observation function
-    --obs_funcs :: [(String,String,String)] -- or another type?
     }
   deriving (Eq, Ord, Show)
 
-{-codatafree :: QuickSpecParams -> Bool
-codatafree QuickSpecParams{..} =
-  and $ map null [exploration_type, observation_type, observation_fun, obs_funcs]
--}
 -- This is a workaround because the parameters have all this extra junk
 -- when passed to bash via Isabelle
 readName :: String -> String
@@ -740,6 +742,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                map instance_decl (ctor_constants ++ builtin_constants ++ func_constants) ++
                [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
+               [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
@@ -752,7 +755,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                ] ++
                [ mk_inst ((map (mk_class (typeable "Typeable")) tys)
                           ++ (map (mk_class (quickCheck "Arbitrary")) tys)
-                          ++ (map (mk_class (generic "Generic")) tys) ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
+                         ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
                | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
                , let tys = map trType (qsTvs n)
                ] ++
@@ -840,6 +843,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
     | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
     ]
 
+  -- Types that require observers along with corresponding observer types
+  -- and functions
   obsTriples =
     [(data_name, obsName data_name, obFuName data_name)
     | (_,DatatypeInfo dt@Datatype{..}) <- M.toList (types scp),
