@@ -56,6 +56,12 @@ quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 quickSpec :: String -> HsId a
 quickSpec = Qualified "QuickSpec" (Just "QS")
 
+quickSpecTerm :: String -> HsId a
+quickSpecTerm = Qualified "QuickSpec.Term" (Just "QS")
+
+constraints :: String -> HsId a
+constraints = Qualified "Data.Constraint" (Just "QS")
+
 sysEnv :: String -> HsId a
 sysEnv = Qualified "System.Environment" (Just "Env")
 
@@ -327,12 +333,12 @@ trTheory' mode thy@Theory{..} =
     --   return Dict
     , TySig (Derived f "gen") []
         (TyCon (quickCheck "Gen")
-          [TyCon (quickSpec "Dict")
+          [TyCon (constraints "Dict")
             [TyImp (Derived f "imp") (TyCon (Derived f "") [])]])
     , funDecl (Derived f "gen") []
         (mkDo [Bind (Derived f "x") (Apply (quickCheck "arbitrary") [])]
               (ImpLet (Derived f "imp") (var (Derived f "x"))
-                (Apply (prelude "return") [Apply (quickSpec "Dict") []])))
+                (Apply (prelude "return") [Apply (constraints "Dict") []])))
     ]
 
   tr_func :: Function a -> [Decl a]
@@ -777,8 +783,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
   mk_inst ctx res =
     Apply (quickSpec ("inst" ++ concat [ show (length ctx) | length ctx >= 2 ]))
-                 [ Apply (quickSpec "Sub") [Apply (quickSpec "Dict") []] :::
-                   H.TyCon (quickSpec ":-") [TyTup ctx,res] ]
+                 [ Apply (constraints "Sub") [Apply (constraints "Dict") []] :::
+                   H.TyCon (constraints ":-") [TyTup ctx,res] ]
 
   mk_class c x = H.TyCon c [x]
 
@@ -790,28 +796,28 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
   constant_decl background (f,t) =
     Record (Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]) $
-      [(quickSpec "conSize", H.Int 0)] ++
-      [(quickSpec "conIsBackground", H.Apply (prelude "True") []) | background]
+      [(quickSpecTerm "conSize", H.Int 0)] ++
+      [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") []) | background]
 
     where
     (_pre,qs_type) = qsType t
-    lam = H.Lam [H.ConPat (quickSpec "Dict") []]
+    lam = H.Lam [H.ConPat (constraints "Dict") []]
 
   instance_decl (_,t) =
     Apply (quickSpec "makeInstance") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
     where
       (pre, _) = qsType t
-      args = replicate (length pre) (H.ConPat (quickSpec "Dict") [])
-      res  = H.Apply (prelude "return") [H.Apply (quickSpec "Dict") []]
+      args = replicate (length pre) (H.ConPat (constraints "Dict") [])
+      res  = H.Apply (prelude "return") [H.Apply (constraints "Dict") []]
 
       ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
-      dict x = TyCon (quickSpec "Dict") [x]
+      dict x = TyCon (constraints "Dict") [x]
 
       pairPat x y = H.TupPat [x,y]
       tyPair x y = H.TyTup [x,y]
 
   obs_decl (t, t', ofun) =
-    Apply (quickSpec "makeInstance") [H.Lam [H.TupPat (replicate 3 (H.ConPat (quickSpec "Dict") []))]
+    Apply (quickSpec "makeInstance") [H.Lam [H.TupPat (replicate 3 (H.ConPat (constraints "Dict") []))]
                             (Apply (quickSpec "observe") [obs]) :::
                   H.TyArr d (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]
     where
@@ -822,11 +828,11 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
   int_lit_decl x =
     Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
-      [(quickSpec "conIsBackground", H.Apply (prelude "True") [])]
+      [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
 
   bool_lit_decl b =
     Record (Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b])
-      [(quickSpec "conIsBackground", H.Apply (prelude "True") [])]
+      [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
 
   ctor_constants =
     [ (f,poly_type (globalType g))
@@ -885,7 +891,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
        ]
 
   qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
-  qsType t = (pre, TyArr (TyCon (quickSpec "Dict") [TyTup pre]) inner)
+  qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
     where
     pre = arbitrary (map trType qtvs) ++ imps
     inner = trType (applyType tvs qtvs t)

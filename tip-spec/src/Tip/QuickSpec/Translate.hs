@@ -12,7 +12,9 @@ import qualified Data.Typeable as Typeable
 
 import qualified Tip.Core as Tip
 
-import qualified QuickSpec as QS
+import qualified QuickSpec.Type as QS
+import qualified QuickSpec.Prop as QS
+import qualified QuickSpec.Term as QS
 import qualified Twee.Base as Twee
 
 import qualified Data.Foldable as F

@@ -29,7 +29,9 @@ apply s x = parExpr s [x]
 
 ppVarSMT :: PrettyVar a => a -> Doc
 ppVarSMT x
-  | isValidSMTString str && str `notElem` smtQuoted =
+  | isValidSMTString str && str `notElem` (smtQuoted ++ tipKeywords) =
+    -- N.B.: although variables names cannot come from tipKeywords,
+    -- attribute values can, and they are also printed using ppVarSMT
     text str
   | otherwise = text ("|" ++ concatMap escape str ++ "|")
   where

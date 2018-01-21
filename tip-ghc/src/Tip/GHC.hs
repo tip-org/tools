@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE RecordWildCards, CPP, ScopedTypeVariables, BangPatterns, GeneralizedNewtypeDeriving #-}
 module Tip.GHC where
 
 #include "errors.h"
@@ -6,6 +6,7 @@ import CoreSyn
 import GHC hiding (Id, exprType, DataDecl, Name, typeKind)
 import qualified GHC
 import Tip.Fresh
+import Data.Ord
 import Var hiding (Id)
 import Tip.GHC.Annotations hiding (Lit, Cast)
 import qualified Tip.GHC.Annotations as Tip
@@ -18,6 +19,7 @@ import TysPrim
 import TysWiredIn
 import MkCore
 import PrelNames
+import Unique
 import Constants
 import BasicTypes hiding (Inline)
 import Data.Char
@@ -43,6 +45,7 @@ import System.Exit
 import Control.Monad.IO.Class
 import Control.Monad
 import UniqFM
+import UniqDFM
 import DynFlags
 import Data.IORef
 import CoreUtils
@@ -58,6 +61,7 @@ import Data.List.Split
 import Control.Monad.Trans.State.Strict
 import Data.Maybe
 import System.IO
+import RepType
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -103,7 +107,7 @@ readHaskellFile Params{..} name =
       let
         home = mconcat
           [ program (eltsUFM md_types) (mkAnnEnv md_anns)
-          | HomeModInfo{hm_details = ModDetails{..}} <- eltsUFM hsc_HPT ]
+          | HomeModInfo{hm_details = ModDetails{..}} <- eltsUDFM hsc_HPT ]
 
       -- Away modules are combined into one giant record, the "external
       -- package state".
@@ -111,7 +115,7 @@ readHaskellFile Params{..} name =
       let away = program (eltsUFM eps_PTE) eps_ann_env
 
           mods =
-            [(hm_iface mod, Home) | mod <- eltsUFM hsc_HPT] ++
+            [(hm_iface mod, Home) | mod <- eltsUDFM hsc_HPT] ++
             [(mod, Away) | mod <- moduleEnvElts eps_PIT]
 
       -- Finally, a few types (such as lists) are defined in GHC itself
@@ -204,7 +208,7 @@ isIncluded names mods x =
           (modPrefix mod source, getOccString x) `elem` map parseModulePrefix names
   where
     foundIn mod =
-      varName x `elem` [ y | Avail _ y <- mi_exports mod ]
+      varName x `elem` [ y | Avail y <- mi_exports mod ]
 
     modPrefix _ Home = ""
     modPrefix mod Away = moduleNameString (moduleName (mi_module mod))
@@ -238,7 +242,7 @@ isPropType prog = prop . expandTypeSynonyms
 data Program =
   Program {
     -- Data types.
-    prog_types     :: Map TyCon TypeInfo,
+    prog_types     :: Map (UniqueOrd TyCon) TypeInfo,
     -- Constructors and functions.
     prog_globals   :: Map Var GlobalInfo,
     -- Any wired-ins found in the program.
@@ -283,7 +287,7 @@ instance Monoid Program where
 
 -- Look up the TypeInfo for a type constructor.
 typeInfo :: Program -> TyCon -> TypeInfo
-typeInfo prog ty = Map.findWithDefault err ty (prog_types prog)
+typeInfo prog ty = Map.findWithDefault err (UniqueOrd ty) (prog_types prog)
   where
     err = ERROR("Type " ++ showOutputable ty ++ " not found or not supported")
 
@@ -302,7 +306,7 @@ findWiredIn prog spec = Map.findWithDefault err spec (prog_wiredIns prog)
 -- Look up the annotations for a type constructor.
 typeAnnotations :: Program -> TyCon -> [TipAnnotation]
 typeAnnotations prog ty =
-  case Map.lookup ty (prog_types prog) of
+  case Map.lookup (UniqueOrd ty) (prog_types prog) of
     Nothing -> []
     Just ti -> type_annotations ti
 
@@ -341,9 +345,9 @@ program things anns = Program types globals specials
       findAnns deserializeWithData anns (NamedTarget name)
 
 -- Find the information for a type constructor.
-tyCon :: TyCon -> [TipAnnotation] -> (TyCon, TypeInfo)
+tyCon :: TyCon -> [TipAnnotation] -> (UniqueOrd TyCon, TypeInfo)
 tyCon tc anns =
-  (tc, TypeInfo tvs (map dataConWorkId dcs) anns)
+  (UniqueOrd tc, TypeInfo tvs (map dataConWorkId dcs) anns)
   where
     tvs = tyConTyVars tc
     dcs = tyConDataCons tc
@@ -363,7 +367,7 @@ dataCon dc anns =
 ----------------------------------------------------------------------
 
 data Id =
-    TypeId   String TyCon
+    TypeId   String (UniqueOrd TyCon)
   | GlobalId String Var
   | LocalId  String Int
   | TyVarId  TyVar
@@ -372,6 +376,12 @@ data Id =
   | ErrorId
   | CastId
   deriving (Eq, Ord)
+
+-- A newtype whose only purpose is to add an Ord instance
+-- to its argument, which must implement Unique.
+newtype UniqueOrd a = UniqueOrd { getUniqueOrd :: a } deriving (Eq, Outputable)
+instance (Eq a, Uniquable a) => Ord (UniqueOrd a) where
+  compare = comparing (Unique.getKey . Unique.getUnique . getUniqueOrd)
 
 instance NFData Id where
   rnf x = x `seq` ()
@@ -413,7 +423,7 @@ globalId prog x = GlobalId (globalStr prog x) x
 
 -- Construct an Id from a type constructor.
 typeId :: Program -> TyCon -> Id
-typeId prog x = TypeId name x
+typeId prog x = TypeId name (UniqueOrd x)
   where
     name =
       case [ y | Name y <- typeAnnotations prog x ] of
@@ -496,6 +506,7 @@ completeTheory prog thy0 =
     
     types :: [TyCon]
     types =
+      map getUniqueOrd $
       usort
       [ x | TyCon name@(TypeId _ x) _ <- usort (universeBi thy),
         name `notElem` map sort_name (thy_sorts thy),
@@ -1036,7 +1047,7 @@ instance Outputable TypeInfo where
       ("annotations", ppr type_annotations)]
 
 instance Outputable Id where
-  ppr (TypeId _ ty) = ppr ty
+  ppr (TypeId _ (UniqueOrd ty)) = ppr ty
   ppr (GlobalId _ x) = ppr x
   ppr (LocalId _ n) = text "local" <> ppr n
   ppr (ProjectionId _ x n) = ppr x <> text "/" <> ppr n

@@ -4,6 +4,7 @@ import System.Environment
 
 import Tip.Parser
 import Tip.Pretty.SMT as SMT
+import Tip.Pretty.Equations as Equations
 import Tip.Pretty.TFF as TFF
 import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
@@ -25,7 +26,7 @@ import Control.Monad
 import Data.Monoid ((<>))
 import Text.PrettyPrint hiding ((<>))
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | TIP | TFF | Waldmeister
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | TIP | TFF | Twee | Waldmeister | Equations
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -44,8 +45,10 @@ parseOutputMode =
   <|> flag' (Isabelle True) (long "isabelle-explicit-forall" <> help "Isabelle output (with variables explicitly forall quantified)")
   <|> flag' Hipster (long "hipster" <> help "Only conjectrures, in Isabelle format. For internal use in Hipster.")
   <|> flag' TFF (long "tff" <> help "TPTP TFF output")
+  <|> flag' Twee (long "twee" <> help "TPTP TFF output (equational)")
   <|> flag' Waldmeister (long "waldmeister" <> help "Waldmeister output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
+  <|> flag' Equations (long "equations" <> help "Pretty-print conjectures as equations")
 
 optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
 optionParser =
@@ -101,6 +104,17 @@ handle passes mode multipath s =
                   , SimplifyGently, AxiomatizeDatadecls
                   ]
                 , "p")
+              Twee ->
+                ( TFF.ppTheory
+                , passes ++
+                  [ Monomorphise False
+                  , AxiomatizeLambdas
+                  , SimplifyGently, CollapseEqual
+                  , SimplifyGently, Monomorphise False, IfToBoolOp, IntToNat, RemoveBuiltinBool, CommuteMatch
+                  , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
+                  , SimplifyGently, AxiomatizeDatadeclsUEQ
+                  ]
+                , "p")
               Waldmeister ->
                 ( Waldmeister.ppTheory . freshPass uniqLocals
                 , passes ++
@@ -117,6 +131,7 @@ handle passes mode multipath s =
               Isabelle expl_forall -> (Isabelle.ppTheory expl_forall, passes, "thy")
               Hipster -> (Hipster.ppHipsterConjs, passes, "txt")
               TIP       -> (SMT.ppTheory [],      passes, "smt2")
+              Equations -> (Equations.ppEquations, passes, "txt")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
         Nothing ->

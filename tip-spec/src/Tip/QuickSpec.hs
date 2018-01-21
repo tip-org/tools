@@ -8,7 +8,11 @@ import Tip.Haskell.Translate
 import Tip.Core (Theory)
 
 import qualified QuickSpec.Signature as QS
-import QuickSpec (Signature, Constant, choppyQuickSpec, shouldPrint)
+import qualified QuickSpec.Pruning as QS
+import qualified QuickSpec.Pruning.Completion as QS
+import QuickSpec (Signature)
+import QuickSpec.Term(Constant)
+import QuickSpec.Eval(choppyQuickSpec, shouldPrint)
 
 import Language.Haskell.Interpreter
 import Language.Haskell.Interpreter.Unsafe
@@ -35,7 +39,7 @@ theorySignature params thy =
          setCurrentDirectory dir
          r <- runInterpreter $
            do unsafeSetGhcOption "-hide-package QuickCheck"
-              unsafeSetGhcOption "-package QuickCheck-2.8.2"
+              unsafeSetGhcOption "-package QuickCheck-2.10.1"
               loadModules ["A"]
               setImports ["A","QuickSpec.Signature","QuickSpec.Term","Prelude"]
               sig <- interpret "sig" (undefined :: ChoppedSignature)
@@ -53,7 +57,8 @@ theorySignature params thy =
 exploreTheory :: Name a => QuickSpecParams -> Theory a -> IO (Theory a)
 exploreTheory params thy =
   do ((chops,sig),rm) <- theorySignature params thy
-     sig' <- toStderr $ choppyQuickSpec chops sig
+     let disableCompletion sig = sig { QS.theory = Just ((QS.emptyPruner sig) { QS.addCriticalPairs = False }) }
+     sig' <- toStderr $ choppyQuickSpec chops (disableCompletion sig)
      let bm  = backMap thy rm
      let fms = mapM (trProperty bm) (filter shouldPrint (nub (QS.background sig'))) `freshFrom` thy
      return thy { thy_asserts = thy_asserts thy ++ fms }

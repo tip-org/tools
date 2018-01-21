@@ -36,6 +36,7 @@ library
     Tip.Pretty.Hipster
     Tip.Pretty.TFF
     Tip.Pretty.Waldmeister
+    Tip.Pretty.Equations
 
     Tip.Parser
 
