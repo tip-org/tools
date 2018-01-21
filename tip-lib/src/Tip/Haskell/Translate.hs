@@ -821,9 +821,9 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                             (Apply (quickSpec "observe") [obs]) :::
                   H.TyArr d (H.TyCon (quickSpec "Observe") [H.TyCon t [x], H.TyCon t' [x]]) ]
     where
-      d = H.TyTup [H.TyCon (quickSpec "Dict") [H.TyCon (quickCheck "Arbitrary") [x]],
-                   H.TyCon (quickSpec "Dict") [H.TyCon (feat "Enumerable") [x]],
-                   H.TyCon (quickSpec "Dict") [H.TyCon (prelude "Ord") [x]]]
+      d = H.TyTup [H.TyCon (constraints "Dict") [H.TyCon (quickCheck "Arbitrary") [x]],
+                   H.TyCon (constraints "Dict") [H.TyCon (feat "Enumerable") [x]],
+                   H.TyCon (constraints "Dict") [H.TyCon (prelude "Ord") [x]]]
       x = H.TyCon (quickSpec "A") [] -- fix, use qsTvs?
       obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
   int_lit_decl x =
