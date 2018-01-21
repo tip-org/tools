@@ -173,7 +173,7 @@ trTheory' mode thy@Theory{..} =
     concatMap tr_func thy_funcs ++
     tr_asserts thy_asserts ++
     case mode of
-      QuickSpec bg -> [makeSig bg thy] 
+      QuickSpec bg -> [makeSig bg thy]
       _ -> []
   where
   imps = ufInfo thy
@@ -223,7 +223,7 @@ trTheory' mode thy@Theory{..} =
                        Bind (Exact "n") (Apply (quickCheck "choose")
                                          [Tup [H.Int 0, Apply (Exact "k") []]])]
                       (Apply (feat "uniform") [Apply (Exact "n") []]))]
-    | case mode of { QuickCheck -> True; QuickSpec _ -> not (isCodatatype dt);
+    | case mode of { QuickCheck -> True; QuickSpec QuickSpecParams{..} -> not use_observers;
                      _ -> False } ]
     ++
     [ InstDecl [H.TyTup ([H.TyCon (typeable "Typeable") [H.TyVar a] | a <- tvs]
@@ -232,7 +232,7 @@ trTheory' mode thy@Theory{..} =
                [funDecl
                   (quickCheck "arbitrary") []
                   (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
-    | case mode of { QuickSpec _ -> (isCodatatype dt); _ -> False } ]
+    | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
     ++
     [ InstDecl
         [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
@@ -278,8 +278,8 @@ trTheory' mode thy@Theory{..} =
     where
       obsType :: Datatype a -> [Decl a]
       obsType dt@(Datatype tc _ tvs cons) =
-        case mode of QuickSpec _ ->
-                       if (isCodatatype dt) then
+        case mode of QuickSpec QuickSpecParams{..} ->
+                       if use_observers then
                          [DataDecl (obsName tc) tvs
                            ([ (obsName c, map ((trObsType tc) . snd) args)
                             | Constructor c _ _ args <- cons ]
@@ -634,9 +634,9 @@ obsFun dt@(Datatype tc _ tvs cons) =
     mkVar _ _ = WildPat
 
 -- Checks whether the given type has a nullary constructor
-isCodatatype :: Datatype a -> Bool
-isCodatatype dt@(Datatype _ _ _ cons) =
-  all (\x -> not $ null x) [args | Constructor _ _ _ args <- cons]
+-- isCodatatype :: Datatype a -> Bool
+-- isCodatatype dt@(Datatype _ _ _ cons) =
+--   all (\x -> not $ null x) [args | Constructor _ _ _ args <- cons]
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
 trBuiltinType t
@@ -709,7 +709,8 @@ typesOfBuiltin b = case b of
 
 data QuickSpecParams =
   QuickSpecParams {
-    background_functions :: [String]
+    background_functions :: [String],
+    use_observers :: Bool
     }
   deriving (Eq, Ord, Show)
 
@@ -854,7 +855,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   obsTriples =
     [(data_name, obsName data_name, obFuName data_name)
     | (_,DatatypeInfo dt@Datatype{..}) <- M.toList (types scp),
-      isCodatatype dt
+      use_observers
     ]
 
   -- builtins
