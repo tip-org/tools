@@ -56,7 +56,7 @@ ppQuant _name [] _to d = d
 ppQuant name  ls to  d = (name $\ fsep (map (parens . ppLocalBinder) ls) <+> to) $\ d
 
 ppBinder :: (PrettyVar a, Ord a) => a -> Type a -> Doc
-ppBinder x t = ppVar x <+> "::" $\ ppType 0 t
+ppBinder x t = ppVar x -- <+> "::" $\ ppType 0 t
 
 ppLocalBinder :: (PrettyVar a, Ord a) => Local a -> Doc
 ppLocalBinder (Local x t) = ppBinder x t
@@ -75,7 +75,8 @@ ppFuncs (fn:fns) = header <+>
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
 ppFunc (Function f _ _tvs xts t e) =
-     (ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
+     (ppVar f -- <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t))
+     ,
       [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
 
@@ -105,7 +106,8 @@ ppExpr i (hd :@: es)  = parIf ((i > 0 && not (null es)) || isLogB hd) $
                           ppHead hd (map (ppExpr 1) es)
   where isLogB (Builtin b) = logicalBuiltin b
         isLogB _           = False
-ppExpr _ (Lcl l)      = parens (ppVar (lcl_name l) <+> "::" <+> (ppType 0 (lcl_type l)))
+ppExpr _ (Lcl l)      = parens (ppVar (lcl_name l) -- <+> "::" <+> (ppType 0 (lcl_type l))
+                               )
 ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "%" ls "=>" (ppExpr 0 e)
 ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppLocalBinder x <+> "=" $\ ppExpr 0 b, "in" <+> ppExpr 0 e]
 ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls "." (ppExpr 0 e)
