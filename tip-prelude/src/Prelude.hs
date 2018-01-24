@@ -8,7 +8,7 @@ module Prelude(
   Real, toRational,
   Integral, quot, rem, div, mod, quotRem, divMod, toInteger,
   Fractional, (/), recip, fromRational,
-  succ, pred, enumFromTo,
+  Enum, succ, pred, enumFromTo,
   maybe, either,
   (&&), (||), not, otherwise,
   subtract, even, odd, gcd, lcm, (^), (^^),
@@ -33,7 +33,7 @@ module Prelude(
   Read(..), Show(..)) where
 
 import qualified "base" Prelude as P
-import "base" Prelude(Bool(..), Read(..), Show(..), String, Eq, Ord, Ordering(..))
+import "base" Prelude(Bool(..), Read(..), Show(..), String, Eq, Ord, Ordering(..), Enum)
 import Tip.GHC.Annotations
 import Prelude.Prim
 import Tip
@@ -125,8 +125,10 @@ instance Real Rational
 toRational :: Real a => a -> Rational
 toRational = primCast
 
-class Enum a where
-instance Enum Integer
+instance Enum Integer where
+  succ = succ
+  pred = pred
+  enumFromTo = enumFromTo
 
 class (Real a, Enum a) => Integral a
 instance Integral Integer
