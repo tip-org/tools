@@ -8,6 +8,7 @@ module Prelude(
   Real, toRational,
   Integral, quot, rem, div, mod, quotRem, divMod, toInteger,
   Fractional, (/), recip, fromRational,
+  succ, pred, enumFromTo,
   maybe, either,
   (&&), (||), not, otherwise,
   subtract, even, odd, gcd, lcm, (^), (^^),
@@ -124,7 +125,10 @@ instance Real Rational
 toRational :: Real a => a -> Rational
 toRational = primCast
 
-class Real a => Integral a
+class Enum a where
+instance Enum Integer
+
+class (Real a, Enum a) => Integral a
 instance Integral Integer
 
 {-# ANN quot Inline #-}
@@ -205,6 +209,28 @@ seq x y = y
 (&&) = primAnd
 (||) = primOr
 not  = primNot
+
+{-# ANN succ Inline #-}
+{-# ANN pred Inline #-}
+{-# ANN enumFromTo Inline #-}
+{-# ANN primSucc Inline #-}
+{-# ANN primPred Inline #-}
+
+succ :: Integral a => a -> a
+succ x = primCast (primSucc (primCast x))
+pred x = primCast (primPred (primCast x))
+
+enumFromTo :: Integral a => a -> a -> [a]
+enumFromTo x y = primCast (primEnumFromTo (primCast x) (primCast y))
+
+primSucc, primPred :: Int -> Int
+primSucc n = 1+n
+primPred n = n-1
+
+primEnumFromTo :: Int -> Int -> [Int]
+primEnumFromTo m n
+  | m > n = []
+  | otherwise = m:primEnumFromTo (succ m) n
 
 ----------------------------------------------------------------------
 -- Stuff which is taken verbatim from the Haskell report
