@@ -5,10 +5,10 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Core (ifView, DeepPattern(..), patternMatchingView, makeGlobal, exprType)
+import Tip.Core (ifView, DeepPattern(..), patternMatchingView, makeGlobal, exprType, free)
 
 import Data.Maybe
-import Data.List (partition)
+import Data.List (partition, intersect)
 
 ($-$), block :: Doc -> Doc -> Doc
 d $-$ b = vcat [d,"",b]
@@ -106,6 +106,13 @@ ppExpr i (hd :@: es)  = parIf ((i > 0 && not (null es)) || isLogB hd) $
   where isLogB (Builtin b) = logicalBuiltin b
         isLogB _           = False
 ppExpr _ (Lcl l)      = parens (ppVar (lcl_name l) <+> "::" <+> (ppType 0 (lcl_type l)))
+ppExpr i (Lam ls (gbl :@: args))
+  -- Eta-reduction for terms of the form:
+  -- \x1...xn. f(t1...tm, x1...xn)
+  | (args1, args2) <- splitAt (length args - length ls) args,
+    args2 == map Lcl ls,
+    ls `intersect` concatMap free args1 == [] =
+    ppExpr i (gbl :@: args1)
 ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "%" ls "=>" (ppExpr 0 e)
 ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppLocalBinder x <+> "=" $\ ppExpr 0 b, "in" <+> ppExpr 0 e]
 ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls "." (ppExpr 0 e)
