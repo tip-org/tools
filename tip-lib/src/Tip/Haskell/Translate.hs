@@ -813,11 +813,13 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
     where
       -- Hacky quick-fix to a super weird bug, if we don't call fmap id here
       -- the "Dict" strings get garbled into random nonsense!
-      args = replicate 3 (fmap id $ H.ConPat (constraints "Dict") [])
-      d = H.TyTup [TyCon (constraints "Dict") [TyCon (quickCheck "Arbitrary") tys],
-                   TyCon (constraints "Dict") [TyCon (feat "Enumerable") tys],
-                   TyCon (constraints "Dict") [TyCon (prelude "Ord") tys]]
+      args = replicate (3*n) (fmap id $ H.ConPat (constraints "Dict") [])
+      d = H.TyTup $ map dict [tcon ty | tcon <- [arb, enum, ord], ty <- tys]
       tys = map trType (qsTvs n)
+      dict x = TyCon (constraints "Dict") [x]
+      arb ty = TyCon (quickCheck "Arbitrary") [ty]
+      enum ty = TyCon (feat "Enumerable") [ty]
+      ord ty = TyCon (prelude "Ord") [ty]
       n = case lookup t type_univ of
         Just k -> k
         Nothing -> 0
