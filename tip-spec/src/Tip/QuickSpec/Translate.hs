@@ -20,7 +20,7 @@ import qualified Twee.Base as Twee
 import qualified Data.Foldable as F
 
 import Tip.Pretty.Haskell (varUnqual)
-import Tip.Haskell.Translate (HsId(..),hsBuiltinTys,hsBuiltins,prelude,ratio)
+import Tip.Haskell.Translate (HsId(..),hsBuiltinTys,hsBuiltins,prelude,ratio,typesOfBuiltin)
 import Tip.Haskell.Rename (RenameMap)
 
 import Tip.Scope
@@ -46,12 +46,14 @@ type BackMap a = Map String (BackEntry (V a))
 data V a
   = Orig a
   | Var QS.Type Twee.Var
+  | Eta Int Int
   | TyVar Twee.Var
   deriving (Eq,Ord,Show)
 
 instance PrettyVar a => PrettyVar (V a) where
   varStr (Orig x)  = varStr x
   varStr (Var _ x) = Twee.prettyShow x
+  varStr (Eta _ _) = "x"
   varStr (TyVar x) = Twee.prettyShow x
 
 rlookup :: Eq b => b -> [(a,b)] -> Maybe a
@@ -100,22 +102,28 @@ trProp :: (Ord a,PrettyVar a) => BackMap a -> QS.Prop -> Tip.Expr (V a)
 trProp bm (assums QS.:=>: goal) = map (trLiteral bm) assums Tip.===> trLiteral bm goal
 
 trLiteral :: (Ord a,PrettyVar a) => BackMap a -> QS.Literal (Twee.Term QS.Constant) -> Tip.Expr (V a)
-trLiteral bm (t1 QS.:=: t2) = trTerm bm t1 Tip.=== trTerm bm t2
+trLiteral bm (t1 QS.:=: t2) = trTerm 0 bm t1 Tip.=== trTerm 0 bm t2
 trLiteral _ _ = error "unsupported literal"
 
-trTerm :: (Ord a,PrettyVar a) => BackMap a -> Twee.Term QS.Constant -> Tip.Expr (V a)
-trTerm bm tm =
+trTerm :: (Ord a,PrettyVar a) => Int -> BackMap a -> Twee.Term QS.Constant -> Tip.Expr (V a)
+trTerm d bm tm =
   case tm of
     Twee.App (QS.Id ty) [Twee.Var v] ->
       Tip.Lcl (Tip.Local (Var ty v) (trType Inner bm ty))
     Twee.App (QS.Apply _) [t, u] ->
-      Tip.Builtin Tip.At Tip.:@: [trTerm bm t, trTerm bm u]
+      Tip.Builtin Tip.At Tip.:@: [trTerm (d+1) bm t, trTerm (d+1) bm u]
     Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
       let name = QS.conName c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
-      in  mk (matchTypes name tvs ty
-                (trType Outer bm (QS.typeDrop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) (QS.typ c))))
-            Tip.:@: map (trTerm bm) as
+          nargs = QS.typeArity (QS.typ (QS.conGeneralValue c)) - QS.implicitArity (QS.typ (QS.conGeneralValue c))
+          hd = mk (matchTypes name tvs ty
+                   (trType Outer bm (QS.typeDrop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) (QS.typ c))))
+          missing = drop (length as) (headArgs hd)
+          lcls = [Tip.Local (Eta d n) ty | (n, ty) <- zip [0..] missing]
+
+      in
+        (if null lcls then id else Tip.Lam lcls) $
+        hd Tip.:@: (map (trTerm (d+1) bm) as ++ map Tip.Lcl lcls)
 
 matchTypes :: (Ord a,PrettyVar a) => String -> [a] -> Tip.Type a -> Tip.Type a -> [Tip.Type a]
 matchTypes name tvs tmpl ty =
@@ -126,6 +134,13 @@ matchTypes name tvs tmpl ty =
             ++ "\n" ++ show (map varStr tvs)
             ++ "\n" ++ show (pp tmpl)
             ++ "\n" ++ show (pp ty))
+
+headArgs :: Ord a => Tip.Head a -> [Tip.Type a]
+headArgs (Tip.Builtin b) =
+  args
+  where
+    args Tip.:=>: _ = head (typesOfBuiltin b)
+headArgs (Tip.Gbl g) = fst (Tip.gblType g)
 
 data Mode = Outer | Inner deriving Eq
 
@@ -148,8 +163,10 @@ unV :: Name a => Tip.Expr (V a) -> Fresh (Tip.Formula a)
 unV e =
   do mtvs  <- freshMap [ tv | TyVar tv <- F.toList e ]
      mvars <- freshMap [ (ty, v) | Var ty v <- F.toList e ]
+     metas <- freshMap [ (m, n) | Eta m n <- F.toList e ]
      let rename (TyVar tv) = mtvs M.! tv
-         rename (Var ty v)    = mvars M.! (ty, v)
+         rename (Var ty v) = mvars M.! (ty, v)
+         rename (Eta m n)  = metas M.! (m, n)
          rename (Orig f)   = f
      let e' = fmap rename e
      return $
