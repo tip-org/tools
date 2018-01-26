@@ -141,6 +141,7 @@ renameHipsterFuns gbl_fun =
       "reverse" -> "List.rev"
       "nil" -> "Nil" -- TODO: Fix TIP to add metatdata about built in consts like nil and cons.
       "cons" -> "Cons"
+      "." -> "Fun.comp" 
       otherwise -> fun_name
   where fun_name = ppVar gbl_fun
 
