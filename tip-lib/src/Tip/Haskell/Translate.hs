@@ -234,6 +234,13 @@ trTheory' mode thy@Theory{..} =
                   (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
     | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
     ++
+    [ InstDecl [H.TyTup [H.TyCon (quickCheck "CoArbitrary") [H.TyVar a] | a <- tvs]]
+               (H.TyCon (quickCheck "CoArbitrary") [H.TyCon tc (map H.TyVar tvs)])
+               [funDecl
+               (quickCheck "coarbitrary") []
+               (Apply (quickCheck "genericCoarbitrary") [])]
+    | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
+    ++
     [ InstDecl
         [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
         (H.TyCon (lsc "Serial") [H.TyCon tc (map H.TyVar tvs)])
@@ -548,15 +555,19 @@ trTheory' mode thy@Theory{..} =
   tr_polyTypeArbitrary :: T.PolyType a -> H.Type a
   tr_polyTypeArbitrary pt@(PolyType tvs _ _) = TyForall tvs (TyCtx (arb tvs) (tr_polyType_inner pt))
 
-  arb = arbitrary . map H.TyVar
+  arb = (arbitrary ob) . map H.TyVar
+  ob = case mode of
+    QuickSpec QuickSpecParams{..} -> use_observers
+    _ -> False
 
-arbitrary :: [H.Type (HsId a)] -> [H.Type (HsId a)]
-arbitrary ts =
+arbitrary :: Bool -> [H.Type (HsId a)] -> [H.Type (HsId a)]
+arbitrary obs ts =
   [ TyCon tc [t]
   | t <- ts
-  , tc <- [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]]
-
-      --quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
+  , tc <- tcs]
+  where tcs = case obs of
+          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary"]
+          False -> [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
 trType (T.TyVar x)     = H.TyVar x
@@ -740,10 +751,12 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
+               [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
-                              (feat "Enumerable", feat "Enumerable")]
+                              (feat "Enumerable", feat "Enumerable"),
+                              (typeable "Typeable", typeable "Typeable")]
                , let tys = map trType (qsTvs n)
                ] ++
                [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
@@ -813,12 +826,12 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
     where
       -- Hacky quick-fix to a super weird bug, if we don't call fmap id here
       -- the "Dict" strings get garbled into random nonsense!
-      args = replicate (3*n) (fmap id $ H.ConPat (constraints "Dict") [])
-      d = H.TyTup $ map dict [tcon ty | tcon <- [arb, enum, ord], ty <- tys]
+      args = replicate (2*n) (fmap id $ H.ConPat (constraints "Dict") [])
+      d = H.TyTup $ map dict [tcon ty | tcon <- [arb, ord], ty <- tys]
       tys = map trType (qsTvs n)
       dict x = TyCon (constraints "Dict") [x]
       arb ty = TyCon (quickCheck "Arbitrary") [ty]
-      enum ty = TyCon (feat "Enumerable") [ty]
+      --enum ty = TyCon (feat "Enumerable") [ty]
       ord ty = TyCon (prelude "Ord") [ty]
       n = case lookup t type_univ of
         Just k -> k
@@ -891,7 +904,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
   qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
     where
-    pre = arbitrary (map trType qtvs) ++ imps
+    pre = arbitrary use_observers (map trType qtvs) ++ imps
     inner = trType (applyType tvs qtvs t)
     qtvs = qsTvs (length tvs)
     tvs = tyVars t
