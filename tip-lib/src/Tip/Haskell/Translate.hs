@@ -756,8 +756,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
                               (feat "Enumerable", feat "Enumerable"),
-                              (typeable "Typeable", typeable "Typeable"),
-                              (quickCheck "CoArbitrary", quickCheck "CoArbitrary")]
+                              (typeable "Typeable", typeable "Typeable")]
                , let tys = map trType (qsTvs n)
                ] ++
                [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
@@ -770,13 +769,17 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
                , let tys = map trType (qsTvs n)
                ] ++
+               [ mk_inst (map (mk_class (quickCheck "CoArbitrary")) tys) (mk_class (quickCheck "CoArbitrary") (H.TyCon t tys))
+               | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
+               , let tys = map trType (qsTvs n)
+               ] ++
                [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
                ] ++ (map obs_decl obsTriples)
             )
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
-          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 100000])
+          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
           ]
       ]
   where
