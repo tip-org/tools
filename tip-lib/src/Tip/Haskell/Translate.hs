@@ -566,7 +566,7 @@ arbitrary obs ts =
   | t <- ts
   , tc <- tcs]
   where tcs = case obs of
-          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary"]
+          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary", typeable "Typeable"]
           False -> [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -823,6 +823,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
       pairPat x y = H.TupPat [x,y]
       tyPair x y = H.TyTup [x,y]
+
   obs_decl (t, t', ofun) =
     Apply (quickSpec "makeInstance") [H.Lam [H.TupPat args]
                             (H.Apply (quickSpec "observe") [obs]) :::
