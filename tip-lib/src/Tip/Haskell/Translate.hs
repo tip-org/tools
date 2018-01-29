@@ -756,7 +756,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
                               (feat "Enumerable", feat "Enumerable"),
-                              (typeable "Typeable", typeable "Typeable")]
+                              (typeable "Typeable", typeable "Typeable"),
+                              (quickCheck "CoArbitrary", quickCheck "CoArbitrary")]
                , let tys = map trType (qsTvs n)
                ] ++
                [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
