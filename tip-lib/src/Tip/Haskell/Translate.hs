@@ -564,7 +564,7 @@ arbitrary obs ts =
   | t <- ts
   , tc <- tcs]
   where tcs = case obs of
-          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary", typeable "Typeable"]
+          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary"]--, typeable "Typeable"]
           False -> [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -835,7 +835,6 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       tys = map trType (qsTvs n)
       dict x = TyCon (constraints "Dict") [x]
       arb ty = TyCon (quickCheck "Arbitrary") [ty]
-      --enum ty = TyCon (feat "Enumerable") [ty]
       ord ty = TyCon (prelude "Ord") [ty]
       n = case lookup t type_univ of
         Just k -> k
