@@ -28,9 +28,7 @@ import qualified Data.Map as M
 
 import Data.Generics.Geniplate
 
-import Data.List (nub,partition,elemIndices)
-
-import Data.Char (isAlphaNum)
+import Data.List (nub,partition)
 
 import qualified GHC.Generics as G
 import Tip.Haskell.GenericArbitrary
@@ -51,19 +49,19 @@ quickCheckUnsafe :: String -> HsId a
 quickCheckUnsafe = Qualified "Test.QuickCheck.Gen.Unsafe" (Just "QU")
 
 quickCheckAll :: String -> HsId a
-quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QA")
+quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 
 quickSpec :: String -> HsId a
 quickSpec = Qualified "QuickSpec" (Just "QS")
 
 quickSpecTerm :: String -> HsId a
-quickSpecTerm = Qualified "QuickSpec.Term" (Just "QT")
+quickSpecTerm = Qualified "QuickSpec.Term" (Just "QS")
 
 quickSpecSig :: String -> HsId a
-quickSpecSig = Qualified "QuickSpec.Signature" (Just "QG")
+quickSpecSig = Qualified "QuickSpec.Signature" (Just "QS")
 
 constraints :: String -> HsId a
-constraints = Qualified "Data.Constraint" (Just "QD")
+constraints = Qualified "Data.Constraint" (Just "QS")
 
 sysEnv :: String -> HsId a
 sysEnv = Qualified "System.Environment" (Just "Env")

@@ -75,8 +75,7 @@ ppFuncs (fn:fns) = header <+>
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
 ppFunc (Function f _ _tvs xts t e) =
-     (ppVar f  <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t))
-     ,
+     (ppVar f  <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
       [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
 
@@ -105,7 +104,7 @@ ppExpr i (hd :@: es)  = parIf ((i > 0 && not (null es)) || isLogB hd) $
                           ppHead hd (map (ppExpr 1) es)
   where isLogB (Builtin b) = logicalBuiltin b
         isLogB _           = False
-ppExpr _ (Lcl l)      = parens (ppVar (lcl_name l)  <+> "::" <+> (ppType 0 (lcl_type l)))
+ppExpr _ (Lcl l)      = parens (ppVar (lcl_name l) <+> "::" <+> (ppType 0 (lcl_type l)))
 ppExpr i (Lam ls (gbl :@: args))
   -- Eta-reduction for terms of the form:
   -- \x1...xn. f(t1...tm, x1...xn)
