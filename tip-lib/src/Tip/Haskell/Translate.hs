@@ -755,7 +755,12 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
                | (t,n) <- type_univ
                , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
-                              (feat "Enumerable", feat "Enumerable"),
+                              (feat "Enumerable", feat "Enumerable")]
+               , let tys = map trType (qsTvs n)
+               ] ++
+               [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
+               | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
+               , (c1,c2) <- [(quickCheck "CoArbitrary",quickCheck "CoArbitrary"),
                               (typeable "Typeable", typeable "Typeable")]
                , let tys = map trType (qsTvs n)
                ] ++
@@ -766,10 +771,6 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                [ mk_inst ((map (mk_class (typeable "Typeable")) tys)
                           ++ (map (mk_class (quickCheck "Arbitrary")) tys)
                          ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
-               | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
-               , let tys = map trType (qsTvs n)
-               ] ++
-               [ mk_inst (map (mk_class (quickCheck "CoArbitrary")) tys) (mk_class (quickCheck "CoArbitrary") (H.TyCon t tys))
                | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
                , let tys = map trType (qsTvs n)
                ] ++
