@@ -19,7 +19,7 @@ extra-deps:
 - testing-feat-0.4.0.3
 - tagshare-0.0
 - git: git://github.com/nick8325/quickspec
-  commit: 244889650f2ad319924d295b4ddcf6b9a26e23dd
+  commit: a8fa3c470560809ecf26b941ae8d1c4427b83400
 
 flags:
     tip-spec: {stack: True}

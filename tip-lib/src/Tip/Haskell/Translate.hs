@@ -620,7 +620,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                  builtin_decls ++
                  map (constant_decl True)
                    (ctor_constants ++ builtin_constants))
-          , (quickSpec "instances", List $
+          , (quickSpec "instances", Apply (prelude "mconcat") [List $
                map instance_decl (ctor_constants ++ builtin_constants ++ func_constants) ++
                [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
@@ -631,9 +631,9 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
                               (feat "Enumerable",quickCheck "Arbitrary")]
                , let tys = map trType (qsTvs n)
                ] ++
-               [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
+               [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
-               ])
+               ]])
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
@@ -669,7 +669,7 @@ makeSig QuickSpecParams{..} thy@Theory{..} =
     lam = H.Lam [H.ConPat (constraints "Dict") []]
 
   instance_decl (_,t) =
-    Apply (quickSpec "makeInstance") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
+    Apply (quickSpec "inst") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
     where
       (pre, _) = qsType t
       args = replicate (length pre) (H.ConPat (constraints "Dict") [])
