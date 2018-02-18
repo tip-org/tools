@@ -775,7 +775,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
                ] ++ (map obs_decl obsTriples)
-            )
+            ])
           , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
           , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
           , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
