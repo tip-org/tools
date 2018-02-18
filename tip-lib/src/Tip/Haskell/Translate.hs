@@ -744,7 +744,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                  builtin_decls ++
                  map (constant_decl True)
                    (ctor_constants ++ builtin_constants))
-          , (quickSpec "instances", List $
+          , (quickSpec "instances", Apply (prelude "mconcat") [List $
                map instance_decl (ctor_constants ++ builtin_constants ++ func_constants) ++
                [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
@@ -772,7 +772,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
                , let tys = map trType (qsTvs n)
                ] ++
-               [ Apply (quickSpec "makeInstance") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
+               [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
                ] ++ (map obs_decl obsTriples)
             )
@@ -811,7 +811,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
     lam = H.Lam [H.ConPat (constraints "Dict") []]
 
   instance_decl (_,t) =
-    Apply (quickSpec "makeInstance") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
+    Apply (quickSpec "inst") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
     where
       (pre, _) = qsType t
       args = replicate (length pre) (H.ConPat (constraints "Dict") [])

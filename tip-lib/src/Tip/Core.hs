@@ -366,6 +366,33 @@ freshenNames names e = do
       Nothing -> x
       Just y -> y
 
+matchExpr :: Name a => Expr a -> Expr a -> Maybe [(Local a, Expr a)]
+matchExpr pat t = from pat t []
+  where
+    -- Should do alpha-renaming, re-order cases, etc.
+    from (f :@: ts) (g :@: us) sub
+      | f == g = foldr (>=>) return (zipWith from ts us) sub
+    from (Lcl x) t sub =
+      case lookup x sub of
+        Just u
+          | t == u -> Just sub
+          | otherwise -> Nothing
+        _ -> Just ((x,t):sub)
+    from (Lam xs t) (Lam ys u) sub
+      | xs == ys = from t u sub
+    from (Match t1 cs1) (Match t2 cs2) sub =
+      from t1 t2 sub >>= foldr (>=>) return (zipWith fromCase cs1 cs2)
+    from (Let x1 t1 u1) (Let x2 t2 u2) sub
+      | x1 == x2 = from t1 t2 sub >>= from u1 u2
+    from (Quant qi1 q1 xs1 t1) (Quant qi2 q2 xs2 t2) sub
+      | (qi1, q1, xs2) == (qi2, q2, xs2) =
+        from t1 t2 sub
+    from _ _ _ = Nothing
+
+    fromCase (Case pat1 t1) (Case pat2 t2) sub
+      | pat1 == pat2 = from t1 t2 sub
+      | otherwise = Nothing
+
 -- | Substitution, of local variables
 --
 -- Since there are only rank-1 types, bound variables from lambdas and
