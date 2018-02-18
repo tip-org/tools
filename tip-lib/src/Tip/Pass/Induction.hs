@@ -78,9 +78,7 @@ induction coords thy@Theory{..} =
              ]
 
          return
-           [ thy { thy_asserts = goal' : goals ++ assums }
-           | goal' <- split_goals
-           ]
+           [ thy { thy_asserts = split_goals ++ goals ++ assums } ]
 
     _ -> return [thy]
   where
