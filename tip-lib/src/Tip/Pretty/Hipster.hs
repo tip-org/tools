@@ -75,10 +75,9 @@ ppFuncs (fn:fns) = header <+>
 
 ppFunc :: (PrettyVar a, Ord a) => Function a -> (Doc,[Doc])
 ppFunc (Function f _ _tvs xts t e) =
-     (ppVar f <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
+     (ppVar f  <+> "::" <+> quote (ppType (-1) (map lcl_type xts :=>: t)),
       [ quote $ ppVar f $\ fsep (map ppDeepPattern dps) <+> "=" $\ ppExpr 0 rhs
                   | (dps,rhs) <- patternMatchingView xts e ])
-
 
 ppDeepPattern :: PrettyVar a => DeepPattern a -> Doc
 ppDeepPattern (DeepConPat (Global k _ _) dps) = parens (ppVar k <+> fsep (map ppDeepPattern dps))
@@ -139,6 +138,7 @@ renameHipsterFuns gbl_fun =
       "reverse" -> "List.rev"
       "nil" -> "Nil" -- TODO: Fix TIP to add metatdata about built in consts like nil and cons.
       "cons" -> "Cons"
+      "." -> "Fun.comp" 
       otherwise -> fun_name
   where fun_name = ppVar gbl_fun
 

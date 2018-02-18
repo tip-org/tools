@@ -53,6 +53,9 @@ library
     Tip.Utils.SetCover
 
     Tip.Pass.Booleans
+    Tip.Haskell.GenericArbitrary
+    Tip.Haskell.Observers
+
   other-modules:
     Tip.Pass.AddMatch
     Tip.Pass.AxiomatizeFuncdefs
@@ -99,7 +102,8 @@ library
                        twee,
                        minisat,
                        deepseq,
-                       structural-induction >= 0.3 && < 0.4
+                       structural-induction >= 0.3 && < 0.4,
+                       QuickCheck
   build-tools:         alex, happy
 
 executable tip
