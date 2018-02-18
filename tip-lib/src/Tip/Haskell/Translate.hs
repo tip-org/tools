@@ -789,7 +789,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
 
   mk_inst ctx res =
-    Apply (quickSpec ("inst" ++ concat [ show (length ctx) | length ctx >= 2 ]))
+    Apply (quickSpec "inst")
                  [ Apply (constraints "Sub") [Apply (constraints "Dict") []] :::
                    H.TyCon (constraints ":-") [TyTup ctx,res] ]
 
@@ -824,7 +824,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       tyPair x y = H.TyTup [x,y]
 
   obs_decl (t, t', ofun) =
-    Apply (quickSpec "makeInstance") [H.Lam [H.TupPat args]
+    Apply (quickSpec "inst") [H.Lam [H.TupPat args]
                             (H.Apply (quickSpec "observe") [obs]) :::
                   TyArr d (TyCon (quickSpecSig "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
     where
