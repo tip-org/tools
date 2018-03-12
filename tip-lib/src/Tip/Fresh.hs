@@ -45,6 +45,10 @@ fresh = freshNamed ""
 refresh :: (PrettyVar a, Name b) => a -> Fresh b
 refresh x = freshNamed (varStr x)
 
+-- | Refresh a name, adding a prefix to it
+refreshNamed :: (PrettyVar a, Name b) => String -> a -> Fresh b
+refreshNamed prefix x = freshNamed (prefix ++ "-" ++ varStr x)
+
 instance Name Int where
   freshNamed _ = Fresh (state (id &&& succ))
   getUnique = id
