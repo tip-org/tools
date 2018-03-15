@@ -55,6 +55,8 @@ library
     Tip.Pass.Booleans
     Tip.Haskell.GenericArbitrary
     Tip.Haskell.Observers
+    Tip.Eval
+    Tip.QuickCheck
 
   other-modules:
     Tip.Pass.AddMatch
@@ -103,7 +105,9 @@ library
                        minisat,
                        deepseq,
                        structural-induction >= 0.3 && < 0.4,
-                       QuickCheck
+                       QuickCheck,
+                       reflection,
+                       spoon
   build-tools:         alex, happy
 
 executable tip
