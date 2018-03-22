@@ -101,7 +101,7 @@ library
                        pretty,
                        array,
                        optparse-applicative,
-                       twee,
+                       twee-lib,
                        minisat,
                        deepseq,
                        structural-induction >= 0.3 && < 0.4,

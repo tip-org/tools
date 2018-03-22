@@ -24,25 +24,26 @@ data Clause a =
   | Term a :=>: Clause a
   deriving Eq
 
+instance Has (Clause a) (Term a) where
+  the (Fact t) = t
+  the (_ :=>: c) = the c
+
 instance Symbolic (Clause a) where
   type ConstantOf (Clause a) = a
-  term (Fact t) = t
-  term (t :=>: _) = t
   termsDL (Fact t) = return (singleton t)
   termsDL (t :=>: c) = return (singleton t) `mplus` termsDL c
-  replace f (Fact t) = Fact (replace f t)
-  replace f (t :=>: c) = replace f t :=>: replace f c
-
+  subst_ sub (Fact t) = Fact (subst_ sub t)
+  subst_ sub (t :=>: c) = subst_ sub t :=>: subst_ sub c
 
 complete :: [Clause a] -> [Clause a]
-complete cs = Index.elems (foldr add Index.Nil cs)
+complete cs = Index.elems (foldr add Index.empty cs)
   where
     add c idx
-      | c `Index.elem` idx = idx
-      | otherwise = derive c (Index.insert c idx)
+      | c `elem` Index.lookup (the c) idx = idx
+      | otherwise = derive c (Index.insert (the c) c idx)
 
     derive (Fact t) idx =
-      foldr add idx [ c | _ :=>: c <- Index.lookup t (Index.freeze idx) ]
+      foldr add idx [ c | _ :=>: c <- Index.lookup t idx ]
     derive (t :=>: r) idx =
       foldr add idx $ do
         Fact u <- Index.elems idx
@@ -88,14 +89,14 @@ completeRules rules =
     fromMap = IntMap.fromList numbers
     ruleToTwee (e :=> r) = build (exprToTwee e) :=>: ruleToTwee r
     ruleToTwee (Fin e) = Fact (build (exprToTwee e))
-    exprToTwee (Var x) = var (MkVar x)
+    exprToTwee (Var x) = var (V x)
     exprToTwee (App h es) =
-      fun (MkFun (Map.findWithDefault (error "completeRules") h toMap))
+      app (fun (Map.findWithDefault (error "completeRules") h toMap))
         (map exprToTwee es)
     ruleFromTwee (e :=>: r) = exprFromTwee e :=> ruleFromTwee r
     ruleFromTwee (Fact e) = Fin (exprFromTwee e)
-    exprFromTwee (Twee.Var (MkVar x)) = Var x
-    exprFromTwee (Twee.Fun (MkFun f) ts) =
+    exprFromTwee (Twee.Var (V x)) = Var x
+    exprFromTwee (Twee.App (F f) ts) =
       App (IntMap.findWithDefault (error "completeRules") f fromMap)
-        (map exprFromTwee (fromTermList ts))
+        (map exprFromTwee (unpack ts))
 

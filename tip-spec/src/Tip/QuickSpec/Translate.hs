@@ -15,6 +15,8 @@ import qualified Tip.Core as Tip
 import qualified QuickSpec.Type as QS
 import qualified QuickSpec.Prop as QS
 import qualified QuickSpec.Term as QS
+import qualified QuickSpec.Haskell as QS
+import qualified QuickSpec.Explore.PartialApplication as QS
 import qualified Twee.Base as Twee
 
 import qualified Data.Foldable as F
@@ -31,6 +33,8 @@ import Tip.Pretty.SMT ()
 
 import Data.Maybe
 
+type Term = QS.Term (QS.PartiallyApplied QS.Constant)
+
 data BackEntry a
   = Head
       { head_tvs  :: [a]
@@ -45,14 +49,14 @@ type BackMap a = Map String (BackEntry (V a))
 
 data V a
   = Orig a
-  | Var QS.Type Twee.Var
+  | Var QS.Var
   | Eta Int Int
   | TyVar Twee.Var
   deriving (Eq,Ord,Show)
 
 instance PrettyVar a => PrettyVar (V a) where
   varStr (Orig x)  = varStr x
-  varStr (Var _ x) = Twee.prettyShow x
+  varStr (Var x) = Twee.prettyShow x
   varStr (Eta _ _) = "x"
   varStr (TyVar x) = Twee.prettyShow x
 
@@ -98,26 +102,24 @@ backMap thy rm =
   [] ==> r = r
   as ==> r = as Tip.:=>: r
 
-trProp :: (Ord a,PrettyVar a) => BackMap a -> QS.Prop -> Tip.Expr (V a)
-trProp bm (assums QS.:=>: goal) = map (trLiteral bm) assums Tip.===> trLiteral bm goal
+trProp :: (Ord a,PrettyVar a) => BackMap a -> QS.Prop Term -> Tip.Expr (V a)
+trProp bm (assums QS.:=>: goal) = map (trEquation bm) assums Tip.===> trEquation bm goal
 
-trLiteral :: (Ord a,PrettyVar a) => BackMap a -> QS.Literal (Twee.Term QS.Constant) -> Tip.Expr (V a)
-trLiteral bm (t1 QS.:=: t2) = trTerm 0 bm t1 Tip.=== trTerm 0 bm t2
-trLiteral _ _ = error "unsupported literal"
+trEquation :: (Ord a,PrettyVar a) => BackMap a -> QS.Equation Term -> Tip.Expr (V a)
+trEquation bm (t1 QS.:=: t2) = trTerm 0 bm t1 Tip.=== trTerm 0 bm t2
 
-trTerm :: (Ord a,PrettyVar a) => Int -> BackMap a -> Twee.Term QS.Constant -> Tip.Expr (V a)
+trTerm :: (Ord a,PrettyVar a) => Int -> BackMap a -> Term -> Tip.Expr (V a)
 trTerm d bm tm =
   case tm of
-    Twee.App (QS.Id ty) [Twee.Var v] ->
-      Tip.Lcl (Tip.Local (Var ty v) (trType Inner bm ty))
-    Twee.App (QS.Apply _) [t, u] ->
+    QS.Var v ->
+      Tip.Lcl (Tip.Local (Var v) (trType Inner bm (QS.typ v)))
+    QS.App (QS.Apply _) [t, u] ->
       Tip.Builtin Tip.At Tip.:@: [trTerm (d+1) bm t, trTerm (d+1) bm u]
-    Twee.App c (drop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) -> as) ->
-      let name = QS.conName c
+    QS.App (QS.Partial c _) as ->
+      let name = QS.con_name c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
-          nargs = QS.typeArity (QS.typ (QS.conGeneralValue c)) - QS.implicitArity (QS.typ (QS.conGeneralValue c))
-          hd = mk (matchTypes name tvs ty
-                   (trType Outer bm (QS.typeDrop (QS.implicitArity (QS.typ (QS.conGeneralValue c))) (QS.typ c))))
+          nargs = QS.typeArity (QS.typ c)
+          hd = mk (matchTypes name tvs ty (trType Outer bm (QS.typ c)))
           missing = drop (length as) (headArgs hd)
           lcls = [Tip.Local (Eta d n) ty | (n, ty) <- zip [0..] missing]
 
@@ -148,11 +150,12 @@ trType :: PrettyVar a => Mode -> BackMap a -> QS.Type -> Tip.Type (V a)
 trType mode bm t =
   case t of
     Twee.Var tv -> Tip.TyVar (TyVar tv)
-    Twee.App QS.Arrow [a,b] -> trType Inner bm a ==> trType mode bm b -- !! ??
-    Twee.App (QS.TyCon tc) as ->
+    Twee.App (Twee.F QS.Arrow) (Twee.Cons a (Twee.Cons b Twee.Empty)) ->
+      trType Inner bm a ==> trType mode bm b -- !! ??
+    Twee.App (Twee.F (QS.TyCon tc)) as ->
       let name = Typeable.tyConName tc
           Type mk = FROMJUST(name) (M.lookup name bm)
-      in  mk (map (trType Inner bm) as)
+      in  mk (map (trType Inner bm) (Twee.unpack as))
 
   where
   t ==> (ts Tip.:=>: r)
@@ -162,10 +165,10 @@ trType mode bm t =
 unV :: Name a => Tip.Expr (V a) -> Fresh (Tip.Formula a)
 unV e =
   do mtvs  <- freshMap [ tv | TyVar tv <- F.toList e ]
-     mvars <- freshMap [ (ty, v) | Var ty v <- F.toList e ]
+     mvars <- freshMap [ v | Var v <- F.toList e ]
      metas <- freshMap [ (m, n) | Eta m n <- F.toList e ]
      let rename (TyVar tv) = mtvs M.! tv
-         rename (Var ty v) = mvars M.! (ty, v)
+         rename (Var v) = mvars M.! v
          rename (Eta m n)  = metas M.! (m, n)
          rename (Orig f)   = f
      let e' = fmap rename e
@@ -176,6 +179,6 @@ unV e =
 freshMap :: (Ord a,Name b) => [a] -> Fresh (Map a b)
 freshMap xs = M.fromList <$> sequence [ (,) x <$> fresh | x <- xs ]
 
-trProperty :: Name a => BackMap a -> QS.Prop -> Fresh (Tip.Formula a)
+trProperty :: Name a => BackMap a -> QS.Prop Term -> Fresh (Tip.Formula a)
 trProperty bm = unV . trProp bm
 

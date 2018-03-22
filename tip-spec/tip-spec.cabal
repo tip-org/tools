@@ -36,7 +36,7 @@ library
                        testing-feat,
                        hint,
                        quickspec >= 2,
-                       twee, transformers
+                       twee-lib, transformers
 
 executable tip-spec
   main-is:             executable/Main.hs
