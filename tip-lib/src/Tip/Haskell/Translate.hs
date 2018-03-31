@@ -57,8 +57,8 @@ quickSpec = Qualified "QuickSpec" (Just "QS")
 quickSpecTerm :: String -> HsId a
 quickSpecTerm = Qualified "QuickSpec.Term" (Just "QS")
 
-quickSpecSig :: String -> HsId a
-quickSpecSig = Qualified "QuickSpec.Signature" (Just "QS")
+-- quickSpecSig :: String -> HsId a
+-- quickSpecSig = Qualified "QuickSpec.Signature" (Just "QS")
 
 constraints :: String -> HsId a
 constraints = Qualified "Data.Constraint" (Just "QS")
@@ -720,33 +720,36 @@ data QuickSpecParams =
 
 makeSig :: forall a . (PrettyVar a, Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
 makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
-  funDecl (Exact "sig") [] $
-    Tup
-      [ List
-          [ Tup
-              [ constant_decl (varStr (fst ft) `elem` background_functions) ft
-              , List $
-                  if use_cg
-                    then
-                      [ int_lit num
-                      | (members,num) <- cg `zip` [0..]
-                      , f `elem` members
-                      ]
-                    else
-                      [int_lit 0]
-
-              ]
-          | ft@(f,_) <- func_constants
-          ]
-      , Apply (quickSpec "signature") [] `Record`
-          [ (quickSpec "constants",
-               List $
+  funDecl (Exact "sig") [] $ List $
+    --Tup
+      --[ List
+          --[ Tup
+  [constant_decl (varStr (fst ft) `elem` background_functions) ft
+  -- FIXME: need to fix background function stuff
+  -- FIXME: what was this cg stuff for?
+  --, List $
+  --  if use_cg
+  --  then
+  --    [ int_lit num
+  --    | (members,num) <- cg `zip` [0..]
+  --    , f `elem` members
+  --    ]
+  --  else
+  --    [int_lit 0]
+  | ft@(f,_) <- func_constants ] ++
+      --, Apply (quickSpec "signature") [] `Record`
+          --[ (quickSpec "constants",
+               --List $
                  builtin_decls ++
-                 map (constant_decl True)
-                   (ctor_constants ++ builtin_constants))
-          , (quickSpec "instances", Apply (prelude "mconcat") [List $
-               map instance_decl (ctor_constants ++ builtin_constants ++ func_constants) ++
-               [ Apply (quickSpec "baseType") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
+                 map (constant_decl True) (ctor_constants ++ builtin_constants)
+                 --)
+          --, --(quickSpec "instances",
+             --Apply (prelude "mconcat") [List $
+                 --FIXME: type errors happening here!
+                 -- ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
+                 ++
+                 --FIXME: What does this do?
+              -- [ Apply (quickSpec "inst") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
                [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
                [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Int") [])) ] ++
@@ -775,146 +778,144 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
                | Signature f _ _ <- thy_sigs
                ] ++ (map obs_decl obsTriples)
-            ])
-          , (quickSpec "maxTermSize", Apply (prelude "Just") [H.Int 7])
-          , (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
-          , (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
-          ]
-      ]
+            --]--)
+           ++ [Apply (quickSpec "withMaxTermSize") [H.Int 7]]
+          --, (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
+          --, (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
+          --]
+      --]
   where
-  imps = ufInfo thy
+    imps = ufInfo thy
 
-  use_cg = True
+    use_cg = True
 
-  int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
+    int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
 
-  mk_inst ctx res =
-    Apply (quickSpec "inst")
-                 [ Apply (constraints "Sub") [Apply (constraints "Dict") []] :::
-                   H.TyCon (constraints ":-") [TyTup ctx,res] ]
+    mk_inst ctx res =
+      Apply (quickSpec "inst")
+                  [ Apply (constraints "Sub") [Apply (constraints "Dict") []] :::
+                    H.TyCon (constraints ":-") [TyTup ctx,res] ]
 
-  mk_class c x = H.TyCon c [x]
+    mk_class c x = H.TyCon c [x]
 
-  scp = scope thy
+    scp = scope thy
 
-  cg = map (map defines) (flatCallGraph (CallGraphOpts False False) thy)
+    cg = map (map defines) (flatCallGraph (CallGraphOpts False False) thy)
 
-  poly_type (PolyType _ args res) = args :=>: res
+    poly_type (PolyType _ args res) = args :=>: res
 
-  constant_decl background (f,t) =
-    Record (Apply (quickSpec "constant") [H.String f,lam (Apply f []) ::: qs_type]) $
-      [(quickSpecTerm "conSize", H.Int 0)] ++
-      [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") []) | background]
+    constant_decl background (f,t) =
+      Apply (quickSpec "con") [H.String f,lam (Apply f []) ::: qs_type]
+      --[(quickSpecTerm "conSize", H.Int 0)] ++
+      --[(quickSpecTerm "conIsBackground", H.Apply (prelude "True") []) | background]
+      where
+        (_pre,qs_type) = qsType t
+        lam = H.Lam [H.ConPat (constraints "Dict") []]
 
-    where
-    (_pre,qs_type) = qsType t
-    lam = H.Lam [H.ConPat (constraints "Dict") []]
+    instance_decl (_,t) =
+      Apply (quickSpec "inst") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
+      where
+        (pre, _) = qsType t
+        args = replicate (length pre) (H.ConPat (constraints "Dict") [])
+        res  = H.Apply (prelude "return") [H.Apply (constraints "Dict") []]
 
-  instance_decl (_,t) =
-    Apply (quickSpec "inst") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
-    where
-      (pre, _) = qsType t
-      args = replicate (length pre) (H.ConPat (constraints "Dict") [])
-      res  = H.Apply (prelude "return") [H.Apply (constraints "Dict") []]
+        ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
+        dict x = TyCon (constraints "Dict") [x]
 
-      ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
-      dict x = TyCon (constraints "Dict") [x]
+        pairPat x y = H.TupPat [x,y]
+        tyPair x y = H.TyTup [x,y]
 
-      pairPat x y = H.TupPat [x,y]
-      tyPair x y = H.TyTup [x,y]
-
-  obs_decl (t, t', ofun) =
-    Apply (quickSpec "inst") [H.Lam [H.TupPat args]
-                            (H.Apply (quickSpec "observe") [obs]) :::
-                  TyArr d (TyCon (quickSpecSig "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
-    where
-      -- Hacky quick-fix to a super weird bug, if we don't call fmap id here
-      -- the "Dict" strings get garbled into random nonsense!
-      args = replicate (2*n) (fmap id $ H.ConPat (constraints "Dict") [])
-      d = H.TyTup $ map dict [tcon ty | tcon <- [arb, ord], ty <- tys]
-      tys = map trType (qsTvs n)
-      dict x = TyCon (constraints "Dict") [x]
-      arb ty = TyCon (quickCheck "Arbitrary") [ty]
-      ord ty = TyCon (prelude "Ord") [ty]
-      n = case lookup t type_univ of
-        Just k -> k
-        Nothing -> 0
-      obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
-  int_lit_decl x =
-    Record (Apply (quickSpec "constant") [H.String (Exact (show x)),int_lit x])
+    obs_decl (t, t', ofun) =
+      Apply (quickSpec "inst") [H.Lam [H.TupPat args]
+                                (H.Apply (quickSpec "observe") [obs]) :::
+                                TyArr d (TyCon (quickSpec "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
+      where
+        -- Hacky quick-fix to a super weird bug, if we don't call fmap id here
+        -- the "Dict" strings get garbled into random nonsense!
+        args = replicate (2*n) (fmap id $ H.ConPat (constraints "Dict") [])
+        d = H.TyTup $ map dict [tcon ty | tcon <- [arb, ord], ty <- tys]
+        tys = map trType (qsTvs n)
+        dict x = TyCon (constraints "Dict") [x]
+        arb ty = TyCon (quickCheck "Arbitrary") [ty]
+        ord ty = TyCon (prelude "Ord") [ty]
+        n = case lookup t type_univ of
+          Just k -> k
+          Nothing -> 0
+        obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
+    int_lit_decl x =
+      Record (Apply (quickSpec "con") [H.String (Exact (show x)),int_lit x])
       [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
 
-  bool_lit_decl b =
-    Record (Apply (quickSpec "constant") [H.String (prelude (show b)),withBool Apply b])
+    bool_lit_decl b =
+      Record (Apply (quickSpec "con") [H.String (prelude (show b)),withBool Apply b])
       [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
 
-  ctor_constants =
-    [ (f,poly_type (globalType g))
-    | (f,g@ConstructorInfo{}) <- M.toList (globals scp)
-    ]
+    ctor_constants =
+      [ (f,poly_type (globalType g))
+      | (f,g@ConstructorInfo{}) <- M.toList (globals scp)
+      ]
 
-  func_constants =
-    [ (f,poly_type (globalType g))
-    | (f,g@FunctionInfo{}) <- M.toList (globals scp)
-    ]
+    func_constants =
+      [ (f,poly_type (globalType g))
+      | (f,g@FunctionInfo{}) <- M.toList (globals scp)
+      ]
 
-  type_univ =
-    [ (data_name, length data_tvs)
-    | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
-    ]
+    type_univ =
+      [ (data_name, length data_tvs)
+      | (_,DatatypeInfo Datatype{..}) <- M.toList (types scp)
+      ]
 
-  -- Types that require observers along with corresponding observer types
-  -- and functions
-  obsTriples =
-    [(data_name, obsName data_name, obFuName data_name)
-    | (_,DatatypeInfo dt@Datatype{..}) <- M.toList (types scp),
-      use_observers
-    ]
+    -- Types that require observers along with corresponding observer types
+    -- and functions
+    obsTriples =
+      [(data_name, obsName data_name, obFuName data_name)
+      | (_,DatatypeInfo dt@Datatype{..}) <- M.toList (types scp),
+        use_observers
+      ]
 
-  -- builtins
+    -- builtins
 
-  (builtin_lits,builtin_funs) =
-    partition (litBuiltin . fst) $
+    (builtin_lits,builtin_funs) =
+      partition (litBuiltin . fst) $
       usort
-        [ (b, map exprType args :=>: exprType e)
-        | e@(Builtin b :@: args) <- universeBi thy ]
+      [ (b, map exprType args :=>: exprType e)
+      | e@(Builtin b :@: args) <- universeBi thy ]
 
-  used_builtin_types :: [BuiltinType]
-  used_builtin_types =
-    usort [ t | BuiltinType t :: T.Type (HsId a) <- universeBi thy ]
+    used_builtin_types :: [BuiltinType]
+    used_builtin_types =
+      usort [ t | BuiltinType t :: T.Type (HsId a) <- universeBi thy ]
 
-  bool_used = Boolean `elem` used_builtin_types
-  num_used  = -- Integer `elem` used_builtin_types
-              or [ op `elem` map fst builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
+    bool_used = Boolean `elem` used_builtin_types
+    num_used  = -- Integer `elem` used_builtin_types
+      or [ op `elem` map fst builtin_funs | op <- [NumAdd,NumSub,NumMul,NumDiv,IntDiv,IntMod] ]
 
-  builtin_decls
-    =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
-    ++ [ int_lit_decl x  | num_used,  x <- nub $
-                                           [0,1] ++
-                                           [ x
-                                           | Lit (T.Int x) <- map fst builtin_lits ]]
+    builtin_decls
+      =  [ bool_lit_decl b | bool_used, b <- [False,True] ]
+      ++ [ int_lit_decl x  | num_used,  x <- nub $
+                                             [0,1] ++
+                                             [ x
+                                             | Lit (T.Int x) <- map fst builtin_lits ]]
 
-  builtin_constants
-    =  [ (prelude s, ty)
-       | (b, ty) <- nub $
+    builtin_constants
+      =  [ (prelude s, ty)
+         | (b, ty) <- nub $
            -- [ b      | bool_used, b <- [And,Or,Not] ]
            -- [ IntAdd | int_used ]
            -- [ Equal  | bool_used && int_used ]
-              [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b ]
-       , Just s <- [lookup b hsBuiltins]
-       ]
+                      [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b ]
+         , Just s <- [lookup b hsBuiltins]
+         ]
 
-  qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
-  qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
-    where
-    pre = arbitrary use_observers (map trType qtvs) ++ imps
-    inner = trType (applyType tvs qtvs t)
-    qtvs = qsTvs (length tvs)
-    tvs = tyVars t
+    qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
+    qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
+      where
+        pre = arbitrary use_observers (map trType qtvs) ++ imps
+        inner = trType (applyType tvs qtvs t)
+        qtvs = qsTvs (length tvs)
+        tvs = tyVars t
 
-  qsTvs :: Int -> [T.Type (HsId a)]
-  qsTvs n = take n (cycle [ T.TyCon (quickSpec qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
+    qsTvs :: Int -> [T.Type (HsId a)]
+    qsTvs n = take n (cycle [ T.TyCon (quickSpec qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
 
-theoryBuiltins :: Ord a => Theory a -> [T.Builtin]
-theoryBuiltins = usort . universeBi
-
+    theoryBuiltins :: Ord a => Theory a -> [T.Builtin]
+    theoryBuiltins = usort . universeBi
