@@ -746,7 +746,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
           --, --(quickSpec "instances",
              --Apply (prelude "mconcat") [List $
                  --FIXME: type errors happening here!
-                 -- ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
+                 ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
                  ++
                  --FIXME: What does this do?
               -- [ Apply (quickSpec "inst") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
@@ -813,7 +813,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
         lam = H.Lam [H.ConPat (constraints "Dict") []]
 
     instance_decl (_,t) =
-      Apply (quickSpec "inst") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
+      Apply (quickSpec "instFun") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
       where
         (pre, _) = qsType t
         args = replicate (length pre) (H.ConPat (constraints "Dict") [])

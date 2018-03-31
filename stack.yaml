@@ -11,7 +11,7 @@ extra-deps:
 - jukebox-0.2.17
 - minisat-0.1.2
 - structural-induction-0.3
-- twee-lib-2.1.3
+- twee-lib-2.1.4
 - genifunctors-0.4
 - stm-promise-0.0.3.1
 - constraints-0.9.1
@@ -19,8 +19,7 @@ extra-deps:
 - testing-feat-0.4.0.3
 - tagshare-0.0
 - git: git://github.com/nick8325/quickspec
-  commit: d60a7de8adb32aa8d1be42c0c2af28cdbe96f9ac
-
+  commit: c89663028e0a6cccaba91e0ba8e2788d95d43e9b
 flags:
     tip-spec: {stack: True}
     tip-ghc: {stack: True}
