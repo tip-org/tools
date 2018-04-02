@@ -117,7 +117,7 @@ instance PrettyVar a => PrettyVar (HsId a) where
 addHeader :: String -> Decls a -> Decls a
 addHeader mod_name (Decls ds) =
     Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators",
-                         "ImplicitParams","RankNTypes","DeriveGeneric"]
+                         "ImplicitParams","RankNTypes","DeriveGeneric", "MultiParamTypeClasses"]
             ++ Module mod_name : ds)
 
 addImports :: Ord a => Decls (HsId a) -> Decls (HsId a)
@@ -232,7 +232,7 @@ trTheory' mode thy@Theory{..} =
                   (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
     | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
     ++
-    [ InstDecl [H.TyTup [H.TyCon (quickCheck "CoArbitrary") [H.TyVar a] | a <- tvs]]
+    [ InstDecl [H.TyCon (quickCheck "CoArbitrary") [H.TyVar a] | a <- tvs]
                (H.TyCon (quickCheck "CoArbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                (quickCheck "coarbitrary") []
@@ -295,6 +295,16 @@ trTheory' mode thy@Theory{..} =
                              ++ [typeable "Typeable"])
                          ]
                          ++ (obsFun dt)
+                         ++ [InstDecl [H.TyCon (prelude "Ord") [H.TyVar a] | a <- tvs]
+                              (H.TyCon (quickSpec "Observe") $
+                                 [H.TyCon (prelude "Int") []]
+                              ++ [H.TyCon (obsName tc) (map H.TyVar tvs)]
+                              ++ [H.TyCon tc (map H.TyVar tvs)]
+                              )
+                              [funDecl (quickSpec "observe") []
+                                       (Apply (obFuName tc) [])
+                              ]
+                            ]
                        else []
                      _ -> []
 
@@ -726,68 +736,58 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
           --[ Tup
   [constant_decl (varStr (fst ft) `elem` background_functions) ft
   -- FIXME: need to fix background function stuff
-  -- FIXME: what was this cg stuff for?
-  --, List $
-  --  if use_cg
-  --  then
-  --    [ int_lit num
-  --    | (members,num) <- cg `zip` [0..]
-  --    , f `elem` members
-  --    ]
-  --  else
-  --    [int_lit 0]
   | ft@(f,_) <- func_constants ] ++
-      --, Apply (quickSpec "signature") [] `Record`
-          --[ (quickSpec "constants",
-               --List $
-                 builtin_decls ++
-                 map (constant_decl True) (ctor_constants ++ builtin_constants)
-                 --)
-          --, --(quickSpec "instances",
-             --Apply (prelude "mconcat") [List $
-                 --FIXME: type errors happening here!
-                 ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
-                 ++
-                 --FIXME: What does this do?
-              -- [ Apply (quickSpec "inst") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
-               [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
-               [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
-               [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Int") [])) ] ++
-               [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
-               | (t,n) <- type_univ
-               , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
-                              (feat "Enumerable", feat "Enumerable")]
-               , let tys = map trType (qsTvs n)
-               ] ++
-               [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
-               | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
-               , (c1,c2) <- [(quickCheck "CoArbitrary",quickCheck "CoArbitrary"),
-                              (typeable "Typeable", typeable "Typeable")]
-               , let tys = map trType (qsTvs n)
-               ] ++
-               [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
-               | (t,n) <- type_univ, t `notElem` (map (\(a,b,c) -> a) obsTriples)
-               , let tys = map trType (qsTvs n)
-               ] ++
-               [ mk_inst ((map (mk_class (typeable "Typeable")) tys)
-                          ++ (map (mk_class (quickCheck "Arbitrary")) tys)
-                         ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
-               | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
-               , let tys = map trType (qsTvs n)
-               ] ++
-               [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
-               | Signature f _ _ <- thy_sigs
-               ] ++ (map obs_decl obsTriples)
-            --]--)
-           ++ [Apply (quickSpec "withMaxTermSize") [H.Int 7]]
-          --, (quickSpec "maxTermDepth", Apply (prelude "Just") [H.Int 4])
-          --, (quickSpec "testTimeout", Apply (prelude "Just") [H.Int 1000000])
-          --]
-      --]
+  -- FIXME: these should be in the background
+  builtin_decls ++
+  -- FIXME: this too
+  map (constant_decl True) (ctor_constants ++ builtin_constants)
+  --FIXME: What does this do?
+  -- ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
+  ++
+  --FIXME: What does this do?
+  -- [ Apply (quickSpec "inst") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
+  [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
+  [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
+  [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Int") [])) ] ++
+  [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
+  | (t,n) <- type_univ
+  , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
+                  (feat "Enumerable", feat "Enumerable")]
+  , let tys = map trType (qsTvs n)
+  ] ++
+  [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
+  | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
+  , (c1,c2) <- [(quickCheck "CoArbitrary",quickCheck "CoArbitrary"),
+                (typeable "Typeable", typeable "Typeable")]
+  , let tys = map trType (qsTvs n)
+  ] ++
+  [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
+  | (t,n) <- type_univ, t `notElem` (map (\(a,b,c) -> a) obsTriples)
+  , let tys = map trType (qsTvs n)
+  ] ++
+  [ mk_inst ((map (mk_class (typeable "Typeable")) tys)
+              ++ (map (mk_class (quickCheck "Arbitrary")) tys)
+            ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
+  | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
+  , let tys = map trType (qsTvs n)
+  ] ++
+  [ mk_inst ((map (mk_class (prelude "Ord")) tys)
+              ++ (map (mk_class (quickCheck "Arbitrary")) tys)
+            ) (H.TyCon (quickSpec "Observe") $
+               [H.TyCon (prelude "Int") []]
+               ++ [H.TyCon (obsName t) tys]
+               ++ [H.TyCon t tys])
+  | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
+  , let tys = map trType (qsTvs n)
+  ] ++
+  [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
+  | Signature f _ _ <- thy_sigs
+  ] ++
+  -- (map obs_decl obsTriples) ++
+  [Apply (quickSpec "withMaxTermSize") [H.Int 7]] --TODO: Is 7 the best choice?
+  --TODO: Maybe set more parameters?
   where
     imps = ufInfo thy
-
-    use_cg = True
 
     int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
 
@@ -800,11 +800,11 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
     scp = scope thy
 
-    cg = map (map defines) (flatCallGraph (CallGraphOpts False False) thy)
-
     poly_type (PolyType _ args res) = args :=>: res
 
     constant_decl background (f,t) =
+      -- FIXME: If there are more than 6 constraints quickspec won't find properties
+      -- for this function, can we get around that by changing the representation here?
       Apply (quickSpec "con") [H.String f,lam (Apply f []) ::: qs_type]
       --[(quickSpecTerm "conSize", H.Int 0)] ++
       --[(quickSpecTerm "conIsBackground", H.Apply (prelude "True") []) | background]
@@ -812,36 +812,33 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
         (_pre,qs_type) = qsType t
         lam = H.Lam [H.ConPat (constraints "Dict") []]
 
-    instance_decl (_,t) =
-      Apply (quickSpec "instFun") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
-      where
-        (pre, _) = qsType t
-        args = replicate (length pre) (H.ConPat (constraints "Dict") [])
-        res  = H.Apply (prelude "return") [H.Apply (constraints "Dict") []]
+    -- obs_decl (t, t', ofun) =
+    --   mk_inst _ _
+    --   Apply (quickSpec "inst") [H.Lam [H.TupPat args]
+    --                             (H.Apply (quickSpec "observe") [obs]) :::
+    --                             TyArr d (TyCon (quickSpec "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
+    --   where
+    --     args = replicate (2*n) (H.ConPat (constraints "Dict") [])
+    --     d = H.TyTup $ map dict [tcon ty | tcon <- [arb, ord], ty <- tys]
+    --     tys = map trType (qsTvs n)
+    --     dict x = TyCon (constraints "Dict") [x]
+    --     arb ty = TyCon (quickCheck "Arbitrary") [ty]
+    --     ord ty = TyCon (prelude "Ord") [ty]
+    --     n = case lookup t type_univ of
+    --       Just k -> k
+    --       Nothing -> 0
+    --     obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
+    -- instance_decl (_,t) =
+      -- Apply (quickSpec "instFun") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
+      -- where
+        -- (pre, _) = qsType t
+        -- args = replicate (length pre) (H.ConPat (constraints "Dict") [])
+        -- res  = H.Apply (prelude "return") [H.Apply (constraints "Dict") []]
+        -- ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
+        -- dict x = TyCon (constraints "Dict") [x]
+        -- pairPat x y = H.TupPat [x,y]
+        -- tyPair x y = H.TyTup [x,y]
 
-        ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
-        dict x = TyCon (constraints "Dict") [x]
-
-        pairPat x y = H.TupPat [x,y]
-        tyPair x y = H.TyTup [x,y]
-
-    obs_decl (t, t', ofun) =
-      Apply (quickSpec "inst") [H.Lam [H.TupPat args]
-                                (H.Apply (quickSpec "observe") [obs]) :::
-                                TyArr d (TyCon (quickSpec "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
-      where
-        -- Hacky quick-fix to a super weird bug, if we don't call fmap id here
-        -- the "Dict" strings get garbled into random nonsense!
-        args = replicate (2*n) (fmap id $ H.ConPat (constraints "Dict") [])
-        d = H.TyTup $ map dict [tcon ty | tcon <- [arb, ord], ty <- tys]
-        tys = map trType (qsTvs n)
-        dict x = TyCon (constraints "Dict") [x]
-        arb ty = TyCon (quickCheck "Arbitrary") [ty]
-        ord ty = TyCon (prelude "Ord") [ty]
-        n = case lookup t type_univ of
-          Just k -> k
-          Nothing -> 0
-        obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
     int_lit_decl x =
       Record (Apply (quickSpec "con") [H.String (Exact (show x)),int_lit x])
       [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
@@ -908,8 +905,10 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
     qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
     qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
+    -- FIXME: curry the constraints so we don't get tuples of more than 6?
       where
         pre = arbitrary use_observers (map trType qtvs) ++ imps
+        -- put each of qtvs in separate Dict?
         inner = trType (applyType tvs qtvs t)
         qtvs = qsTvs (length tvs)
         tvs = tyVars t
