@@ -731,16 +731,17 @@ data QuickSpecParams =
 makeSig :: forall a . (PrettyVar a, Ord a) => QuickSpecParams -> Theory (HsId a) -> Decl (HsId a)
 makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $ List $
-    --Tup
-      --[ List
-          --[ Tup
-  [constant_decl (varStr (fst ft) `elem` background_functions) ft
-  -- FIXME: need to fix background function stuff
-  | ft@(f,_) <- func_constants ] ++
-  -- FIXME: these should be in the background
-  builtin_decls ++
-  -- FIXME: this too
-  map (constant_decl True) (ctor_constants ++ builtin_constants)
+  [constant_decl ft
+  | ft@(f,_) <- func_constants, varStr (fst ft) `notElem` background_functions] ++
+  [Apply (quickSpec "background")
+    [List $ [constant_decl ft
+            | ft@(f,_) <- func_constants,
+              varStr (fst ft) `elem` background_functions
+            ] ++
+      builtin_decls ++
+      map constant_decl (ctor_constants ++ builtin_constants)
+    ]
+  ]
   --FIXME: What does this do?
   -- ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
   ++
@@ -783,7 +784,6 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
   | Signature f _ _ <- thy_sigs
   ] ++
-  -- (map obs_decl obsTriples) ++
   [Apply (quickSpec "withMaxTermSize") [H.Int 7]] --TODO: Is 7 the best choice?
   --TODO: Maybe set more parameters?
   where
@@ -802,50 +802,19 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
     poly_type (PolyType _ args res) = args :=>: res
 
-    constant_decl background (f,t) =
+    constant_decl (f,t) =
       -- FIXME: If there are more than 6 constraints quickspec won't find properties
       -- for this function, can we get around that by changing the representation here?
       Apply (quickSpec "con") [H.String f,lam (Apply f []) ::: qs_type]
-      --[(quickSpecTerm "conSize", H.Int 0)] ++
-      --[(quickSpecTerm "conIsBackground", H.Apply (prelude "True") []) | background]
       where
         (_pre,qs_type) = qsType t
         lam = H.Lam [H.ConPat (constraints "Dict") []]
 
-    -- obs_decl (t, t', ofun) =
-    --   mk_inst _ _
-    --   Apply (quickSpec "inst") [H.Lam [H.TupPat args]
-    --                             (H.Apply (quickSpec "observe") [obs]) :::
-    --                             TyArr d (TyCon (quickSpec "Observe") [H.TyCon t tys , H.TyCon t' tys]) ]
-    --   where
-    --     args = replicate (2*n) (H.ConPat (constraints "Dict") [])
-    --     d = H.TyTup $ map dict [tcon ty | tcon <- [arb, ord], ty <- tys]
-    --     tys = map trType (qsTvs n)
-    --     dict x = TyCon (constraints "Dict") [x]
-    --     arb ty = TyCon (quickCheck "Arbitrary") [ty]
-    --     ord ty = TyCon (prelude "Ord") [ty]
-    --     n = case lookup t type_univ of
-    --       Just k -> k
-    --       Nothing -> 0
-    --     obs = Apply (Qualified "Tip.Haskell.Observers" Nothing "mkObserve") [Apply ofun []]
-    -- instance_decl (_,t) =
-      -- Apply (quickSpec "instFun") [H.Lam [foldr pairPat (H.TupPat []) args] res ::: ty]
-      -- where
-        -- (pre, _) = qsType t
-        -- args = replicate (length pre) (H.ConPat (constraints "Dict") [])
-        -- res  = H.Apply (prelude "return") [H.Apply (constraints "Dict") []]
-        -- ty = TyArr (foldr tyPair (H.TyTup []) (map dict pre)) (TyCon (quickCheck "Gen") [dict (TyTup pre)])
-        -- dict x = TyCon (constraints "Dict") [x]
-        -- pairPat x y = H.TupPat [x,y]
-        -- tyPair x y = H.TyTup [x,y]
-
     int_lit_decl x =
-      Record (Apply (quickSpec "con") [H.String (Exact (show x)),int_lit x])
-      [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
+      Apply (quickSpec "con") [H.String (Exact (show x)),int_lit x]
 
     bool_lit_decl b =
-      Record (Apply (quickSpec "con") [H.String (prelude (show b)),withBool Apply b])
-      [(quickSpecTerm "conIsBackground", H.Apply (prelude "True") [])]
+      Apply (quickSpec "con") [H.String (prelude (show b)),withBool Apply b]
 
     ctor_constants =
       [ (f,poly_type (globalType g))
