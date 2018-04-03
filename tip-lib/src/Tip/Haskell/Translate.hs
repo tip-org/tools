@@ -742,11 +742,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       map constant_decl (ctor_constants ++ builtin_constants)
     ]
   ]
-  --FIXME: What does this do?
-  -- ++ map instance_decl (ctor_constants ++ builtin_constants ++ func_constants)
   ++
-  --FIXME: What does this do?
-  -- [ Apply (quickSpec "inst") [Apply (prelude "undefined") [] ::: H.TyCon (ratio "Rational") []] ] ++
   [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
   [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
   [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Int") [])) ] ++
@@ -762,7 +758,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                 (typeable "Typeable", typeable "Typeable")]
   , let tys = map trType (qsTvs n)
   ] ++
-  [ mk_inst (map (mk_class (feat "Enumerable")) tys) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
+  [ mk_inst (map (mk_class (feat "Enumerable")) tys)
+    (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
   | (t,n) <- type_univ, t `notElem` (map (\(a,b,c) -> a) obsTriples)
   , let tys = map trType (qsTvs n)
   ] ++
