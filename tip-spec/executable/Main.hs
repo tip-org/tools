@@ -21,11 +21,12 @@ import Data.Monoid
 
 parseParams :: Parser QuickSpecParams
 parseParams =
-  QuickSpecParams <$> bFuns <*> useObs
+  QuickSpecParams <$> bFuns <*> useObs <*> useCompletion
   where
     bFuns = commaSep <$>
       many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
-    useObs = switch (long "Use observers" <> short 'o' <> help "Using observers to explore codatatypes")
+    useObs = switch (long "observers" <> short 'o' <> help "Use observers to explore codatatypes")
+    useCompletion = switch (long "prune" <> short 'p' <> help "Filter out redundant conjectures")
 
 commaSep :: [String] -> [String]
 commaSep = concatMap (splitOn ",")

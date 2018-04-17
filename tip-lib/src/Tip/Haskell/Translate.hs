@@ -726,7 +726,8 @@ typesOfBuiltin b = case b of
 data QuickSpecParams =
   QuickSpecParams {
     background_functions :: [String],
-    use_observers :: Bool
+    use_observers :: Bool,
+    use_completion :: Bool
     }
   deriving (Eq, Ord, Show)
 
