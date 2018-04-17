@@ -813,10 +813,14 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
     constant_decl (f,t) =
       -- FIXME: If there are more than 6 constraints quickspec won't find properties
       -- for this function, can we get around that by changing the representation here?
-      Apply (quickSpec "con") [H.String f,lam (Apply f []) ::: qs_type]
+      Apply (quickSpec conOrPred) [H.String f,lam (Apply f []) ::: qs_type]
       where
         (_pre,qs_type) = qsType t
         lam = H.Lam [H.ConPat (constraints "Dict") []]
+        conOrPred =
+          case t of
+            _ :=>: BuiltinType Boolean -> "predicate"
+            _ -> "con"
 
     int_lit_decl x =
       Apply (quickSpec "con") [H.String (Exact (show x)),int_lit x]
