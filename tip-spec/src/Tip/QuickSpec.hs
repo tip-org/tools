@@ -28,7 +28,6 @@ theorySignature params thy =
       do let a_file = dir </> "A" <.> "hs"
          let (thy_doc, rename_map) = ppTheoryWithRenamings "A" (QuickSpec params) thy
          writeFile a_file (show thy_doc)
-         -- print thy_doc
          setCurrentDirectory dir
          r <- runInterpreter $
            do unsafeSetGhcOption "-hide-package QuickCheck"
@@ -50,11 +49,10 @@ theorySignature params thy =
 exploreTheory :: Name a => QuickSpecParams -> Theory a -> IO (Theory a)
 exploreTheory params thy =
   do (sig,rm) <- theorySignature params thy
-     sig' <- toStderr (quickSpec $ [withPruningDepth 0] ++ sig)
+     sig' <- toStderr (quickSpecResult $ [withPruningDepth 0] ++ sig)
      let bm  = backMap thy rm
-     --let fms = mapM (trProperty bm) (filter shouldPrint (nub (QS.background sig'))) `freshFrom` thy
-     --return thy { thy_asserts = thy_asserts thy ++ fms }
-     return thy
+     let fms = mapM (trProperty bm) sig' `freshFrom` thy
+     return thy { thy_asserts = thy_asserts thy ++ fms }
 
 toStderr :: IO a -> IO a
 toStderr mx = do
@@ -64,4 +62,3 @@ toStderr mx = do
   hDuplicateTo oldStdout stdout
   hClose oldStdout
   return x
-
