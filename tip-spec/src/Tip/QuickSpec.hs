@@ -21,7 +21,7 @@ import Data.List
 import GHC.IO.Handle
 import System.IO
 
-theorySignature :: Name a => QuickSpecParams -> Theory a -> IO (Sig, RenameMap a)
+theorySignature :: Name a => QuickSpecParams -> Theory a -> IO ([Sig], RenameMap a)
 theorySignature params thy =
   withSystemTempDirectory "tip-spec" $
     \ dir ->
@@ -33,8 +33,8 @@ theorySignature params thy =
            do unsafeSetGhcOption "-hide-package QuickCheck"
               unsafeSetGhcOption "-package QuickCheck-2.10.1"
               loadModules ["A"]
-              setImports ["A","QuickSpec.Signature","QuickSpec.Term","Prelude"]
-              sig <- interpret "sig" (undefined :: Sig)
+              setImports ["A","QuickSpec","QuickSpec.Term","Prelude"]
+              sig <- interpret "sig" (undefined :: [Sig])
               return (sig,rename_map)
          case r of
            Left (WontCompile errs) ->
@@ -49,11 +49,10 @@ theorySignature params thy =
 exploreTheory :: Name a => QuickSpecParams -> Theory a -> IO (Theory a)
 exploreTheory params thy =
   do (sig,rm) <- theorySignature params thy
-     sig' <- toStderr (quickSpec [withPruningDepth 0, sig])
+     sig' <- toStderr (quickSpecResult $ [withPruningDepth 0] ++ sig)
      let bm  = backMap thy rm
-     --let fms = mapM (trProperty bm) (filter shouldPrint (nub (QS.background sig'))) `freshFrom` thy
-     --return thy { thy_asserts = thy_asserts thy ++ fms }
-     return thy
+     let fms = mapM (trProperty bm) sig' `freshFrom` thy
+     return thy { thy_asserts = thy_asserts thy ++ fms }
 
 toStderr :: IO a -> IO a
 toStderr mx = do
@@ -63,4 +62,3 @@ toStderr mx = do
   hDuplicateTo oldStdout stdout
   hClose oldStdout
   return x
-
