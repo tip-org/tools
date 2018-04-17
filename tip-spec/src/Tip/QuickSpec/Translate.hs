@@ -139,9 +139,9 @@ matchTypes name tvs tmpl ty =
 
 headArgs :: Ord a => Tip.Head a -> [Tip.Type a]
 headArgs (Tip.Builtin b) =
-  args
-  where
-    args Tip.:=>: _ = head (typesOfBuiltin b)
+  case head (typesOfBuiltin b) of
+    args Tip.:=>: _ -> args
+    _ -> []
 headArgs (Tip.Gbl g) = fst (Tip.gblType g)
 
 data Mode = Outer | Inner deriving Eq

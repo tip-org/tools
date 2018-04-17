@@ -709,7 +709,9 @@ typesOfBuiltin b = case b of
   NumLt    -> [iib, rrb]
   NumLe    -> [iib, rrb]
   NumWiden -> [ir]
-  _        -> __
+  Lit (T.Int _) -> [intType]
+  Lit (Bool _) -> [boolType]
+  _        -> error ("can't translate built-in: " ++ show b)
   where
   bb  = [boolType] :=>: boolType
   bbb = [boolType,boolType] :=>: boolType
@@ -744,8 +746,15 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   ]
   ++
   [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
+  [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Rational") [])) ] ++
+  [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Bool") [])) ] ++
+  [ mk_inst [] (mk_class (quickCheck "Arbitrary") (H.TyCon (prelude "Int") [])) ] ++
+  [ mk_inst [] (mk_class (quickCheck "Arbitrary") (H.TyCon (prelude "Rational") [])) ] ++
+  [ mk_inst [] (mk_class (quickCheck "Arbitrary") (H.TyCon (prelude "Bool") [])) ] ++
   [ mk_inst [] (mk_class (typeable "Typeable") (H.TyCon (prelude "Int") [])) ] ++
   [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Int") [])) ] ++
+  [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Rational") [])) ] ++
+  [ mk_inst [] (mk_class (quickCheck "CoArbitrary") (H.TyCon (prelude "Bool") [])) ] ++
   [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
   | (t,n) <- type_univ
   , (c1, c2) <- [(prelude "Ord", prelude "Ord"),
