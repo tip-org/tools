@@ -26,6 +26,8 @@ module Data.List (
     zip, zip3, zipWith, zipWith3, unzip, unzip3
     ) where
 
+import Tip
+
 infix 5 \\
 
 listToMaybe :: [a] -> Maybe a
@@ -149,19 +151,22 @@ unfoldr f b             = case f b of
                                 Just (a,b) -> a : unfoldr f b
 
 sort                    :: (Ord a) => [a] -> [a]
-sort                    =  sortBy compare
+sort                    =  inline foldr insert []
 
 sortBy                  :: (a -> a -> Ordering) -> [a] -> [a]
-sortBy cmp              =  foldr (insertBy cmp) []
+sortBy cmp              =  inline foldr (inline insertBy cmp) []
 
 insert                  :: (Ord a) => a -> [a] -> [a]
-insert                  = insertBy compare
+insert                  = inline insertBy compare
 
+{-# NOINLINE insertBy #-}
 insertBy                :: (a -> a -> Ordering) -> a -> [a] -> [a]
-insertBy cmp x []       =  [x]
-insertBy cmp x ys@(y:ys')
+insertBy cmp = aux
+  where
+    aux x []       =  [x]
+    aux x ys@(y:ys')
                         =  case cmp x y of
-                                GT -> y : insertBy cmp x ys'
+                                GT -> y : aux x ys'
                                 _  -> x : ys
 
 maximumBy               :: (a -> a -> Ordering) -> [a] -> a
