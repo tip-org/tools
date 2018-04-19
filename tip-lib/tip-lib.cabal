@@ -54,7 +54,6 @@ library
 
     Tip.Pass.Booleans
     Tip.Haskell.GenericArbitrary
-    Tip.Haskell.Observers
     Tip.Eval
     Tip.QuickCheck
 

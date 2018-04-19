@@ -138,7 +138,7 @@ renameHipsterFuns gbl_fun =
       "reverse" -> "List.rev"
       "nil" -> "Nil" -- TODO: Fix TIP to add metatdata about built in consts like nil and cons.
       "cons" -> "Cons"
-      "." -> "Fun.comp" 
+      "." -> "Fun.comp"
       otherwise -> fun_name
   where fun_name = ppVar gbl_fun
 
@@ -186,6 +186,10 @@ ppPat pat = case pat of
 
 ppType :: (PrettyVar a, Ord a) => Int -> Type a -> Doc
 ppType _ (TyVar x)     = ppTyVar x
+ppType i (TyCon tc ts) | ppVar tc == "pair"
+                       = parIf (i > 0) $
+                         ((sep.punctuate "*") (map (ppType 0) ts))
+                          -- ppAsTuple ts (ppType 2) $\ ppHipsterType tc
 ppType i (TyCon tc ts) = parIf (i > 0 && (not . null) ts) $
                            ppAsTuple ts (ppType 2) $\ ppHipsterType tc
 ppType i (ts :=>: r)   = parIf (i >= 0) $ fsep (punctuate " =>" (map (ppType 0) (ts ++ [r])))
