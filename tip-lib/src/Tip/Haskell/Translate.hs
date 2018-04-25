@@ -16,7 +16,7 @@ import Tip.Pretty
 import Tip.Utils
 import Tip.Scope
 
-import Data.Maybe (isNothing, catMaybes)
+import Data.Maybe (isNothing, catMaybes, listToMaybe)
 
 import Tip.CallGraph
 
@@ -303,7 +303,7 @@ trTheory' mode thy@Theory{..} =
                            (map prelude ["Eq","Ord","Show"]
                              ++ [typeable "Typeable"])
                          ]
-                         ++ (obsFun dt (obFuName (data_name dt)) (obFuType (data_name dt) (data_tvs dt)))
+                         ++ (obsFun dt [] (obFuName (data_name dt)) (obFuType (data_name dt) (data_tvs dt)) False)
                          ++ (nestedObsFuns thy dt)
                          ++ [InstDecl [H.TyCon (prelude "Ord") [H.TyVar a] | a <- tvs]
                               (H.TyCon (quickSpec "Observe") $
@@ -621,22 +621,22 @@ nestObsName _               = Exact ""
 nestObsType :: (a ~ HsId b) => T.Type a -> H.Type a
 nestObsType t = TyArr (TyVar $ prelude "Int") (TyArr (trType t) (trObsType t))
 
+-- observer functions for nested constructors
 nestedObsFuns :: (a ~ HsId b, Eq b, PrettyVar b) => Theory a -> Datatype a -> [Decl a]
-nestedObsFuns thy dt@(Datatype tc _ tvs cons) = concat $ catMaybes $ concatMap (nestedObs thy dt) cons
+nestedObsFuns thy dt@(Datatype tc _ tvs cons) = concat $ catMaybes $ concatMap (nestedObs thy) cons
 
-nestedObs :: (a ~ HsId b, Eq b, PrettyVar b) => Theory a -> Datatype a -> Constructor a -> [Maybe [Decl a]]
-nestedObs thy d (Constructor _ _ _ as) = map ((nestObs thy d) . snd) as
+-- generate observers if constructor is nested
+nestedObs :: (a ~ HsId b, Eq b, PrettyVar b) => Theory a -> Constructor a -> [Maybe [Decl a]]
+nestedObs thy (Constructor _ _ _ as) = map ((nestObs thy) . snd) as
 
-nestObs :: (a ~ HsId b, Eq b, PrettyVar b) => Theory a -> Datatype a -> T.Type a -> Maybe [Decl a]
-nestObs Theory{..} d t@(T.TyCon tc ts) = case find (\x -> (data_name x == tc) && (x /= d)) thy_datatypes of
-  Just dt -> Just $ obsFun dt (nestObsName t) (nestObsType t)
+-- generate observer if constructor is found nested inside another constructor
+nestObs :: (a ~ HsId b, Eq b, PrettyVar b) => Theory a -> T.Type a -> Maybe [Decl a]
+nestObs Theory{..} t@(T.TyCon tc ts) = case find (\x -> (data_name x == tc)) thy_datatypes of
+  Just dt -> if nestObsName t == obFuName tc
+    then Nothing
+    else Just $ obsFun dt ts (nestObsName t) (nestObsType t) True
   _       -> Nothing
-nestObs _ _ _ = Nothing
--- Look through type, if nested constructors then make a special observer for that combo
--- Then use that observer in the main type observer
-
--- Function the same as obsFun except approx part is a little different?
--- FIXME!!
+nestObs _ _ = Nothing
 
 obFuType :: (a ~ HsId b) => a -> [a] -> H.Type a
 obFuType c vs =
@@ -645,8 +645,8 @@ obFuType c vs =
                                      (TyCon (obsName c) (map (\x -> TyVar x) vs)))
 
 -- Generate observer function for the given type
-obsFun :: (a ~ HsId b, Eq b, PrettyVar b) => Datatype a -> HsId b -> H.Type a -> [Decl a]
-obsFun (Datatype tname _ _ cons) fuName fuType =
+obsFun :: (a ~ HsId b, Eq b, PrettyVar b) => Datatype a -> [T.Type a] -> a -> H.Type a -> Bool -> [Decl a]
+obsFun (Datatype tname _ _ cons) targs fuName fuType recu =
   [TySig fuName [] fuType, FunDecl fuName cases]
   where
     cases = [
@@ -661,7 +661,7 @@ obsFun (Datatype tname _ _ cons) fuName fuType =
         -- if n is positive call approx
         ,(H.ConPat (prelude "False") [],
            H.Case (var x) $
-           [(H.ConPat cname $ varNames cargs, approx cname (map snd cargs))
+           [(H.ConPat cname $ varNames cargs, approx recu cname (map snd cargs) (listToMaybe targs) fuName)
            | Constructor cname _ _ cargs <- cons]
          )
         ])]
@@ -675,13 +675,22 @@ obsFun (Datatype tname _ _ cons) fuName fuType =
       | otherwise = __
     mkVar _ _ = WildPat
 
-approx :: (a ~ HsId b, Eq b, PrettyVar b) => a -> [T.Type a] -> H.Expr a
-approx c as = Apply (obsName c) $ map (appstep as) as
+approx :: (a ~ HsId b, Eq b, PrettyVar b) => Bool -> a -> [T.Type a] -> Maybe (T.Type a) -> a -> H.Expr a
+approx recu c as ta fn | recu         = Apply (obsName c) $ map (recappstep as ta fn) as
+                       | otherwise    = Apply (obsName c) $ map (appstep as) as
   where
-    appstep as t@(T.TyCon c s) =
+    appstep as t@(T.TyCon _ _) =
       -- make recursive function call with decremented counter
-      Apply (nestObsName t) [ Apply (prelude "-") [var n, H.Int 1], varName as t]
+      Apply (nestObsName t) [Apply (prelude "-") [var n, H.Int 1], varName as t]
     appstep as a = varName as a
+    recappstep as _ fn t@(T.TyCon _ _) =
+      -- make recursive function call with decremented counter
+             -- obsFunTree                   n - 1
+      Apply fn $ [Apply (prelude "-") [var n, H.Int 1], varName as t]
+      --(map (recappstep as) s)
+    recappstep as (Just ta) fn t@(T.TyVar x) =
+      Apply (nestObsName ta) $ [Apply (prelude "-") [var n, H.Int 1], varName as t]
+    recappstep as _ _  a = varName as a
     varName as a = case lookup a (zip as [0..]) of
       Just k -> var (Exact $ "x" ++ (show k))
       _      -> __
