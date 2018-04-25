@@ -139,6 +139,7 @@ renameHipsterFuns gbl_fun =
       "nil" -> "Nil" -- TODO: Fix TIP to add metatdata about built in consts like nil and cons.
       "cons" -> "Cons"
       "." -> "Fun.comp"
+      "pair2" -> "Product_Type.Pair"
       otherwise -> fun_name
   where fun_name = ppVar gbl_fun
 
