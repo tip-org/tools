@@ -576,7 +576,7 @@ arbitrary obs ts =
   | t <- ts
   , tc <- tcs]
   where tcs = case obs of
-          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary"]--, typeable "Typeable"]
+          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary", typeable "Typeable"]
           False -> [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
