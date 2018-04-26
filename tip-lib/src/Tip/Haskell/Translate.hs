@@ -285,15 +285,6 @@ trTheory' mode thy@Theory{..} =
       obsType dt@(Datatype tc _ tvs cons) =
         case mode of QuickSpec QuickSpecParams{..} ->
                        if use_observers then
-  -- | DataDecl a               {- type constructor name -} (obsName tc)
-  --            [a]             {- type variables -} (tvs)
-  --            [(a,[Type a])]  {- constructors -}
-                            --([ (obsName c, map (trObsType . snd) args)
-                            -- | Constructor c _ _ args <- cons ]
-                            -- ++
-                            -- [(nullConsName tc,[])]
-                            --)
-  --            [a]             {- instance derivings -} (map prelude ["Eq","Ord","Show"] ++ [typeable "Typeable"])
                          [DataDecl (obsName tc) tvs
                            ([ (obsName c, map (trObsType . snd) args)
                             | Constructor c _ _ args <- cons ]
@@ -303,7 +294,8 @@ trTheory' mode thy@Theory{..} =
                            (map prelude ["Eq","Ord","Show"]
                              ++ [typeable "Typeable"])
                          ]
-                         ++ (obsFun dt [] (obFuName (data_name dt)) (obFuType (data_name dt) (data_tvs dt)) False)
+                         ++ (obsFun dt [] (obFuName (data_name dt))
+                             (obFuType (data_name dt) (data_tvs dt)) False)
                          ++ (nestedObsFuns thy dt)
                          ++ [InstDecl [H.TyCon (prelude "Ord") [H.TyVar a] | a <- tvs]
                               (H.TyCon (quickSpec "Observe") $
@@ -612,12 +604,21 @@ nullConsName c = Derived c "NullCons"
 obFuName :: PrettyVar a => HsId a -> HsId a
 obFuName c = Exact $ "obsFun" ++ varStr c
 
+-- Type of generated observer function
+obFuType :: (a ~ HsId b) => a -> [a] -> H.Type a
+obFuType c vs =
+  -- Int -> dt -> obs_dt
+  TyArr (TyVar $ prelude "Int") (TyArr (TyCon c (map (\x -> TyVar x) vs))
+                                     (TyCon (obsName c) (map (\x -> TyVar x) vs)))
+
+-- Name of recursive observer for nested type
 nestObsName :: (a ~ HsId b, PrettyVar b) => T.Type a -> HsId b
 nestObsName (T.TyCon tc ts) = Exact $ foldl (++) ("obsFun" ++ varStr tc) (map nestName ts)
   where nestName (T.TyCon c s) = (foldr (++) (varStr c) (map nestName s))
         nestName _             = ""
 nestObsName _               = Exact ""
 
+-- Type of recursive observer for nested type
 nestObsType :: (a ~ HsId b) => T.Type a -> H.Type a
 nestObsType t = TyArr (TyVar $ prelude "Int") (TyArr (trType t) (trObsType t))
 
@@ -632,17 +633,12 @@ nestedObs thy (Constructor _ _ _ as) = map ((nestObs thy) . snd) as
 -- generate observer if constructor is found nested inside another constructor
 nestObs :: (a ~ HsId b, Eq b, PrettyVar b) => Theory a -> T.Type a -> Maybe [Decl a]
 nestObs Theory{..} t@(T.TyCon tc ts) = case find (\x -> (data_name x == tc)) thy_datatypes of
-  Just dt -> if nestObsName t == obFuName tc
+  Just dt ->
+    if nestObsName t == obFuName tc
     then Nothing
     else Just $ obsFun dt ts (nestObsName t) (nestObsType t) True
   _       -> Nothing
 nestObs _ _ = Nothing
-
-obFuType :: (a ~ HsId b) => a -> [a] -> H.Type a
-obFuType c vs =
-  -- Int -> dt -> obs_dt
-  TyArr (TyVar $ prelude "Int") (TyArr (TyCon c (map (\x -> TyVar x) vs))
-                                     (TyCon (obsName c) (map (\x -> TyVar x) vs)))
 
 -- Generate observer function for the given type
 obsFun :: (a ~ HsId b, Eq b, PrettyVar b) => Datatype a -> [T.Type a] -> a -> H.Type a -> Bool -> [Decl a]
@@ -661,7 +657,8 @@ obsFun (Datatype tname _ _ cons) targs fuName fuType recu =
         -- if n is positive call approx
         ,(H.ConPat (prelude "False") [],
            H.Case (var x) $
-           [(H.ConPat cname $ varNames cargs, approx recu cname (map snd cargs) (listToMaybe targs) fuName)
+           [(H.ConPat cname $ varNames cargs,
+             approx recu cname (map snd cargs) (listToMaybe targs) fuName)
            | Constructor cname _ _ cargs <- cons]
          )
         ])]
@@ -679,16 +676,17 @@ approx :: (a ~ HsId b, Eq b, PrettyVar b) => Bool -> a -> [T.Type a] -> Maybe (T
 approx recu c as ta fn | recu         = Apply (obsName c) $ map (recappstep as ta fn) as
                        | otherwise    = Apply (obsName c) $ map (appstep as) as
   where
+    -- regular case
     appstep as t@(T.TyCon _ _) =
-      -- make recursive function call with decremented counter
+      -- call the appropriate observer function with decremented counter
       Apply (nestObsName t) [Apply (prelude "-") [var n, H.Int 1], varName as t]
     appstep as a = varName as a
+    -- recursive approximation for nested constructors
     recappstep as _ fn t@(T.TyCon _ _) =
-      -- make recursive function call with decremented counter
-             -- obsFunTree                   n - 1
+      -- call the current observer function with decremented counter
       Apply fn $ [Apply (prelude "-") [var n, H.Int 1], varName as t]
-      --(map (recappstep as) s)
     recappstep as (Just ta) fn t@(T.TyVar x) =
+      -- call recursive observer for nested constructor
       Apply (nestObsName ta) $ [Apply (prelude "-") [var n, H.Int 1], varName as t]
     recappstep as _ _  a = varName as a
     varName as a = case lookup a (zip as [0..]) of
@@ -930,7 +928,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
 
     qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
     qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
-    -- FIXME: curry the constraints so we don't get tuples of more than 6?
+    -- FIXME: can we curry the constraints so we don't get tuples of more than 6?
       where
         pre = arbitrary use_observers (map trType qtvs) ++ imps
         -- put each of qtvs in separate Dict?
