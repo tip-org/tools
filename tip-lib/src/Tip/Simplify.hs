@@ -71,6 +71,14 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         share e1 | e1 /= e0  = return e1
                  | otherwise = return e0 in
       case e0 of
+        gbl :@: args
+          | touch_lets,
+            ((i, Let x e body):_) <- [(i, e) | (i, e@Let{}) <- zip [0..] args] -> do
+          y <- lift (refreshLocal x)
+          body' <- lift ((Lcl y // x) body)
+          let e0' = Let y e (gbl :@: (take i args ++ [body'] ++ drop (i+1) args))
+          hooray $ aux e0'
+
         Builtin At :@: (Lam vars body:args) ->
           hooray $
           aux (foldr (uncurry Let) body (zip vars args))
