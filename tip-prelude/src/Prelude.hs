@@ -631,7 +631,9 @@ repeat x         =  xs where xs = x:xs
 -- replicate n x is a list of length n with x the value of every element
 
 replicate        :: Int -> a -> [a]
-replicate n x    =  take n (repeat x)
+replicate n x
+  | n < 0 = []
+  | otherwise = x:replicate (n-1) x
 
 -- cycle ties a finite list into a circular one, or equivalently,
 -- the infinite repetition of the original list.  It is the identity
