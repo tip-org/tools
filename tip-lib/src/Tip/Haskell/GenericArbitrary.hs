@@ -43,6 +43,7 @@ instance GConstr f => GArbitrary (C1 c f) where
     where
       b = gconstructor (QC.sized $ \m -> QC.resize (newSize m) gen)
       newSize m
+        | m == 0 || recursion b == 0 = m
         | recursion b == 1 = m-1
         | otherwise = m `div` recursion b
 
