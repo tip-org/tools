@@ -219,7 +219,7 @@ trTheory' mode thy@Theory{..} =
                   (Do [Bind (Exact "k") (Apply (quickCheck "sized")
                                          [Apply (prelude "return") []]),
                        Bind (Exact "n") (Apply (quickCheck "choose")
-                                         [Tup [H.Int 0, Apply (Exact "k") []]])]
+                                         [Tup [H.Int 0, Apply (prelude "+") [Apply (prelude "*") [Apply (Exact "k") [], H.Int 2], H.Int 2]]])]
                       (Apply (feat "uniform") [Apply (Exact "n") []]))]
     | case mode of { QuickCheck -> True; QuickSpec QuickSpecParams{..} -> not use_observers;
                      _ -> False } ]
