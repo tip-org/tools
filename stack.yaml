@@ -8,10 +8,10 @@ packages:
 - tip-prelude/
 
 extra-deps:
-- jukebox-0.2.17
+- jukebox-0.3.5
 - minisat-0.1.2
 - structural-induction-0.3
-- twee-lib-2.1.4
+- twee-lib-2.1.5
 - genifunctors-0.4
 - stm-promise-0.0.3.1
 - constraints-0.9.1
@@ -19,7 +19,7 @@ extra-deps:
 - testing-feat-0.4.0.3
 - tagshare-0.0
 - git: git://github.com/nick8325/quickspec
-  commit: 519886ec286bb44722549a7da1ab756e7e5ced68
+  commit: 0d0b72e30bb2ec30e95be53839f671f3682bb6a1
 flags:
     tip-spec: {stack: True}
     tip-ghc: {stack: True}
