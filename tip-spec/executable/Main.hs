@@ -24,7 +24,7 @@ parseParams =
   QuickSpecParams <$> bFuns <*> useObs <*> useCompletion
   where
     bFuns = commaSep <$>
-      many (strOption (long "background" <> short 'b' <> metavar "NAME" <> help "Background function"))
+      many (strOption (long "foreground" <> short 'f' <> metavar "NAME" <> help "Foreground function (to explore)"))
     useObs = switch (long "observers" <> short 'o' <> help "Use observers to explore codatatypes")
     useCompletion = switch (long "prune" <> short 'p' <> help "Filter out redundant conjectures")
 
@@ -64,4 +64,3 @@ handle params s =
     Right thy ->
       do thy' <- exploreTheory params thy
          print (SMT.ppTheory [] thy')
-

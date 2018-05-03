@@ -767,7 +767,7 @@ typesOfBuiltin b = case b of
 
 data QuickSpecParams =
   QuickSpecParams {
-    background_functions :: [String],
+    foreground_functions :: [String],
     use_observers :: Bool,
     use_completion :: Bool
     }
@@ -777,11 +777,11 @@ makeSig :: forall a . (PrettyVar a, Ord a) => QuickSpecParams -> Theory (HsId a)
 makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $ List $
   [constant_decl ft
-  | ft@(f,_) <- func_constants, varStr (fst ft) `notElem` background_functions] ++
+  | ft@(f,_) <- func_constants, varStr (fst ft) `elem` foreground_functions || null(foreground_functions)] ++
   [Apply (quickSpec "background")
     [List $ [constant_decl ft
             | ft@(f,_) <- func_constants,
-              varStr (fst ft) `elem` background_functions
+              varStr (fst ft) `notElem` foreground_functions && not(null(foreground_functions))
             ] ++
       builtin_decls ++
       map constant_decl (ctor_constants ++ builtin_constants)
