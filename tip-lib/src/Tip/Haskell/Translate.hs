@@ -658,7 +658,7 @@ obsFun (Datatype tname _ _ cons) targs fuName fuType recu =
         ,(H.ConPat (prelude "False") [],
            H.Case (var x) $
            [(H.ConPat cname $ varNames cargs,
-             approx recu cname (map snd cargs) (listToMaybe targs) fuName)
+             approx recu cname (map snd cargs) (listToMaybe targs) fuName tname)
            | Constructor cname _ _ cargs <- cons]
          )
         ])]
@@ -672,27 +672,48 @@ obsFun (Datatype tname _ _ cons) targs fuName fuType recu =
       | otherwise = __
     mkVar _ _ = WildPat
 
-approx :: (a ~ HsId b, Eq b, PrettyVar b) => Bool -> a -> [T.Type a] -> Maybe (T.Type a) -> a -> H.Expr a
-approx recu c as ta fn | recu         = Apply (obsName c) $ map (recappstep as ta fn) as
-                       | otherwise    = Apply (obsName c) $ map (appstep as) as
+approx :: (a ~ HsId b, Eq b, PrettyVar b) => Bool -> a -> [T.Type a] -> Maybe (T.Type a) -> a -> a -> H.Expr a
+approx recu c as ta fn nm | recu         = Apply (obsName c) $ map (recappstep as ta fn nm) (zip as [0..])
+                          | otherwise    = Apply (obsName c) $ map (appstep as nm) (zip as [0..])
   where
     -- regular case
-    appstep as t@(T.TyCon _ _) =
+    appstep as nm (t@(T.TyCon _ _), k) =
       -- call the appropriate observer function with decremented counter
-      Apply (nestObsName t) [Apply (prelude "-") [var n, H.Int 1], varName as t]
-    appstep as a = varName as a
+      Apply (nestObsName t) [decrement $ countBranches as nm
+                            , varName k]
+    appstep _ _ (_, k) = varName k
     -- recursive approximation for nested constructors
-    recappstep as _ fn t@(T.TyCon _ _) =
+    recappstep as _ fn nm (t@(T.TyCon _ _), k) =
       -- call the current observer function with decremented counter
-      Apply fn $ [Apply (prelude "-") [var n, H.Int 1], varName as t]
-    recappstep as (Just ta) fn t@(T.TyVar x) =
+      Apply fn $ [decrement $ countBranches as nm
+                 , varName k]
+    recappstep as (Just ta) fn nm (t@(T.TyVar x), k) =
       -- call recursive observer for nested constructor
-      Apply (nestObsName ta) $ [Apply (prelude "-") [var n, H.Int 1], varName as t]
-    recappstep as _ _  a = varName as a
-    varName as a = case lookup a (zip as [0..]) of
-      Just k -> var (Exact $ "x" ++ (show k))
-      _      -> __
+      Apply (nestObsName ta) $ [decrement $ countBranches as nm
+                               ,varName k]
+    recappstep _ _ _  _ (_,k) = varName k
+    varName k = var (Exact $ "x" ++ (show k))
+
+-- decrement fuel counter based on branching factor
+decrement :: (a ~ HsId b) => Int -> H.Expr a
+decrement k =
+  if k <= 1
+  then
+    Apply (prelude "-") [var n, H.Int 1]
+  else
+    Apply (prelude "quot") [var n, H.Int $ toInteger k]
+  where
     n = Exact "n"
+
+-- calculate branching factor
+countBranches :: [T.Type a] -> a -> Int
+countBranches as n =
+  foldr (+) 0 (map bcount as)
+  where
+    bcount (T.TyCon tc ts) = foldr (+) (isBranch tc) (map bcount ts)
+    bcount _ = 0
+    isBranch n = 1
+    isBranch _ = 0
 
 trBuiltinType :: BuiltinType -> H.Type (HsId a)
 trBuiltinType t
@@ -833,8 +854,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
   | Signature f _ _ <- thy_sigs
   ] ++
-  [Apply (quickSpec "withMaxTermSize") [H.Int 7]]
-  --TODO: Is 7 the best choice? Make size tweakable?
+  [Apply (quickSpec "withMaxTermSize") [H.Int 5]]
+  --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
   where
     imps = ufInfo thy
