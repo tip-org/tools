@@ -576,7 +576,7 @@ arbitrary obs ts =
   | t <- ts
   , tc <- tcs]
   where tcs = case obs of
-          True -> [quickCheck "Arbitrary", quickCheck "CoArbitrary", typeable "Typeable"]
+          True -> []--quickCheck "Arbitrary", quickCheck "CoArbitrary", typeable "Typeable"]
           False -> [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -799,15 +799,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $ List $
   [constant_decl ft
   | ft@(f,_) <- func_constants, varStr (fst ft) `elem` foreground_functions || null(foreground_functions)] ++
-  [Apply (quickSpec "background")
-    [List $ [constant_decl ft
-            | ft@(f,_) <- func_constants,
-              varStr (fst ft) `notElem` foreground_functions && not(null(foreground_functions))
-            ] ++
-      builtin_decls ++
-      map constant_decl (ctor_constants ++ builtin_constants)
-    ]
-  ]
+  bg
   ++
   [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
   [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Rational") [])) ] ++
@@ -858,6 +850,16 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
   where
+    bg = case bgs of
+      [] -> []
+      _ -> [Apply (quickSpec "background") [List bgs]]
+    bgs = [constant_decl ft
+          | ft@(f,_) <- func_constants,
+            varStr (fst ft) `notElem` foreground_functions
+            && not(null(foreground_functions))
+          ]
+          ++ builtin_decls
+          ++ map constant_decl (ctor_constants ++ builtin_constants)
     imps = ufInfo thy
 
     int_lit x = H.Int x ::: H.TyCon (prelude "Int") []
