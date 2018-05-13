@@ -846,7 +846,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
   | Signature f _ _ <- thy_sigs
   ] ++
-  [Apply (quickSpec "withMaxTermSize") [H.Int 5]]
+  [Apply (quickSpec "withMaxTermSize") [H.Int 7]]
   --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
   where
