@@ -22,7 +22,6 @@ data TipAnnotation =
     -- The type of properties.
   | PropType
     -- TIP attributes
-  | Source String
   | Attr String
   | AttrValue String String
   deriving (Eq, Ord, Show, Data)

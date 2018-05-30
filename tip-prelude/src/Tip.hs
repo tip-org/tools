@@ -1,7 +1,7 @@
 {-# LANGUAGE MagicHash, NoImplicitPrelude, PackageImports, TypeOperators #-}
 module Tip(module Tip, module Tip.GHC.Annotations) where
 
-import Tip.GHC.Annotations(TipAnnotation(Name, Projections, Inline, Source, Attr, AttrValue))
+import Tip.GHC.Annotations(TipAnnotation(Name, Projections, Inline, Attr, AttrValue))
 import qualified Tip.GHC.Annotations as Annotations
 import Prelude.Prim
 import qualified "base" Prelude

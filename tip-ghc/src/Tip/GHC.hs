@@ -942,8 +942,6 @@ makeAttrs x anns =
       case toHaskellName x of
         Nothing -> []
         Just name -> putAttr source name []
-    put (Source name) attrs =
-      putAttr source name attrs
     put (Attr key) attrs =
       putAttr (unitAttr key) () attrs
     put (AttrValue key val) attrs =
