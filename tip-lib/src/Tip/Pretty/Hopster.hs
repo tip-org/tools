@@ -78,7 +78,7 @@ ppExpr _ _ LetRec{} = error "letrec not supported"
 ppHead :: (PrettyVar a, Ord a) => Scope a -> Head a -> [Doc] -> Doc
 ppHead scp (Gbl gbl) args | fromMaybe False (hasAttr (unitAttr "tuple") <$> getAttrs <$> lookupGlobal (gbl_name gbl) scp) =
   sep (punctuate "," args)
-ppHead scp (Gbl gbl) args = ppGlobal scp (gbl_name gbl) $\ fsep args
+ppHead scp (Gbl gbl) args = ppVar (gbl_name gbl) $\ fsep args
 ppHead _ (Builtin b)    [u,v] | Just d <- ppBinOp b = u <+> d $\ v
 ppHead _ (Builtin At{}) args                        = fsep args
 ppHead _ (Builtin b)    args                        = ppBuiltin b $\ fsep args
@@ -117,12 +117,12 @@ ppQuantName Forall = "!"
 ppQuantName Exists = "?"
 
 ppCase :: (PrettyVar a, Ord a) => Scope a -> Case a -> Doc
-ppCase scp (Case pat rhs) = ppPat scp pat <+> "=>" $\ ppExpr scp 0 rhs
+ppCase scp (Case pat rhs) = ppPat pat <+> "=>" $\ ppExpr scp 0 rhs
 
-ppPat :: (PrettyVar a, Ord a) => Scope a -> Pattern a -> Doc
-ppPat scp pat = case pat of
+ppPat :: (PrettyVar a, Ord a) => Pattern a -> Doc
+ppPat pat = case pat of
   Default     -> "other"
-  ConPat g ls -> ppGlobal scp (gbl_name g) $\ fsep (map (ppVar . lcl_name) ls)
+  ConPat g ls -> ppVar (gbl_name g) $\ fsep (map (ppVar . lcl_name) ls)
   LitPat l    -> ppLit l
 
 ppType :: (PrettyVar a, Ord a) => Scope a -> Int -> Type a -> Doc
@@ -133,7 +133,7 @@ ppType scp i (TyCon tc ts) | fromMaybe False (hasAttr (unitAttr "tuple") <$> get
                              ((sep.punctuate " #") (map (ppType scp 0) ts))
                               -- ppAsTuple ts (ppType 2) $\ ppHopsterType tc
 ppType scp i (TyCon tc ts) = parIf (i > 0 && (not . null) ts) $
-                             ppAsTuple ts (ppType scp 2) $\ ppTyCon scp tc
+                             ppAsTuple ts (ppType scp 2) $\ ppVar tc
 ppType scp i (ts :=>: r)   = parIf (i >= 0) $ fsep (punctuate " ->" (map (ppType scp 0) (ts ++ [r])))
 ppType _ _ (BuiltinType Integer) = "num"
 ppType _ _ (BuiltinType Real)    = "num"
@@ -141,15 +141,3 @@ ppType _ _ (BuiltinType Boolean) = "bool"
 
 ppTyVar :: (PrettyVar a, Ord a) => a -> Doc
 ppTyVar x = "'" <> ppVar x
-
-ppGlobal :: (PrettyVar a, Ord a) => Scope a -> a -> Doc
-ppGlobal scp x =
-  case lookupGlobal x scp >>= getAttr source of
-    Just name -> text name
-    Nothing -> ppVar x
-
-ppTyCon :: (PrettyVar a, Ord a) => Scope a -> a -> Doc
-ppTyCon scp x =
-  case lookupType x scp >>= getAttr source of
-    Just name -> text name
-    Nothing -> ppVar x
