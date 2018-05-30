@@ -21,6 +21,8 @@ data TipAnnotation =
   | MakeWiredIn WiredIn | WiredIn WiredIn | Special | Literal Lit
     -- The type of properties.
   | PropType
+    -- Give an attribute to the function
+  | Attribute String (Maybe String)
   deriving (Eq, Ord, Show, Data)
 
 -- Special functions which tip-ghc knows about.

@@ -137,7 +137,7 @@ readHaskellFile Params{..} name =
              tyCon boolTyCon [PrimType Boolean],
              tyCon integerTyCon [PrimType Integer],
              tyCon ratioTyCon [PrimType Real]] ++
-            [tyCon (tupleTyCon Boxed i) [Name (tupleName i)]
+            [tyCon (tupleTyCon Boxed i) [Name (tupleName i), Attribute "tuple" Nothing]
             | i <- [0..mAX_TUPLE_SIZE]]
           builtinGlobals =
             [specialFun pAT_ERROR_ID Error,
@@ -151,7 +151,7 @@ readHaskellFile Params{..} name =
              dataCon nilDataCon   [Name "nil"],
              dataCon falseDataCon [Literal (Bool False)],
              dataCon trueDataCon  [Literal (Bool True)]] ++
-            [dataCon (tupleDataCon Boxed i) [Name (tupleName i)]
+            [dataCon (tupleDataCon Boxed i) [Name (tupleName i), Attribute "tuple" Nothing]
             | i <- [0..mAX_TUPLE_SIZE]]
           tupleName 0 = "unit"
           tupleName 2 = "pair"
@@ -452,11 +452,15 @@ discriminatorId prog x =
 toHaskellName :: NamedThing a => a -> Maybe String
 toHaskellName name = do
   mod <- nameModule_maybe (getName name)
-  return (correct (moduleNameString (moduleName mod)) ++ "." ++ getOccString name)
-  where
-    correct mod
-      | "GHC." `isPrefixOf` mod = "Prelude"
-      | otherwise = mod
+  -- Unqualified:
+  return (getOccString name)
+
+  -- Qualified:
+  -- return (correct (moduleNameString (moduleName mod)) ++ "." ++ getOccString name)
+  -- where
+  --   correct mod
+  --     | "GHC." `isPrefixOf` mod = "Prelude"
+  --     | otherwise = mod
 
 ----------------------------------------------------------------------
 -- The main translation functions. 
@@ -531,7 +535,7 @@ tipDatatype :: Program -> TyCon -> Tip.Datatype Id
 tipDatatype prog tc =
   Datatype {
     data_name  = typeId prog tc,
-    data_attrs = nameAttrs tc,
+    data_attrs = makeAttrs tc type_annotations,
     data_tvs   = map TyVarId type_tvs,
     data_cons  = map (tipConstructor prog) type_constructors }
   where
@@ -542,7 +546,7 @@ tipConstructor :: Program -> Var -> Tip.Constructor Id
 tipConstructor prog x =
   Constructor {
     con_name    = globalId prog x,
-    con_attrs   = nameAttrs x,
+    con_attrs   = makeAttrs x global_annotations,
     con_discrim = discriminatorId prog x,
     con_args    = zipWith con [1..] global_args }
   where
@@ -633,7 +637,7 @@ tipFunction prog x t =
       return $
         Function {
           func_name  = globalId prog x,
-          func_attrs = concat [nameAttrs x | attr],
+          func_attrs = concat [makeAttrs x (globalAnnotations prog x) | attr],
           func_tvs   = polytype_tvs,
           func_args  = [],
           func_res   = polytype_res,
@@ -926,12 +930,23 @@ tipFunction prog x t =
         substType ty =
           applyType tvs tys ty
 
--- Put the Haskell name of a variable into its attributes.
-nameAttrs :: NamedThing a => a -> [Attribute]
-nameAttrs x =
-  case toHaskellName x of
-    Nothing -> []
-    Just name -> putAttr source name []
+-- Compute the TIP attributes for a Haskell function or type,
+-- which includes the name as well as any custom attributes.
+makeAttrs :: NamedThing a => a -> [TipAnnotation] -> [Attribute]
+makeAttrs x anns =
+  -- Doing it in this order means that the user can override the
+  -- :source attribute.
+  foldr put nameAttr anns
+  where
+    nameAttr =
+      case toHaskellName x of
+        Nothing -> []
+        Just name -> putAttr source name []
+    put (Attribute key Nothing) attrs =
+      putAttr (unitAttr key) () attrs
+    put (Attribute key (Just val)) attrs =
+      putAttr (stringAttr key) val attrs
+    put _ attrs = attrs
 
 -- Should a given type be erased?
 eraseType :: GHC.Type -> Bool

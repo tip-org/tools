@@ -34,6 +34,7 @@ library
     Tip.Pretty.Isabelle
     Tip.Pretty.Haskell
     Tip.Pretty.Hipster
+    Tip.Pretty.Hopster
     Tip.Pretty.TFF
     Tip.Pretty.Waldmeister
     Tip.Pretty.Equations

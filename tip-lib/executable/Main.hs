@@ -10,6 +10,7 @@ import Tip.Pretty.Why3 as Why3
 import Tip.Pretty.Isabelle as Isabelle
 import Tip.Pretty.Haskell as HS
 import Tip.Pretty.Hipster as Hipster
+import Tip.Pretty.Hopster as Hopster
 import Tip.Haskell.Translate as HS
 import Tip.Pretty.Waldmeister as Waldmeister
 import Tip.Pretty
@@ -26,7 +27,7 @@ import Control.Monad
 import Data.Monoid ((<>))
 import Text.PrettyPrint hiding ((<>))
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | TIP | TFF | Twee | Waldmeister | Equations
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | Twee | Waldmeister | Equations
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -43,6 +44,7 @@ parseOutputMode =
   <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
   <|> flag' (Isabelle False) (long "isabelle" <> help "Isabelle output")
   <|> flag' (Isabelle True) (long "isabelle-explicit-forall" <> help "Isabelle output (with variables explicitly forall quantified)")
+  <|> flag' Hopster (long "hopster" <> help "Hopster output")
   <|> flag' Hipster (long "hipster" <> help "Only conjectrures, in Isabelle format. For internal use in Hipster.")
   <|> flag' TFF (long "tff" <> help "TPTP TFF output")
   <|> flag' Twee (long "twee" <> help "TPTP TFF output (equational)")
@@ -130,6 +132,7 @@ handle passes mode multipath s =
               Why3      -> (Why3.ppTheory,     passes ++ [CSEMatchWhy3], "mlw")
               Isabelle expl_forall -> (Isabelle.ppTheory expl_forall, passes, "thy")
               Hipster -> (Hipster.ppHipsterConjs, passes, "txt")
+              Hopster -> (Hopster.ppHopsterConjs, passes, "txt")
               TIP       -> (SMT.ppTheory [],      passes, "smt2")
               Equations -> (Equations.ppEquations, passes, "txt")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
