@@ -1,7 +1,8 @@
 {-# LANGUAGE MagicHash, NoImplicitPrelude, PackageImports, TypeOperators #-}
 module Tip(module Tip, module Tip.GHC.Annotations) where
 
-import Tip.GHC.Annotations
+import Tip.GHC.Annotations(TipAnnotation(Name, Projections, Inline, Source, Attr, AttrValue))
+import qualified Tip.GHC.Annotations as Annotations
 import Prelude.Prim
 import qualified "base" Prelude
 
@@ -11,8 +12,8 @@ infixr 2 .&&.
 infixr 1 .||.
 infixr 0 ==>
 
-{-# ANN type Property PropType #-}
-{-# ANN type Property (PrimType Boolean) #-}
+{-# ANN type Property Annotations.PropType #-}
+{-# ANN type Property (Annotations.PrimType Annotations.Boolean) #-}
 data Property = MkProp Property
 
 type Equality a = Property
@@ -71,7 +72,7 @@ forAll = special "QuantSpecial Forall"#
 exists :: Testable prop => (a -> prop) -> Property
 exists = special "QuantSpecial Exists"#
 
-{-# ANN inline (SomeSpecial InlineIt) #-}
+{-# ANN inline (Annotations.SomeSpecial Annotations.InlineIt) #-}
 {-# NOINLINE inline #-}
 inline :: a -> a
 inline x = x

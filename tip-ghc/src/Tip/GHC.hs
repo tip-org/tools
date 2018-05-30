@@ -30,7 +30,7 @@ import Literal
 import qualified Data.Map.Strict as Map
 import Data.Map(Map)
 import qualified Tip.Core as Tip
-import Tip.Core hiding (Type, Case, Let, Lam, Lit, exprType)
+import Tip.Core hiding (Type, Case, Let, Lam, Lit, exprType, Attr)
 import ConLike
 import Annotations
 import Tip.GHC.Params
@@ -137,7 +137,7 @@ readHaskellFile Params{..} name =
              tyCon boolTyCon [PrimType Boolean],
              tyCon integerTyCon [PrimType Integer],
              tyCon ratioTyCon [PrimType Real]] ++
-            [tyCon (tupleTyCon Boxed i) [Name (tupleName i), Attribute "tuple" Nothing]
+            [tyCon (tupleTyCon Boxed i) [Name (tupleName i), Attr "tuple"]
             | i <- [0..mAX_TUPLE_SIZE]]
           builtinGlobals =
             [specialFun pAT_ERROR_ID Error,
@@ -151,7 +151,7 @@ readHaskellFile Params{..} name =
              dataCon nilDataCon   [Name "nil"],
              dataCon falseDataCon [Literal (Bool False)],
              dataCon trueDataCon  [Literal (Bool True)]] ++
-            [dataCon (tupleDataCon Boxed i) [Name (tupleName i), Attribute "tuple" Nothing]
+            [dataCon (tupleDataCon Boxed i) [Name (tupleName i), Attr "tuple"]
             | i <- [0..mAX_TUPLE_SIZE]]
           tupleName 0 = "unit"
           tupleName 2 = "pair"
@@ -942,9 +942,11 @@ makeAttrs x anns =
       case toHaskellName x of
         Nothing -> []
         Just name -> putAttr source name []
-    put (Attribute key Nothing) attrs =
+    put (Source name) attrs =
+      putAttr source name attrs
+    put (Attr key) attrs =
       putAttr (unitAttr key) () attrs
-    put (Attribute key (Just val)) attrs =
+    put (AttrValue key val) attrs =
       putAttr (stringAttr key) val attrs
     put _ attrs = attrs
 
