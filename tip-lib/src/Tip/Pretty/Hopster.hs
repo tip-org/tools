@@ -31,7 +31,7 @@ ppHopsterConjs thy
 
 ppHopsterFormula :: (PrettyVar a, Ord a) => Scope a -> Formula a -> Int -> Doc
 ppHopsterFormula scp Formula{..}  i =
-  ppExprStripTopForall scp 0 fm_body
+  ppExpr scp 0 fm_body
 
 ppQuant :: (PrettyVar a, Ord a) => Scope a -> Doc -> [Local a] -> Doc -> Doc -> Doc
 ppQuant _scp _name [] _to d = d
