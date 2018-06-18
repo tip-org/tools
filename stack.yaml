@@ -6,7 +6,10 @@ packages:
 - tip-ghc/
 - tip-spec/
 - tip-prelude/
-
+- location:
+    git: git://github.com/nick8325/quickspec
+    commit: 4d74f82eaa6a7a40ed26c84a1eadd1c7c3daa28e
+  extra-dep: true
 extra-deps:
 - jukebox-0.3.5
 - minisat-0.1.2
@@ -18,8 +21,6 @@ extra-deps:
 - spoon-0.3.1
 - testing-feat-0.4.0.3
 - tagshare-0.0
-- git: git://github.com/nick8325/quickspec
-  commit: 0d0b72e30bb2ec30e95be53839f671f3682bb6a1
 flags:
     tip-spec: {stack: True}
     tip-ghc: {stack: True}
