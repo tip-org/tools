@@ -8,7 +8,7 @@ packages:
 - tip-prelude/
 - location:
     git: git://github.com/nick8325/quickspec
-    commit: 4d74f82eaa6a7a40ed26c84a1eadd1c7c3daa28e
+    commit: 6fe847f6f5b2a8df8797586631b9544b16f93944
   extra-dep: true
 extra-deps:
 - jukebox-0.3.5
