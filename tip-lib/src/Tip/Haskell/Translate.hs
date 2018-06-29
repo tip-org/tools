@@ -788,9 +788,11 @@ typesOfBuiltin b = case b of
 
 data QuickSpecParams =
   QuickSpecParams {
-    foreground_functions :: [String],
+    foreground_functions :: Maybe [String],
+    predicates :: Maybe [String],
     use_observers :: Bool,
-    use_completion :: Bool
+    use_completion :: Bool,
+    max_size :: Int
     }
   deriving (Eq, Ord, Show)
 
@@ -798,7 +800,7 @@ makeSig :: forall a . (PrettyVar a, Ord a) => QuickSpecParams -> Theory (HsId a)
 makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $ List $
   [constant_decl ft
-  | ft@(f,_) <- func_constants, varStr (fst ft) `elem` foreground_functions || null(foreground_functions)] ++
+  | ft@(f,_) <- func_constants, inForeground f] ++
   bg
   ++
   [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
@@ -846,18 +848,25 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
   | Signature f _ _ <- thy_sigs
   ] ++
-  [Apply (quickSpec "withMaxTermSize") [H.Int 7]]
+  [Apply (quickSpec "withMaxTermSize") [H.Int (fromIntegral max_size)]] ++
+  [Apply (quickSpec "withPruningDepth") [H.Int 0] | not use_completion]
   --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
   where
+    inForeground f =
+      case foreground_functions of
+        Nothing -> True
+        Just fs -> varStr f `elem` fs
+    inPredicates p =
+      case predicates of
+        Nothing -> True
+        Just ps -> varStr p `elem` ps
     bg = case bgs of
       [] -> []
       _ -> [Apply (quickSpec "background") [List bgs]]
     bgs = [constant_decl ft
           | ft@(f,_) <- func_constants,
-            varStr (fst ft) `notElem` foreground_functions
-            && not(null(foreground_functions))
-          ]
+            not (inForeground f) ]
           ++ builtin_decls
           ++ map constant_decl (ctor_constants ++ builtin_constants)
     imps = ufInfo thy
@@ -884,7 +893,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
         lam = H.Lam [H.ConPat (constraints "Dict") []]
         conOrPred =
           case t of
-            _ :=>: BuiltinType Boolean -> "predicate"
+            _ :=>: BuiltinType Boolean | inPredicates f -> "predicate"
             _ -> "con"
 
     int_lit_decl x =

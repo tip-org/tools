@@ -49,7 +49,7 @@ theorySignature params thy =
 exploreTheory :: Name a => QuickSpecParams -> Theory a -> IO (Theory a)
 exploreTheory params thy =
   do (sig,rm) <- theorySignature params thy
-     sig' <- toStderr (quickSpecResult $ (if use_completion params then [] else [withPruningDepth 0]) ++ sig)
+     sig' <- toStderr (quickSpecResult sig)
      let bm  = backMap thy rm
      let fms = mapM (trProperty bm) sig' `freshFrom` thy
      return thy { thy_asserts = thy_asserts thy ++ fms }
