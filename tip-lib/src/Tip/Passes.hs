@@ -63,6 +63,7 @@ module Tip.Passes
   , uniqLocals
   , dropSuffix
   , dropAttributes
+  , splitFormulas
 
   -- * Building pass pipelines
   , StandardPass(..)
@@ -92,6 +93,7 @@ import Tip.Pass.DropSuffix
 import Tip.Pass.UniqLocals
 import Tip.Pass.Induction
 import Tip.Pass.DropAttributes
+import Tip.Pass.SplitFormulas
 
 import Tip.Fresh
 
@@ -141,6 +143,7 @@ data StandardPass
   | DropAttributes
   | Induction [Int]
   | RecursionInduction Int [Int]
+  | SplitFormulas
  deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
@@ -185,6 +188,7 @@ instance Pass StandardPass where
     DropAttributes       -> single $ return . dropAttributes
     Induction coords     -> induction coords
     RecursionInduction fn xsns -> recursionInduction fn xsns
+    SplitFormulas        -> single $ return . splitFormulas
     where
       single m thy = do x <- m thy; return [x]
       f `followedBy` g = \thy -> do
@@ -245,6 +249,8 @@ instance Pass StandardPass where
         help "Transform data declarations to axioms",
       unitPass AxiomatizeDatadeclsUEQ $
         help "Transform data declarations to unit equality axioms (incomplete)",
+      unitPass SplitFormulas $
+        help "Split formulas into simpler parts",
       flag' () (long ("monomorphise") <> help "Try to monomorphise the problem") *> pure (Monomorphise False),
       flag' () (long ("monomorphise-verbose") <> help "Try to monomorphise the problem verbosely") *> pure (Monomorphise True),
       unitPass CSEMatch $

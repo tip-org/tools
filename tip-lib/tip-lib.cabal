@@ -80,6 +80,7 @@ library
     Tip.Pass.SelectConjecture
     Tip.Pass.Uncurry
     Tip.Pass.Concretise
+    Tip.Pass.SplitFormulas
 
     Tip.Parser.ErrM
     Tip.Parser.AbsTIP
