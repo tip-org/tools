@@ -464,9 +464,10 @@ error _          =  primError
 -- appears.
 
 
-{-# ANN undefined Inline #-}
-undefined        :: a
-undefined        =  error "Prelude.undefined"
+{-# ANN undefined Uninterpreted #-}
+{-# NOINLINE undefined #-}
+undefined :: a
+undefined =  error "Prelude.undefined"
 
 infixl 9  !!
 infixr 5  ++

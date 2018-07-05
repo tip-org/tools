@@ -182,7 +182,7 @@ readHaskellFile Params{..} name =
           completeTheory prog $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
           | prop <- props ] ++
-          [ FuncDecl (putAttr keep () (tipFunction prog func (global_definition (globalInfo prog func))))
+          [ putAttr keep () (tipToplevelFunction prog func (global_definition (globalInfo prog func)))
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
@@ -518,7 +518,7 @@ completeTheory prog thy0 =
 
     makeFunc :: Var -> Decl Id
     makeFunc x =
-      FuncDecl (tipFunction prog x (global_definition (globalInfo prog x)))
+      tipToplevelFunction prog x (global_definition (globalInfo prog x))
 
     makeType :: TyCon -> Decl Id
     makeType ty
@@ -632,7 +632,7 @@ tipFunction prog x t =
   where
     fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
     fun attr ctx x t = inContextM (showOutputable msg) $ do
-      let PolyType{..} = polyType x
+      let poly@PolyType{..} = polyType x
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
         Function {
@@ -877,6 +877,7 @@ tipFunction prog x t =
     -- Get the TIP type of a variable.
     monoType :: Var -> Tip.Type Id
     monoType = tipType prog . varType
+
     polyType :: Var -> Tip.PolyType Id
     polyType = tipPolyType prog . varType
       
@@ -929,6 +930,23 @@ tipFunction prog x t =
 
         substType ty =
           applyType tvs tys ty
+
+-- Translate a Haskell uninterpreted function to TIP.
+tipUninterpreted :: Program -> Var -> Tip.Signature Id
+tipUninterpreted prog x =
+  Signature {
+    sig_name  = globalId prog x,
+    sig_attrs = concat [makeAttrs x (globalAnnotations prog x)],
+    sig_type  = tipPolyType prog (varType x) }
+
+-- Translate a Haskell function definition to TIP.
+-- The function may be uninterpreted.
+tipToplevelFunction :: Program -> Var -> CoreExpr -> Decl Id
+tipToplevelFunction prog x body
+  | Uninterpreted `elem` globalAnnotations prog x =
+    SigDecl (tipUninterpreted prog x)
+  | otherwise =
+    FuncDecl (tipFunction prog x body)
 
 -- Compute the TIP attributes for a Haskell function or type,
 -- which includes the name as well as any custom attributes.

@@ -614,6 +614,18 @@ instance HasAttr (Formula a) where
   getAttrs = fm_attrs
   putAttrs attrs x = x { fm_attrs = attrs }
 
+instance HasAttr (Decl a) where
+  getAttrs (DataDecl x) = getAttrs x
+  getAttrs (SortDecl x) = getAttrs x
+  getAttrs (SigDecl x) = getAttrs x
+  getAttrs (FuncDecl x) = getAttrs x
+  getAttrs (AssertDecl x) = getAttrs x
+  putAttrs attrs (DataDecl x) = DataDecl (putAttrs attrs x)
+  putAttrs attrs (SortDecl x) = SortDecl (putAttrs attrs x)
+  putAttrs attrs (SigDecl x) = SigDecl (putAttrs attrs x)
+  putAttrs attrs (FuncDecl x) = FuncDecl (putAttrs attrs x)
+  putAttrs attrs (AssertDecl x) = AssertDecl (putAttrs attrs x)
+
 -- | A datatype describing how to read and write a particular attribute.
 -- The 'a' is the type of the argument of the attribute.
 -- For attributes which don't take an argument, this will be '()'.

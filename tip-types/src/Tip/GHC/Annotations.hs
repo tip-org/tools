@@ -16,6 +16,9 @@ data TipAnnotation =
     -- Unconditionally inline the function
     -- (useful when the function must be applied to a monomorphic type).
   | Inline
+    -- Turn into an uninterpreted function.
+    -- To avoid mishaps, you should also mark the function as NOINLINE.
+  | Uninterpreted
     -- TIP built-in types, special functions and literals.
   | PrimType BuiltinType | SomeSpecial Special
   | MakeWiredIn WiredIn | WiredIn WiredIn | Special | Literal Lit
