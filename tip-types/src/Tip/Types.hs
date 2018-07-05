@@ -273,6 +273,7 @@ instanceTransformBi [t| forall a . (Global a,Expr a) |]
 instanceTransformBi [t| forall a . (Type a,Decl a) |]
 instanceTransformBi [t| forall a . (Type a,Expr a) |]
 instanceTransformBi [t| forall a . (Type a,Type a) |]
+instanceTransformBi [t| forall a . (Type a,Local a) |]
 instance Monad m => TransformBiM m (Expr a) (Expr a) where
   {-# INLINE transformBiM #-}
   transformBiM = $(genTransformBiM' [t| forall m a . (Expr a -> m (Expr a)) -> Expr a -> m (Expr a) |])

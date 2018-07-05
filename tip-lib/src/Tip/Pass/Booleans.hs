@@ -100,8 +100,8 @@ boolGbl BoolNames{..} b = Global
 boolExpr :: BoolNames a -> Bool -> Expr a
 boolExpr names b = Gbl (boolGbl names b) :@: []
 
-removeBuiltinBoolFrom :: forall f a . (TransformBi (Type a) (f a),TransformBi (Pattern a) (f a),TransformBi (Head a) (f a)) => BoolNames a -> f a -> f a
-removeBuiltinBoolFrom names = transformBi h . transformBi f . transformBi g
+removeBuiltinBoolFrom :: forall f a . (Ord a, TransformBi (Expr a) (f a), TransformBi (Type a) (f a),TransformBi (Pattern a) (f a),TransformBi (Head a) (f a)) => BoolNames a -> f a -> f a
+removeBuiltinBoolFrom names = transformBi i . transformBi h . transformBi f . transformBi g
   where
     f :: Head a -> Head a
     f (Builtin (Lit (Bool b))) = Gbl (boolGbl names b)
@@ -115,19 +115,43 @@ removeBuiltinBoolFrom names = transformBi h . transformBi f . transformBi g
     h (BuiltinType Boolean) = TyCon (boolName names) []
     h ty                    = ty
 
-removeBuiltinBoolWith :: Ord a => BoolNames a -> Theory a -> Theory a
+    i :: Expr a -> Expr a
+    i (Quant info q x body) =
+      -- body will return encoded boolean
+      makeIf (Quant info q x (body === boolExpr names True)) (boolExpr names True) (boolExpr names False)
+    i e =
+      case exprType e of
+        BuiltinType Boolean -> makeIf e (boolExpr names True) (boolExpr names False)
+        _ -> e
+
+removeBuiltinBoolWith :: forall a. Ord a => BoolNames a -> Theory a -> Theory a
 removeBuiltinBoolWith names@BoolNames{..} Theory{..}
   = fixup_asserts
   $ removeBuiltinBoolFrom names Theory{thy_datatypes=bool_decl:thy_datatypes,..}
   where
-    fixup_asserts Theory{..} = Theory{thy_asserts=map fixup_assert thy_asserts,..}
+    -- Note: take thy_asserts from original theory; we fix it ourselves
+    fixup_asserts thy = thy{thy_asserts=map fixup_assert thy_asserts}
     fixup_assert form = form { fm_body = fixup_expr (fm_body form) }
-    fixup_expr (Quant qi q vs e) = Quant qi q vs (fixup_expr e)
-    fixup_expr e
-      | TyCon tc [] <- exprType e
-      , tc == boolName
-      = boolExpr names True === e
-    fixup_expr e = e
+    -- Keep outermost formula structure as Booleans
+    fixup_expr (Quant qi q vs e) = Quant qi q (map (transformBi fixup_type) vs) (fixup_expr e)
+    fixup_expr (Builtin And :@: ts) =
+      Builtin And :@: map fixup_expr ts
+    fixup_expr (Builtin Or :@: ts) =
+      Builtin Or :@: map fixup_expr ts
+    fixup_expr (Builtin Not :@: ts) =
+      Builtin Not :@: map fixup_expr ts
+    fixup_expr (Builtin Implies :@: ts) =
+      Builtin Implies :@: map fixup_expr ts
+    -- Non-formula stuff turns into encoded Booleans
+    fixup_expr (Builtin Equal :@: ts) =
+      Builtin Equal :@: map (removeBuiltinBoolFrom names) ts
+    fixup_expr (Builtin Distinct :@: ts) =
+      Builtin Distinct :@: map (removeBuiltinBoolFrom names) ts
+    fixup_expr e = removeBuiltinBoolFrom names e === boolExpr names True
+
+    fixup_type :: Type a -> Type a
+    fixup_type (BuiltinType Boolean) = TyCon boolName []
+    fixup_type ty = ty
 
     bool_decl = Datatype boolName [] [] [Constructor falseName [] isFalseName []
                                         ,Constructor trueName [] isTrueName []]
