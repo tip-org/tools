@@ -63,6 +63,7 @@ module Tip.Passes
   , uniqLocals
   , dropSuffix
   , dropAttributes
+  , dropAttribute
   , splitFormulas
 
   -- * Building pass pipelines
@@ -141,6 +142,7 @@ data StandardPass
   | DropSuffix String
   | UniqLocals
   | DropAttributes
+  | DropAttribute String
   | Induction [Int]
   | RecursionInduction Int [Int]
   | SplitFormulas
@@ -186,6 +188,7 @@ instance Pass StandardPass where
     DropSuffix cs        -> single $ dropSuffix cs
     UniqLocals           -> single $ uniqLocals
     DropAttributes       -> single $ return . dropAttributes
+    DropAttribute attr   -> single $ return . dropAttribute attr
     Induction coords     -> induction coords
     RecursionInduction fn xsns -> recursionInduction fn xsns
     SplitFormulas        -> single $ return . splitFormulas
@@ -288,6 +291,11 @@ instance Pass StandardPass where
         help "Make all local variables unique",
       unitPass DropAttributes $
         help "Remove all attributes (e.g. :keep) from declarations",
+      fmap DropAttribute $
+        option str $
+          long "drop-attribute" <>
+          metavar "NAME" <>
+          help "Remove the given attribute from declarations",
       fmap Induction $
         option auto $
           long "induction" <>
