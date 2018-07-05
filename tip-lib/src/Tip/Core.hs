@@ -286,6 +286,9 @@ globals e =
 tyVars :: Ord a => Type a -> [a]
 tyVars t = usort $ [ a | TyVar a <- universeBi t ]
 
+tyCons :: Ord a => Type a -> [a]
+tyCons t = usort $ [ a | TyCon a _ <- universeBi t ]
+
 -- The free type variables are in the locals, and the globals:
 -- but only in the types applied to the global variable.
 appliedTyVars :: Ord a => Expr a -> [a]

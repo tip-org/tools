@@ -30,6 +30,7 @@ import Control.Monad.Writer
 import Data.Generics.Geniplate
 
 import Data.Either
+import Data.Maybe
 
 import Debug.Trace
 
@@ -124,10 +125,14 @@ complete var n rules =
 --------------------------------------------------------------------------------
 -- Rules
 
-sigRules :: Name a => Signature a -> [Rule' a]
-sigRules (Signature f _ (PolyType tvs args res)) =
-  usort [ App (Fun f) (map Var tvs) :=>: Fact (App Type [trType t])
+sigRules :: Name a => Maybe (a, [Type a]) -> Signature a -> [Rule' a]
+sigRules polyrec (Signature f _ (PolyType tvs args res)) =
+  usort [ maybePoly (App (Fun f) (map Var tvs)) :=>: Fact (App Type [trType t])
         | t <- res : args
+        , let maybePoly =
+                case polyrec of
+                  Just (x, ty) | x `elem` tyCons t && t /= TyCon x ty -> fuel
+                  _ -> id
         ]
 
 declRules :: forall a. Name a => [Expr' a] -> (a -> Maybe [a]) -> Decl a -> [Rule' a]
@@ -141,7 +146,7 @@ declRules skolems polyrec d =
 
     SigDecl sig@(Signature f _ pt@(PolyType tvs _ _)) ->
          [ App (Fun f) (map Var tvs) :=>: Fact (App (Decl d) (map Var tvs)) ]
-      ++ sigRules sig
+      ++ sigRules Nothing sig
       ++ skolemise tvs (\tvs -> Fact (App (Fun f) tvs))
 
     DataDecl dt@(Datatype t _ tvs cons) ->
@@ -149,21 +154,24 @@ declRules skolems polyrec d =
       ++ [ App Type [App (Con t) (map Var tvs)] :=>: Fact (App Type [Var tv]) | tv <- tvs ]
       ++ concat
            [ [ App Type [App (Con t) (map Var tvs)]
-                          :=>: Fact (App (Fun k) (map Var tvs)) ]
-             ++ sigRules (Signature k [] (globalType info))
+                        :=>: Fact (App (Fun k) (map Var tvs)) ]
+             ++ sigRules (Just (t, map TyVar tvs)) (Signature k [] (globalType info))
            | (k,info) <- dataTypeGlobals dt
            ]
       ++ skolemise tvs (\tvs -> Fact (App Type [App (Con t) tvs]))
 
     FuncDecl fn@(Function f _ tvs args _ b) ->
          [ App (Fun f) (map Var tvs) :=>: Fact (App (Decl d) (map Var tvs)) ]
-      ++ [ rule (exprRecords b) (App (Decl d) (map Var tvs)) ]
-      ++ sigRules (signature fn)
+      ++ [ rule (map maybeFuel (exprRecords b)) (App (Decl d) (map Var tvs)) ]
+      ++ sigRules Nothing (signature fn)
       ++ safe
       ++ map lowerFuel careful
       ++ skolemise tvs (\tvs -> Fact (App (Fun f) tvs))
       where
         mgrp = polyrec f
+        maybeFuel e@(App (Fun g) _)
+          | g `elem` fromMaybe [] mgrp = fuel e
+        maybeFuel e = e
         (careful,safe) =
           partitionEithers
             [ side $ App (Decl d) (map Var tvs) :=>: Fact r
@@ -312,7 +320,9 @@ monomorphise'  verbose thy =
   do let ds = theoryDecls thy
      let skolems = [ trType (TyCon sort_name []) | sort@Sort{..} <- thy_sorts thy, null sort_tvs, hasAttr skolem sort]
      var <- freshNamed "rule"
-     let rules = usort $ complete var 1 $ concatMap (declRules skolems (polyrecursive thy)) ds
+     let rules0 = usort $ concatMap (declRules skolems (polyrecursive thy)) ds
+     when verbose $ traceM (show ("rules0:" $\ pp rules0))
+     let rules = usort $ complete var 1 rules0
      when verbose $ traceM (show ("rules:" $\ pp rules))
      let rules' = map (fmap numberVars) rules
      -- when verbose $ traceM (show ("rules':" $\ pp rules'))
