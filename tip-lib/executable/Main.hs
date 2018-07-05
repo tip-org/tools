@@ -102,7 +102,7 @@ handle passes mode multipath s =
                   , AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual
                   , SimplifyGently, Monomorphise False, IfToBoolOp, CommuteMatch
-                  , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
+                  , SimplifyGently, AxiomatizeFuncdefs2, RemoveMatch, SimplifyGently, LetLift
                   , SimplifyGently, AxiomatizeDatadecls
                   ]
                 , "p")

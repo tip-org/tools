@@ -78,9 +78,10 @@ letLiftTop e0 =
     Let xl@(Local x xt) b e ->
       do let fvs = free b
          let tvs = freeTyVars b
+         xf <- lift (refresh x)
          let xfn =
                putAttr letVar () $
-               Function x [] tvs fvs (exprType b) b
+               Function xf [] tvs fvs (exprType b) b
          tell [xfn]
          lift ((applyFunction xfn (map TyVar tvs) (map Lcl fvs) // xl) e)
     _ -> return e0
