@@ -154,7 +154,7 @@ instance Pass StandardPass where
     RemoveNewtype        -> single $ return . removeNewtype
     UncurryTheory        -> single $ uncurryTheory
     NegateConjecture     -> (return . splitConjecture) `followedBy` single negateConjecture
-    TypeSkolemConjecture -> single $ typeSkolemConjecture
+    TypeSkolemConjecture -> single $ typeSkolemConjecture ModeConjecture
     IntToNat             -> single $ intToNat
     SortsToNat           -> single $ sortsToNat
     SplitConjecture      -> return . splitConjecture
@@ -175,7 +175,7 @@ instance Pass StandardPass where
     AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2
     AxiomatizeDatadecls    -> single $ axiomatizeDatadecls False
     AxiomatizeDatadeclsUEQ -> single $ axiomatizeDatadecls True
-    Monomorphise b       -> single typeSkolemConjecture `followedBy` single (monomorphise b)
+    Monomorphise b       -> single (typeSkolemConjecture ModeMonomorphise) `followedBy` single (monomorphise b)
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> single $ return . eliminateDeadCode

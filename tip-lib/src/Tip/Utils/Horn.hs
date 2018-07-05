@@ -1,102 +1,96 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# LANGUAGE TypeFamilies, TypeSynonymInstances, FlexibleInstances, CPP, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE TypeFamilies, TypeSynonymInstances, FlexibleInstances, FlexibleContexts, CPP, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
--- | Completing a set of horn clauses
-module Tip.Utils.Horn (completeRules, specialiseRules, Expr(..), Rule(..)) where
+-- | Compute all consequences of a set of Horn clauses
+module Tip.Utils.Horn (rule, specialiseRules, numberVars, Expr(..), Rule(..)) where
 import Twee.Base hiding (Var, Fun, App, Pretty)
 import qualified Twee.Base as Twee
 import qualified Twee.Index as Index
-import Twee.Utils
 import Control.Monad
 import Data.Maybe
-import qualified Data.IntMap.Strict as IntMap
-import qualified Data.Map.Strict as Map
-import Data.Tuple
-import Data.Foldable as F
 import Data.Generics.Geniplate
 import Tip.Pretty
+import qualified Data.Set as Set
+import Data.Typeable
+import Twee.Label
+import qualified Text.PrettyPrint.HughesPJ as Pretty
 
-data Clause a =
-    Fact (Term a)
-  | Term a :=>: Clause a
-  deriving Eq
-
-instance Has (Clause a) (Term a) where
-  the (Fact t) = t
-  the (_ :=>: c) = the c
-
-instance Symbolic (Clause a) where
-  type ConstantOf (Clause a) = a
-  termsDL (Fact t) = return (singleton t)
-  termsDL (t :=>: c) = return (singleton t) `mplus` termsDL c
-  subst_ sub (Fact t) = Fact (subst_ sub t)
-  subst_ sub (t :=>: c) = subst_ sub t :=>: subst_ sub c
-
-complete :: [Clause a] -> [Clause a]
-complete cs = Index.elems (foldr add Index.empty cs)
-  where
-    add c idx
-      | c `elem` Index.lookup (the c) idx = idx
-      | otherwise = derive c (Index.insert (the c) c idx)
-
-    derive (Fact t) idx =
-      foldr add idx [ c | _ :=>: c <- Index.lookup t idx ]
-    derive (t :=>: r) idx =
-      foldr add idx $ do
-        Fact u <- Index.elems idx
-        sub <- maybeToList (match t u)
-        return (subst sub r)
-
-data Expr c a = Var a | App c [Expr c a]
+data Expr v c = Var v | App c [Expr v c]
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-instance (Pretty c,Pretty a) => Pretty (Expr c a) where
-  pp (Var x) = pp x
+instance (Pretty v, Pretty c) => Pretty (Expr v c) where
+  pp (Var x) = text "V" Pretty.<> pp x
   pp (App c []) = pp c
   pp (App c as) = parens (pp c $\ fsep (map pp as))
 
-data Rule c a = Expr c a :=> Rule c a | Fin (Expr c a)
-  deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
+numberVars :: (Typeable v, Ord v) => Expr v c -> Expr Int c
+numberVars (Var x) = Var (fromIntegral (labelNum (label x)))
+numberVars (App f xs) = App f (map numberVars xs)
 
-instance (Pretty c,Pretty a) => Pretty (Rule c a) where
-  pp (Fin e)   = pp e
-  pp (e :=> r) = pp e <+> "=>" $\ pp r
+exprToTwee :: (Typeable a, Ord a) => Expr Int a -> Term a
+exprToTwee = build . toTwee
+  where
+    toTwee (Var x) = var (V x)
+    toTwee (App f xs) = app (fun f) (map toTwee xs)
+
+exprFromTwee :: Term a -> Expr Int a
+exprFromTwee (Twee.Var (V x)) = Var x
+exprFromTwee (Twee.App f xs) = App (fun_value f) (map exprFromTwee (unpack xs))
+
+data Rule a =
+    Fact a
+  | a :=>: Rule a
+  deriving (Eq, Ord, Functor)
+
+instance Symbolic a => Symbolic (Rule a) where
+  type ConstantOf (Rule a) = ConstantOf a
+  termsDL (Fact t) = termsDL t
+  termsDL (t :=>: c) = termsDL t `mplus` termsDL c
+  subst_ sub (Fact t) = Fact (subst_ sub t)
+  subst_ sub (t :=>: c) = subst_ sub t :=>: subst_ sub c
+
+instance Pretty a => Pretty (Rule a) where
+  pp (Fact e)   = pp e
+  pp (e :=>: r) = pp e <+> "=>" $\ pp r
+
+rule :: [a] -> a -> Rule a
+rule ts t = foldr (:=>:) (Fact t) ts
+
+consequences :: (Ord a, Typeable a, Pretty a) => [Rule (Term a)] -> [Term a]
+consequences cs = loop Set.empty Index.empty Set.empty cs
+  where
+    loop facts _ _ [] = Set.toList facts
+    loop facts rules seen (c0:cs)
+      | c `Set.member` seen =
+        loop facts rules seen cs
+      | otherwise =
+        let seen'= Set.insert c seen in
+        case c of
+          Fact t ->
+            loop (Set.insert t facts) rules seen'
+              (derive [t] (Index.approxMatches t rules) ++ cs)
+          t :=>: _ ->
+            loop facts (Index.insert t c rules) seen'
+              (derive (Set.toList facts) [c] ++ cs)
+      where
+        c = canonicalise c0
+
+    derive ts rules =
+      [ subst sub rule
+      | t <- ts,
+        u :=>: rule <- rules,
+        sub <- maybeToList (match u t) ]
+    
+specialiseRules :: (Typeable a, Ord a, Pretty a) => [Rule (Expr Int a)] -> [Expr Int a]
+specialiseRules =
+  map exprFromTwee . consequences . map (fmap exprToTwee)
 
 return []
 
-instanceUniverseBi  [t| forall c a . (Rule c a,c) |]
-instanceTransformBi [t| forall c a . (Expr c a,[Rule c a]) |]
-instanceTransformBi [t| forall c a . (Expr c a,Rule c a) |]
+instanceTransformBi [t| forall a . (a,[Rule a]) |]
+instanceTransformBi [t| forall a . (a,Rule a) |]
 instanceTransformBi [t| forall c a . (Expr c a,Expr c a) |]
-
-ruleHeads :: Rule c a -> [c]
-ruleHeads = universeBi
-
-specialiseRules :: Ord c => [Rule c Int] -> [Expr c Int]
-specialiseRules = facts . completeRules
-  where
-  facts rs = [ e | Fin e <- rs, F.null e ]
-
-completeRules :: Ord c => [Rule c Int] -> [Rule c Int]
-completeRules rules =
-  map ruleFromTwee (complete (map ruleToTwee rules))
-  where
-    numbers = zip [0..] (usort (concatMap ruleHeads rules))
-    toMap = Map.fromList (map swap numbers)
-    fromMap = IntMap.fromList numbers
-    ruleToTwee (e :=> r) = build (exprToTwee e) :=>: ruleToTwee r
-    ruleToTwee (Fin e) = Fact (build (exprToTwee e))
-    exprToTwee (Var x) = var (V x)
-    exprToTwee (App h es) =
-      app (fun (Map.findWithDefault (error "completeRules") h toMap))
-        (map exprToTwee es)
-    ruleFromTwee (e :=>: r) = exprFromTwee e :=> ruleFromTwee r
-    ruleFromTwee (Fact e) = Fin (exprFromTwee e)
-    exprFromTwee (Twee.Var (V x)) = Var x
-    exprFromTwee (Twee.App (F f) ts) =
-      App (IntMap.findWithDefault (error "completeRules") f fromMap)
-        (map exprFromTwee (unpack ts))
 

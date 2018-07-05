@@ -47,7 +47,7 @@ ppTheory
     , "CONCLUSION" $\ vcat (map ppFormula gs)
     ]
   where
-  (gs,as) = theoryGoals thy
+  (gs,as) = theoryFormulas thy
 
 ppType :: (Ord a, PrettyVar a) => Type a -> Doc
 ppType (TyCon t []) = ppVar t

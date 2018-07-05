@@ -494,8 +494,12 @@ discriminator dt Constructor{..} tys =
 -- * Operations on theories
 
 -- | Goals in first component, assertions in second
-theoryGoals :: Theory a -> ([Formula a],[Formula a])
-theoryGoals = partitionGoals . thy_asserts
+theoryFormulas :: Theory a -> ([Formula a],[Formula a])
+theoryFormulas = partitionGoals . thy_asserts
+
+theoryGoals, theoryAssertions :: Theory a -> [Formula a]
+theoryGoals = fst . theoryFormulas
+theoryAssertions = snd . theoryFormulas
 
 -- | Goals in first component, assertions in second
 partitionGoals :: [Formula a] -> ([Formula a],[Formula a])
@@ -556,6 +560,15 @@ polyrecursive Theory{..} = (`Map.lookup` m)
       ]
 
   make_groups grps = Map.fromList $ concat [ [ (g,grp) | g <- grp ] | grp <- grps ]
+
+-- Is a theory monomorphic?
+isMonomorphic :: Theory a -> Bool
+isMonomorphic Theory{..} =
+  all (null . data_tvs) thy_datatypes &&
+  all (null . sort_tvs) thy_sorts &&
+  all (null . polytype_tvs . sig_type) thy_sigs &&
+  all (null . func_tvs) thy_funcs &&
+  all (null . fm_tvs) thy_asserts
 
 -- * Attributes
 

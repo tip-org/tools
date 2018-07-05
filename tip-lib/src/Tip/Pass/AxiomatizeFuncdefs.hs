@@ -59,7 +59,7 @@ axiomatize2 scp fn@Function{..} =
 
 recursionInduction :: forall a . Name a => Int -> [Int] -> Theory a -> Fresh [Theory a]
 recursionInduction f_num xs_nums thy =
-  case theoryGoals thy of
+  case theoryFormulas thy of
     ([],_) -> return [thy]
     (Formula{fm_role = Assert}:_, _) -> __
     (Formula Prove attrs tvs body:gs,assums) ->

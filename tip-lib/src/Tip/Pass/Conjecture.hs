@@ -15,11 +15,11 @@ splitConjecture :: Theory a -> [Theory a]
 splitConjecture thy =
   [ thy { thy_asserts = goal : assums } | goal <- goals ]
   where
-  (goals,assums) = theoryGoals thy
+  (goals,assums) = theoryFormulas thy
 
 -- | Splits, type skolems and skolemises conjectures!
 skolemiseConjecture :: Name a => Theory a -> Fresh [Theory a]
-skolemiseConjecture = mapM (skolemiseConjecture' <=< typeSkolemConjecture) . splitConjecture
+skolemiseConjecture = mapM (skolemiseConjecture' <=< typeSkolemConjecture ModeConjecture) . splitConjecture
 
 -- | Skolemises a conjecture, assuming that there is just one goal and that it has no type variables.
 skolemiseConjecture' :: Name a => Theory a -> Fresh (Theory a)
@@ -50,7 +50,7 @@ skolemiseConjecture' thy =
         _ -> ERROR("Cannot skolemise conjecture with type variables")
     _ -> ERROR("Need one conjecture to skolemise conjecture")
   where
-  (goals,assums) = theoryGoals thy
+  (goals,assums) = theoryFormulas thy
 
   formula r attrs tvs (Quant (QuantIH i) q vs e) =
     putAttr inductionHypothesis i $
@@ -72,33 +72,35 @@ skolemise = go True
 --   introduce skolem types in case the goal is polymorphic.
 --   (runs 'typeSkolemConjecture')
 negateConjecture :: Name a => Theory a -> Fresh (Theory a)
-negateConjecture = fmap checkOneGoal . fmap (declsPass (map neg1)) . typeSkolemConjecture
+negateConjecture = fmap checkOneGoal . fmap (declsPass (map neg1)) . typeSkolemConjecture ModeConjecture
   where
   neg1 (AssertDecl (Formula Prove attrs [] form))
       = AssertDecl (Formula Assert attrs [] (gentleNeg form))
   neg1 d0 = d0
 
   checkOneGoal thy
-    | length (fst (theoryGoals thy)) <= 1 = thy
+    | length (theoryGoals thy) <= 1 = thy
     | otherwise = error "negateConjecture: more than one conjecture (try --split-conjecture first)"
 
--- | Introduce skolem types in case the goal is polymorphic.
-typeSkolemConjecture :: Name a => Theory a -> Fresh (Theory a)
-typeSkolemConjecture thy =
-  foldM ty_skolem1
-    thy { thy_asserts = filter (not . isProve) (thy_asserts thy) }
-    (filter isProve (thy_asserts thy))
-  where
-  isProve Formula{fm_role = Prove} = True
-  isProve _ = False
+data Mode = ModeConjecture | ModeMonomorphise deriving Eq
 
-  ty_skolem1 thy (Formula Prove attrs tvs form) = do
+-- | Introduce skolem types in case the goal is polymorphic.
+typeSkolemConjecture :: Name a => Mode -> Theory a -> Fresh (Theory a)
+typeSkolemConjecture mode thy
+  | all null (map fm_tvs (theoryGoals thy)),
+    (case mode of
+       ModeConjecture -> True
+       ModeMonomorphise -> not (null (theoryGoals thy))) =
+    return thy
+  | otherwise = do
     tv <- freshNamed "sk"
-    let tvs' = replicate (length tvs) tv
     return thy {
-      thy_asserts = Formula Prove attrs [] (makeTyCons (zip tvs tvs') form):thy_asserts thy,
-      thy_sorts = [ putAttr skolem () $ Sort tv [] [] ] ++ thy_sorts thy }
-  ty_skolem1 thy Formula{fm_role = Assert} = error "assertion in goals"
+      thy_sorts = putAttr skolem () (Sort tv [] []):thy_sorts thy,
+      thy_asserts = map (ty_skolem1 tv) (thy_asserts thy) }
+  where
+  ty_skolem1 tv (Formula Prove attrs tvs form) =
+      Formula Prove attrs [] (makeTyCons (zip tvs (repeat tv)) form)
+  ty_skolem1 _ form@Formula{fm_role = Assert} = form
 
   makeTyCons tvs =
     transformTypeInExpr $ \ty ->

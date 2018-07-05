@@ -13,7 +13,7 @@ import Tip.Pass.UniqLocals
 import Tip.Pass.AxiomatizeDatadecls (datatypeSigs)
 import Tip.Utils
 import Tip.Fresh
-import Tip.Core hiding (Expr, Head)
+import Tip.Core hiding (Expr, Head, (:=>:))
 import qualified Tip.Core as Tip
 
 import Tip.Scope (dataTypeGlobals, globalType)
@@ -36,22 +36,20 @@ import Debug.Trace
 --------------------------------------------------------------------------------
 -- Record expressions
 
-data Head a = Fun a | Con a | Arrow Int | Bun BuiltinType | Decl (Decl a) | S | Z | N -- ^ preliminary fuel variable
+data Head a = Fun a | Con a | Arrow Int | Type | Bun BuiltinType | Decl (Decl a) | Fuel
   deriving (Eq,Ord,Show,Functor,Foldable,Traversable)
 
-type Rule' a = Rule (Head a) a
-
-type Expr' a = Expr (Head a) a
+type Rule' a = Rule (Expr' a)
+type Expr' a = Expr a (Head a)
 
 instance (PrettyVar a,Pretty a) => Pretty (Head a) where
   pp (Fun x)  = pp x
   pp (Con x)  = pp x
   pp Arrow{}  = "=>"
+  pp Type     = "type"
   pp (Bun bu) = ppBuiltinType bu
   pp (Decl d) = text ("Decl_" ++ declName d)
-  pp S        = ":s"
-  pp Z        = ":z"
-  pp N        = "n"
+  pp Fuel     = "fuel"
 
 declName (SortDecl Sort{sort_name = t}) = varStr t
 declName (SigDecl Signature{sig_name = t}) = varStr t
@@ -61,13 +59,13 @@ declName (AssertDecl (Formula r i _ _)) = show r ++ "_" ++ show i
 
 trType :: Type a -> Expr' a
 trType (TyCon tc ts)     = App (Con tc) (map trType ts)
-trType (ts :=>: tr)      = App (Arrow (length ts)) (map trType ts ++ [trType tr])
+trType (ts Tip.:=>: tr)      = App (Arrow (length ts)) (map trType ts ++ [trType tr])
 trType (BuiltinType bun) = App (Bun bun) []
 trType (TyVar x)         = Var x
 
-toType :: Expr (Head a) x -> Type a
+toType :: Expr x (Head a) -> Type a
 toType (App (Con tc) ts)  = TyCon tc (map toType ts)
-toType (App (Arrow _) ts) = map toType (init ts) :=>: toType (last ts)
+toType (App (Arrow _) ts) = map toType (init ts) Tip.:=>: toType (last ts)
 toType (App (Bun bun) []) = BuiltinType bun
 toType _                  = error "Tip.Pass.Monomorphise.toType: variable or strange type"
 
@@ -84,7 +82,7 @@ exprGlobalRecords e =
 exprTypeRecords :: forall a . Ord a => Tip.Expr a -> [Expr' a]
 exprTypeRecords e =
   usort
-    [ trType t
+    [ App Type [trType t]
     | Local _ t :: Tip.Local a <- usort (universeBi e)
     ]
 
@@ -94,118 +92,81 @@ exprRecords e = usort $ exprGlobalRecords e ++ exprTypeRecords e
 --------------------------------------------------------------------------------
 -- Fuels
 
-fuelExpr :: Int -> Expr' a
-fuelExpr 0 = App Z []
-fuelExpr n = fuelSucc (fuelExpr (n-1))
-
-fuelSucc :: Expr' a -> Expr' a
-fuelSucc e = App S [e]
-
-fuelN :: Expr' a
-fuelN = App N []
-
 transExpr :: (Expr c a -> Expr c a) -> Expr c a -> Expr c a
 transExpr = transformBi
 
 transRule :: (Expr' a -> Expr' a) -> Rule' a -> Rule' a
 transRule = transformBi
 
-transRules :: (Expr c a -> Expr c a) -> [Rule c a] -> [Rule c a]
+transRules :: (Expr c a -> Expr c a) -> [Rule (Expr c a)] -> [Rule (Expr c a)]
 transRules = transformBi
 
-removeFuels :: Expr c a -> Expr c a
-removeFuels = transExpr k
+removeFuel :: Expr v (Head a) -> Expr v (Head a)
+removeFuel (App Fuel [e]) = removeFuel e
+removeFuel e = e
+
+fuel :: Expr' a -> Expr' a
+fuel e = App Fuel [e]
+
+lowerFuel :: Rule' a -> Rule' a
+lowerFuel (t :=>: e) = fuel t :=>: lowerFuel e
+lowerFuel (Fact e) = Fact e
+
+complete :: a -> Int -> [Rule' a] -> [Rule' a]
+complete var n rules =
+  [App Fuel [Var var] :=>: Fact (Var var)] ++
+  concatMap (complete1 n) rules
   where
-  k (App h es) = App h (drop 1 es)
-  k (Var x)    = Var x
-
-naked :: Expr c a -> Bool
-naked Var{}      = False
-naked (App _ es) = any variable es
-
-variable :: Expr c a -> Bool
-variable Var{}      = True
-variable (App _ es) = any variable es
-
-constFuel :: Expr' a -> Expr (Head a) a -> Expr (Head a) a
-constFuel fuel (App h es) = App h (fuel:es)
-constFuel _    (Var x)    = Var x
-
-nakedFuel :: Expr' a -> Expr' a -> Expr' a -> Expr' a
-nakedFuel nfuel ofuel (App h es) | any naked es = App h (nfuel:es)
-                                 | otherwise    = App h (ofuel:es)
-nakedFuel _ _         (Var x) = Var x
-
-
-retainFuel :: [Rule' a] -> [Rule' a]
-retainFuel rs = transRules (constFuel fuelN) rs
-
-guardFuel :: [Rule' a] -> [Rule' a]
-guardFuel rs = transRules (nakedFuel fuelN (fuelSucc fuelN)) rs
-
-lowerFuel :: [Rule' a] -> [Rule' a]
-lowerFuel = map go
-  where
-  go (l :=> r) = transExpr (constFuel (fuelSucc fuelN)) l :=> go r
-  go (Fin e)   = Fin (transExpr (constFuel fuelN) e)
-
-debumpFuel :: Expr' a -> [Rule' a]
-debumpFuel e = lowerFuel [e :=> Fin e]
-
-groundFuel :: Int -> [Rule' a] -> [Rule' a]
-groundFuel n = transRules (constFuel (fuelExpr n))
-
-realFuel :: Name a => Rule' a -> Fresh (Rule' a)
-realFuel e =
-  do n <- freshNamed "n"
-     let k (App N []) = Var n
-         k e          = e
-     return (transRule k e)
+    complete1 0 rule = [rule]
+    complete1 n rule =
+      rule:complete1 (n-1) (transRule fuel rule)
 
 --------------------------------------------------------------------------------
 -- Rules
 
 sigRules :: Name a => Signature a -> [Rule' a]
 sigRules (Signature f _ (PolyType tvs args res)) =
-     retainFuel
-       (usort [ App (Fun f) (map Var tvs) :=> Fin (trType t)
-              | t <- res : args
-              ])
-  ++ debumpFuel (App (Fun f) (map Var tvs))
+  usort [ App (Fun f) (map Var tvs) :=>: Fact (App Type [trType t])
+        | t <- res : args
+        ]
 
-declRules :: Name a => (a -> Maybe [a]) -> Int -> Decl a -> [Rule' a]
-declRules polyrec fuel d =
+declRules :: forall a. Name a => [Expr' a] -> (a -> Maybe [a]) -> Decl a -> [Rule' a]
+declRules skolems polyrec d =
   usort $
   case d of
     SortDecl (Sort t _ tvs) ->
-         retainFuel [ App (Con t) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
-      ++ retainFuel [ App (Con t) (map Var tvs) :=> Fin (Var tv) | tv <- tvs ]
-      ++ debumpFuel (App (Con t) (map Var tvs))
+         [ App Type [App (Con t) (map Var tvs)] :=>: Fact (App (Decl d) (map Var tvs)) ]
+      ++ [ App Type [App (Con t) (map Var tvs)] :=>: Fact (App Type [Var tv]) | tv <- tvs ]
+      ++ skolemise tvs (\tvs -> Fact (App Type [App (Con t) tvs]))
 
     SigDecl sig@(Signature f _ pt@(PolyType tvs _ _)) ->
-         retainFuel [ App (Fun f) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
+         [ App (Fun f) (map Var tvs) :=>: Fact (App (Decl d) (map Var tvs)) ]
       ++ sigRules sig
+      ++ skolemise tvs (\tvs -> Fact (App (Fun f) tvs))
 
     DataDecl dt@(Datatype t _ tvs cons) ->
-         retainFuel [ App (Con t) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
-      ++ retainFuel [ App (Con t) (map Var tvs) :=> Fin (Var tv) | tv <- tvs ]
+         [ App Type [App (Con t) (map Var tvs)] :=>: Fact (App (Decl d) (map Var tvs)) ]
+      ++ [ App Type [App (Con t) (map Var tvs)] :=>: Fact (App Type [Var tv]) | tv <- tvs ]
       ++ concat
-           [ retainFuel [ App (Con t) (map Var tvs)
-                          :=> Fin (App (Fun t) (map Var tvs)) ]
+           [ [ App Type [App (Con t) (map Var tvs)]
+                          :=>: Fact (App (Fun t) (map Var tvs)) ]
              ++ sigRules (Signature k [] (globalType info))
            | (k,info) <- dataTypeGlobals dt
            ]
+      ++ skolemise tvs (\tvs -> Fact (App Type [App (Con t) tvs]))
 
-    FuncDecl fn@(Function f _ tvs _ _ b) ->
-         retainFuel [ App (Fun f) (map Var tvs) :=> Fin (App (Decl d) (map Var tvs)) ]
+    FuncDecl fn@(Function f _ tvs args _ b) ->
+         [ App (Fun f) (map Var tvs) :=>: Fact (App (Decl d) (map Var tvs)) ]
+      ++ [ rule (exprRecords b) (App (Decl d) (map Var tvs)) ]
       ++ sigRules (signature fn)
-      ++ retainFuel safe
-      ++ lowerFuel careful
+      ++ safe
+      ++ map lowerFuel careful
+      ++ skolemise tvs (\tvs -> Fact (App (Fun f) tvs))
       where
         mgrp = polyrec f
         (careful,safe) =
           partitionEithers
-            [ side $ App (Decl d) (map Var tvs) :=> Fin r
+            [ side $ App (Decl d) (map Var tvs) :=>: Fact r
             | r <- exprRecords b
             , let side = case (r,mgrp) of
                            (App (Fun f) _,Just grp) | f `elem` grp -> Left
@@ -213,24 +174,30 @@ declRules polyrec fuel d =
             ]
 
     AssertDecl (Formula Prove _ [] b) ->
-         groundFuel fuel [ Fin (App (Decl d) []) ]
-      ++ groundFuel fuel [ Fin r | r <- exprRecords b ]
+         [ Fact (App (Decl d) []) ]
+      ++ [ Fact r | r <- exprRecords b ]
 
     AssertDecl (Formula Prove _ (_:_) _) ->
       error "Monomorphise: cannot monomorphise with polymorphic goal, run --type-skolem-conjecture"
 
     AssertDecl (Formula Assert _ tvs b) ->
-         retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) (exprGlobalRecords b) ]
-      ++ retainFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs)))
-                      [ rec
-                      | rec <- exprGlobalRecords b
-                      , not (F.null rec) -- has some variables in it
-                      ]
-                    ]
-      ++  lowerFuel [ foldr (:=>) (Fin (App (Decl d) (map Var tvs))) pre
-                    | pre <- covers [ (r,F.toList r) | r <- exprGlobalRecords b ]
-                    ]
-      ++ retainFuel [ App (Decl d) (map Var tvs) :=> Fin r | r <- exprRecords b ]
+         [ rule (exprGlobalRecords b) (App (Decl d) (map Var tvs)) ]
+      ++ [ rule
+           [ rec
+           | rec <- exprGlobalRecords b
+           , not (F.null rec) -- has some variables in it
+           ]
+           (App (Decl d) (map Var tvs))
+         ]
+      ++ map lowerFuel [ rule pre (App (Decl d) (map Var tvs))
+                       | pre <- covers [ (r,F.toList r) | r <- exprGlobalRecords b ]
+                       ]
+      ++ [ App (Decl d) (map Var tvs) :=>: Fact r | r <- exprRecords b ]
+      ++ skolemise tvs (\tvs -> Fact (App (Decl d) tvs))
+  where
+    skolemise :: [a] -> ([Expr' a] -> b) -> [b]
+    skolemise tvs f =
+      map f (sequence (map (const skolems) tvs))
 
 --------------------------------------------------------------------------------
 -- Renaming
@@ -262,7 +229,7 @@ renameWith su = transformBi (tyRename su) . transformBi gbl
         in  Global f' (PolyType [] (map at args) (at res)) []
   gbl g0 = g0
 
-renameDecl :: forall a . Name a => Decl a -> [Expr (Head a) Int] -> WriterT [((a,[Type a]),a)] Fresh (Decl a)
+renameDecl :: forall a . Name a => Decl a -> [Expr Int (Head a)] -> WriterT [((a,[Type a]),a)] Fresh (Decl a)
 renameDecl d su =
   case d of
     SortDecl (Sort s attrs tvs)  -> do
@@ -321,14 +288,14 @@ monomorphicDecl d =
     FuncDecl Function{..}  -> null func_tvs
     AssertDecl Formula{..} -> null fm_tvs
 
-specialise :: Name a => [Rule (Head a) Int] -> [(Decl a,[Expr (Head a) Int])]
+specialise :: (Name a, Pretty a) => [Rule (Expr Int (Head a))] -> [(Decl a,[Expr Int (Head a)])]
 specialise = usort . decls . specialiseRules
   where
   decls es =
-    let s = [ (d,map removeFuels xs) | App (Decl d) (App S _:xs) <- es ]
-        z = [ (d',map removeFuels xs)
-            | App (Decl d) (App Z _:xs) <- es
-            , (d,map removeFuels xs) `notElem` s
+    let s = [ (d,xs) | App Fuel [e] <- es, App (Decl d) xs <- [removeFuel e] ]
+        z = [ (d',xs)
+            | App (Decl d) xs <- es
+            , (d,xs) `notElem` s
             , d' <-
                 case d of
                   FuncDecl f   -> [SigDecl (signature f)]
@@ -343,11 +310,13 @@ monomorphise' :: forall a . (Name a,Pretty a) => Bool -> Theory a -> Fresh (Theo
 monomorphise' _verbose thy | monomorphicThy thy = return thy
 monomorphise'  verbose thy =
   do let ds = theoryDecls thy
-     let rules = usort . concat . map (declRules (polyrecursive thy) 1) $ ds
+     let skolems = [ trType (TyCon sort_name []) | sort@Sort{..} <- thy_sorts thy, null sort_tvs, hasAttr skolem sort]
+     var <- freshNamed "rule"
+     let rules = usort $ complete var 1 $ concatMap (declRules skolems (polyrecursive thy)) ds
      when verbose $ traceM (show ("rules:" $\ pp rules))
-     rules' <- mapM (uniq (const Nothing) (const fresh) <=< realFuel) rules
+     let rules' = map (fmap numberVars) rules
      -- when verbose $ traceM (show ("rules':" $\ pp rules'))
-     -- when verbose $ traceM (show ("specialised:" $\ pp (specialiseRules rules')))
+     when verbose $ traceM (show ("specialised:" $\ pp (specialiseRules rules')))
      let insts = specialise rules'
      when verbose $ traceM (show ("insts:" $\ pp insts))
      (insts',renames) <- runWriterT (mapM (uncurry renameDecl) insts)

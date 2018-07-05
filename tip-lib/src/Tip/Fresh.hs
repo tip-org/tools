@@ -9,6 +9,7 @@ import Control.Monad.State.Strict
 import Control.Arrow ((&&&))
 
 import Data.Foldable (Foldable)
+import Data.Typeable
 
 -- | The Fresh monad
 newtype Fresh a = Fresh (State Int a)
@@ -28,7 +29,7 @@ runFreshFrom :: Int -> Fresh a -> a
 runFreshFrom n (Fresh m) = evalState m (n+1)
 
 -- | The Name type class
-class (PrettyVar a, Ord a) => Name a where
+class (PrettyVar a, Ord a, Typeable a) => Name a where
   -- | Make a fresh name that can incorporate the given string
   freshNamed :: String -> Fresh a
 
