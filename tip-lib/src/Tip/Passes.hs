@@ -173,10 +173,10 @@ instance Pass StandardPass where
     LambdaLift           -> single $ lambdaLift
     LetLift              -> single $ letLift
     AxiomatizeLambdas    -> single lambdaLift `followedBy` single axiomatizeLambdas
-    AxiomatizeFuncdefs   -> single $ return . axiomatizeFuncdefs
-    AxiomatizeFuncdefs2  -> single $ return . axiomatizeFuncdefs2
-    AxiomatizeDatadecls    -> single $ axiomatizeDatadecls False
-    AxiomatizeDatadeclsUEQ -> single $ axiomatizeDatadecls True
+    AxiomatizeFuncdefs   -> single (return . axiomatizeFuncdefs)
+    AxiomatizeFuncdefs2  -> single (return . axiomatizeFuncdefs2)
+    AxiomatizeDatadecls    -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls False)
+    AxiomatizeDatadeclsUEQ -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls True)
     Monomorphise b       -> single (typeSkolemConjecture ModeMonomorphise) `followedBy` single (monomorphise b)
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3

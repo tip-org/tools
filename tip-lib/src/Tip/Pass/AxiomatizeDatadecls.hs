@@ -64,20 +64,31 @@ trDatatype ueq dt@Datatype{..} =
          | (k@Constructor{con_args = args_k},j@Constructor{con_args = args_j}) <- diag data_cons
          ]
 
+     -- is-cons(X) <=> X = cons(head(X), tail(X))
+     discrimx <- freshNamed "x"
+     let discriml = Local discrimx (TyCon data_name ty_args)
+     let discrim =
+           [ putAttr dataDiscriminator () $
+             Formula Assert (con_attrs c) data_tvs $
+             mkQuant Forall [discriml] $
+               Gbl (discriminator dt c ty_args) :@: [Lcl discriml] ===
+               (Lcl discriml ===
+                  Gbl (constructor dt c ty_args) :@:
+                    [ Gbl (projector dt c i ty_args) :@: [Lcl discriml]
+                    | i <- [0..length args-1]
+                    ])
+           | c@Constructor{con_args = args} <- data_cons ]
+
      return $
        declsToTheory $
            datatypeSigs dt
-        ++ map AssertDecl (if ueq then inj else domain:inj ++ distinct)
+        ++ map AssertDecl (if ueq then inj else [domain] ++ inj ++ distinct ++ discrim)
 
 datatypeSigs :: Name a => Datatype a -> [Decl a]
 datatypeSigs dt@Datatype{..} =
      [ SortDecl (Sort data_name data_attrs data_tvs) ]
   ++ [ SigDecl (Signature gbl (getAttrs gbl_info) (globalType gbl_info))
-     | (gbl,gbl_info) <- dataTypeGlobals dt
-     , case gbl_info of
-         DiscriminatorInfo{} -> False
-         _ -> True
-     ]
+     | (gbl,gbl_info) <- dataTypeGlobals dt ]
 
 diag :: [a] -> [(a,a)]
 diag xs = [ (x,y) | x:ys <- tails xs, y <- ys ]

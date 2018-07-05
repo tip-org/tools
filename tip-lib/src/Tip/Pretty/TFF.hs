@@ -5,6 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Pretty.Why3(Why3Var(..))
+import Tip.Pretty.SMT()
 import Tip.Types
 import Tip.Core hiding (apply)
 import Tip.Rename
@@ -107,7 +108,10 @@ ppExpr _ (Quant _ q ls e) =
     (ppQuant q <> brackets (fsep (punctuate "," (map ppLocal ls))) <> ":")
     2
     (ppExpr 1 e)
-ppExpr _ _ = error "unsupported expression in TFF"
+ppExpr p e
+  | Just (b, t, e) <- ifView e =
+    ppExpr p ((b ==> t) /\ (neg b ==> e))
+ppExpr _ e = error ("unsupported expression in TFF: " ++ show (pp e))
 
 ppLocal :: PrettyVar a => Local a -> Doc
 ppLocal Local{..} = ppVar lcl_name <> ":" <> ppType lcl_type

@@ -676,11 +676,12 @@ source, axiom :: Attr String
 source = stringAttr "source"
 axiom = stringAttr "axiom"
 
-definition, dataDomain, dataProjection, dataDistinct, lemma, skolem, lambda, letVar :: Attr ()
+definition, dataDomain, dataProjection, dataDistinct, dataDiscriminator, lemma, skolem, lambda, letVar :: Attr ()
 definition = unitAttr "definition"
 dataDomain = unitAttr "data-domain"
 dataProjection = unitAttr "data-projection"
 dataDistinct = unitAttr "data-distinct"
+dataDiscriminator = unitAttr "data-discriminator"
 lemma = unitAttr "lemma"
 skolem = unitAttr "skolem"
 lambda = unitAttr "lambda"
