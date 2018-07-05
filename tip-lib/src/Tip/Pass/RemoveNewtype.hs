@@ -46,8 +46,8 @@ removeNewtype thy@Theory{..} =
       thy {
         thy_datatypes = [ d | d <- thy_datatypes, isNothing (lookupNewtype (data_name d)) ]}
     lookupNewtype tc = do
-      Datatype{data_cons = [Constructor{con_args = [(_, ty)]}]} <- lookupDatatype tc scp
-      guard (and [ tc /= tc | TyCon tc' _ <- universe ty ])
+      Datatype{data_tvs = [], data_cons = [Constructor{con_args = [(_, ty)]}]} <- lookupDatatype tc scp
+      guard (and [ tc /= tc' | TyCon tc' _ <- universe ty ])
             -- OBS: won't work for mutually recursive newtypes such as
             -- data A = C1 [B]
             -- data B = C2 [A]
