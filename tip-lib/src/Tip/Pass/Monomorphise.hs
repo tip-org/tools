@@ -149,7 +149,7 @@ declRules skolems polyrec d =
       ++ [ App Type [App (Con t) (map Var tvs)] :=>: Fact (App Type [Var tv]) | tv <- tvs ]
       ++ concat
            [ [ App Type [App (Con t) (map Var tvs)]
-                          :=>: Fact (App (Fun t) (map Var tvs)) ]
+                          :=>: Fact (App (Fun k) (map Var tvs)) ]
              ++ sigRules (Signature k [] (globalType info))
            | (k,info) <- dataTypeGlobals dt
            ]
