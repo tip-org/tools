@@ -87,21 +87,21 @@ handle passes mode multipath s =
               SMTLIB ax_func_decls ->
                 ( \t -> SMT.ppTheory SMT.smtKeywords t $$ text "(check-sat)"
                 , passes ++
-                  [ Monomorphise False
+                  [ Monomorphise False 1
                   , AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual
                   , SimplifyGently, RemoveMatch
-                  , SimplifyGently, Monomorphise False ]
+                  , SimplifyGently, Monomorphise False 1 ]
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
                   ++ [ SimplifyGently, NegateConjecture, DropAttributes ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory
                 , passes ++
-                  [ Monomorphise False
+                  [ Monomorphise False 1
                   , AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual
-                  , SimplifyGently, Monomorphise False, IfToBoolOp, CommuteMatch
+                  , SimplifyGently, Monomorphise False 1, IfToBoolOp, CommuteMatch
                   , SimplifyGently, AxiomatizeFuncdefs2, RemoveMatch, SimplifyGently, LetLift
                   , SimplifyGently, AxiomatizeDatadecls
                   ]
@@ -109,10 +109,10 @@ handle passes mode multipath s =
               Twee ->
                 ( TFF.ppTheory
                 , passes ++
-                  [ Monomorphise False
+                  [ Monomorphise False 1
                   , AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual
-                  , SimplifyGently, Monomorphise False, IfToBoolOp, IntToNat, RemoveBuiltinBool, CommuteMatch
+                  , SimplifyGently, Monomorphise False 1, IfToBoolOp, IntToNat, RemoveBuiltinBool, CommuteMatch
                   , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
                   , SimplifyGently, AxiomatizeDatadeclsUEQ
                   ]
@@ -120,10 +120,10 @@ handle passes mode multipath s =
               Waldmeister ->
                 ( Waldmeister.ppTheory . freshPass uniqLocals
                 , passes ++
-                  [ Monomorphise False
+                  [ Monomorphise False 1
                   , AxiomatizeLambdas, LetLift
                   , CollapseEqual
-                  , Monomorphise False
+                  , Monomorphise False 1
                   , AxiomatizeFuncdefs2, AxiomatizeDatadeclsUEQ
                   , SkolemiseConjecture
                   ]

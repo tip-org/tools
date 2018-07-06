@@ -281,8 +281,8 @@ renameDecl d su =
 --------------------------------------------------------------------------------
 -- Monomorphisation
 
-monomorphise :: forall a . Name a => Bool -> Theory a -> Fresh (Theory a)
-monomorphise verbose = fmap (fmap unPPVar) . monomorphise' verbose . fmap PPVar
+monomorphise :: forall a . Name a => Bool -> Int -> Theory a -> Fresh (Theory a)
+monomorphise verbose fuel = fmap (fmap unPPVar) . monomorphise' verbose fuel . fmap PPVar
 
 monomorphicThy :: Theory a -> Bool
 monomorphicThy = all monomorphicDecl . theoryDecls
@@ -314,15 +314,17 @@ specialise = usort . decls . specialiseRules
             ]
     in  s ++ z
 
-monomorphise' :: forall a . (Name a,Pretty a) => Bool -> Theory a -> Fresh (Theory a)
-monomorphise' _verbose thy | monomorphicThy thy = return thy
-monomorphise'  verbose thy =
+monomorphise' :: forall a . (Name a,Pretty a) => Bool -> Int -> Theory a -> Fresh (Theory a)
+monomorphise' _verbose fuel _thy | fuel < 0 =
+  error "The number of rounds must be at least 1."
+monomorphise' _verbose _fuel thy | monomorphicThy thy = return thy
+monomorphise'  verbose  fuel thy =
   do let ds = theoryDecls thy
      let skolems = [ trType (TyCon sort_name []) | sort@Sort{..} <- thy_sorts thy, null sort_tvs, hasAttr skolem sort]
      var <- freshNamed "rule"
      let rules0 = usort $ concatMap (declRules skolems (polyrecursive thy)) ds
      when verbose $ traceM (show ("rules0:" $\ pp rules0))
-     let rules = usort $ complete var 1 rules0
+     let rules = usort $ complete var fuel rules0
      when verbose $ traceM (show ("rules:" $\ pp rules))
      let rules' = map (fmap numberVars) rules
      -- when verbose $ traceM (show ("rules':" $\ pp rules'))

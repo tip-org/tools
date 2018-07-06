@@ -131,7 +131,7 @@ data StandardPass
   | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
   | AxiomatizeDatadeclsUEQ
-  | Monomorphise Bool
+  | Monomorphise Bool Int
   | CSEMatch
   | CSEMatchWhy3
   | EliminateDeadCode
@@ -177,7 +177,7 @@ instance Pass StandardPass where
     AxiomatizeFuncdefs2  -> single (return . axiomatizeFuncdefs2)
     AxiomatizeDatadecls    -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls False)
     AxiomatizeDatadeclsUEQ -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls True)
-    Monomorphise b       -> single (typeSkolemConjecture ModeMonomorphise) `followedBy` single (monomorphise b)
+    Monomorphise b n     -> single (typeSkolemConjecture ModeMonomorphise) `followedBy` single (monomorphise b n)
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
     EliminateDeadCode    -> single $ return . eliminateDeadCode
@@ -254,8 +254,13 @@ instance Pass StandardPass where
         help "Transform data declarations to unit equality axioms (incomplete)",
       unitPass SplitFormulas $
         help "Split formulas into simpler parts",
-      flag' () (long ("monomorphise") <> help "Try to monomorphise the problem") *> pure (Monomorphise False),
-      flag' () (long ("monomorphise-verbose") <> help "Try to monomorphise the problem verbosely") *> pure (Monomorphise True),
+      unitPass (Monomorphise False 1) $
+        help "Monomorphise the problem.",
+      fmap (Monomorphise False) $
+        option auto $
+          long "monomorphise-with-rounds" <>
+          metavar "NUMBER-OF-ROUNDS" <>
+          help "Monomorphise the problem. When more rounds are run, more instances are generated.",
       unitPass CSEMatch $
         help "Perform CSE on match scrutinees",
       unitPass CSEMatchWhy3 $
