@@ -254,8 +254,7 @@ instance Pass StandardPass where
         help "Transform data declarations to unit equality axioms (incomplete)",
       unitPass SplitFormulas $
         help "Split formulas into simpler parts",
-      unitPass (Monomorphise False 1) $
-        help "Monomorphise the problem.",
+      flag' () (long "monomorphise" <> help "Monomorphise the problem.") *> pure (Monomorphise False 1),
       fmap (Monomorphise False) $
         option auto $
           long "monomorphise-with-rounds" <>
