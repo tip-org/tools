@@ -35,7 +35,7 @@ parseParams =
         [ flag' debug_flag (long (flagifyShow debug_flag) <> help (debugHelp debug_flag))
         | debug_flag <- [minBound..maxBound] ]
     param_keep =
-      pure Nothing <|> fmap (Just . commaSep) (many (strOption keep_opt))
+      pure Nothing <|> fmap (Just . commaSep) (some (strOption keep_opt))
 
     keep_opt = long "keep" <> short 'k' <> metavar "NAME" <> help "Only keep these functions and properties (default all)"
 
