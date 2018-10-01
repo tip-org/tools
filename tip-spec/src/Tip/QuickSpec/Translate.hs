@@ -122,9 +122,8 @@ trTerm d bm tm =
           hd = mk (matchTypes name tvs ty (trType Outer bm (QS.typ c)))
           missing = drop (length as) (headArgs hd)
           lcls = [Tip.Local (Eta d n) ty | (n, ty) <- zip [0..] missing]
-
       in
-        (if null lcls then id else Tip.Lam lcls) $
+        flip (foldr (Tip.Lam . return)) lcls $
         hd Tip.:@: (map (trTerm (d+1) bm) as ++ map Tip.Lcl lcls)
 
 matchTypes :: (Ord a,PrettyVar a) => String -> [a] -> Tip.Type a -> Tip.Type a -> [Tip.Type a]
