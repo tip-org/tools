@@ -134,6 +134,8 @@ renameHipsterFuns gbl_fun =
       "Zero_nat" -> "Groups.zero_class.zero"
       "one_nat" -> "Groups.one_class.one"
       "plus_nat" -> "Groups.plus_class.plus"
+      "minus_nat" -> "Groups.minus_class.minus"
+      "times_nat" -> "Groups.times_class.times"
       "less_nat" -> "Orderings.ord_class.less"
       "less_eq_nat" -> "Orderings.ord_class.less_eq"
       "greater_nat" -> "Orderings.ord_class.greater"
