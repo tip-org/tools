@@ -165,8 +165,8 @@ trTheory' :: forall a b . (a ~ HsId b,Ord b,PrettyVar b) => Mode -> Theory a -> 
 trTheory' mode thy@Theory{..} =
   Decls $
     concat [space_decl | isSmten mode ]  ++
-    concatMap tr_datatype thy_datatypes ++
     map tr_sort thy_sorts ++
+    concatMap tr_datatype thy_datatypes ++
     concatMap tr_sig thy_sigs ++
     concatMap tr_func thy_funcs ++
     tr_asserts thy_asserts ++
