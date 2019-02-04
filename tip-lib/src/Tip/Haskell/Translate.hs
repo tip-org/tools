@@ -232,12 +232,11 @@ trTheory' mode thy@Theory{..} =
                   (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
     | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
     ++
-    [ InstDecl [H.TyCon (quickCheck "CoArbitrary") [H.TyVar a] | a <- tvs]
+    [ InstDecl [H.TyCon (quickCheck cls) [H.TyVar a] | a <- tvs, cls <- ["Arbitrary", "CoArbitrary"]]
                (H.TyCon (quickCheck "CoArbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                (quickCheck "coarbitrary") []
-               (Apply (quickCheck "genericCoarbitrary") [])]
-    | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
+               (Apply (quickCheck "genericCoarbitrary") [])]]
     ++
     [ InstDecl
         [H.TyCon (lsc "Serial") [H.TyVar a] | a <- tvs]
@@ -819,10 +818,10 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
                   (feat "Enumerable", feat "Enumerable")]
   , let tys = map trType (qsTvs n)
   ] ++
-  [ mk_inst (map (mk_class c1) tys) (mk_class c2 (H.TyCon t tys))
-  | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
-  , (c1,c2) <- [(quickCheck "CoArbitrary",quickCheck "CoArbitrary"),
-                (typeable "Typeable", typeable "Typeable")]
+  [ mk_inst [mk_class c ty | c <- cs, ty <- tys] (mk_class c2 (H.TyCon t tys))
+  | (t,n) <- type_univ
+  , (cs,c2) <- [([quickCheck "Arbitrary", quickCheck "CoArbitrary"],quickCheck "CoArbitrary"),
+                ([typeable "Typeable"], typeable "Typeable")]
   , let tys = map trType (qsTvs n)
   ] ++
   [ mk_inst (map (mk_class (feat "Enumerable")) tys)
