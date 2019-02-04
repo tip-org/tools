@@ -791,7 +791,8 @@ data QuickSpecParams =
     predicates :: Maybe [String],
     use_observers :: Bool,
     use_completion :: Bool,
-    max_size :: Int
+    max_size :: Int,
+    max_test_size :: Int
     }
   deriving (Eq, Ord, Show)
 
@@ -848,6 +849,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   | Signature f _ _ <- thy_sigs
   ] ++
   [Apply (quickSpec "withMaxTermSize") [H.Int (fromIntegral max_size)]] ++
+  [Apply (quickSpec "withMaxTestSize") [H.Int (fromIntegral max_test_size)]] ++
   [Apply (quickSpec "withPruningDepth") [H.Int 0] | not use_completion]
   --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
