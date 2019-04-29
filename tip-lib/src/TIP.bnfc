@@ -4,7 +4,8 @@ Start. Start ::= [Decl];
 [].  [Decl] ::= ;
 (:). [Decl] ::= "(" Decl ")"  [Decl];
 
-DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
+DeclareDatatype.  Decl ::= "declare-datatype" AttrSymbol Datatype;
+DeclareDatatypes. Decl ::= "declare-datatypes" "(" [DatatypeName] ")" "(" [Datatype] ")";
 DeclareSort.      Decl ::= "declare-sort" AttrSymbol Integer;
 DeclareConst.     Decl ::= "declare-const" AttrSymbol ConstType ;
 DeclareFun.       Decl ::= "declare-fun" AttrSymbol FunType;
@@ -30,7 +31,10 @@ InnerFunDec.  InnerFunDec ::= "(" [Binding] ")" Type;
 FunDecMono.   FunDec ::= AttrSymbol InnerFunDec;
 FunDecPoly.   FunDec ::= AttrSymbol "(" Par "(" InnerFunDec ")" ")";
 
-Datatype.     Datatype ::= "(" AttrSymbol [Constructor] ")";
+DatatypeName. DatatypeName ::= "(" AttrSymbol Integer ")";
+InnerDatatype. InnerDatatype ::= "(" [Constructor] ")";
+DatatypeMono. Datatype ::= InnerDatatype;
+DatatypePoly. Datatype ::= "(" Par InnerDatatype ")";
 Constructor.  Constructor ::= "(" AttrSymbol [Binding] ")";
 
 Binding. Binding ::= "(" Symbol Type ")";
@@ -105,6 +109,7 @@ terminator Symbol "";
 terminator Type "";
 terminator FunDec "";
 terminator Attr "";
+terminator DatatypeName "";
 
 Unquoted. Symbol ::= UnquotedSymbol;
 Quoted.   Symbol ::= QuotedSymbol;

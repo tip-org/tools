@@ -18,6 +18,8 @@ import Tip.Parser.ErrM
 %name pFunType FunType
 %name pInnerFunDec InnerFunDec
 %name pFunDec FunDec
+%name pDatatypeName DatatypeName
+%name pInnerDatatype InnerDatatype
 %name pDatatype Datatype
 %name pConstructor Constructor
 %name pBinding Binding
@@ -42,6 +44,7 @@ import Tip.Parser.ErrM
 %name pListType ListType
 %name pListFunDec ListFunDec
 %name pListAttr ListAttr
+%name pListDatatypeName ListDatatypeName
 %name pSymbol Symbol
 -- no lexer declaration
 %monad { Err } { thenM } { returnM }
@@ -68,29 +71,30 @@ import Tip.Parser.ErrM
   'assert' { PT _ (TS _ 19) }
   'case' { PT _ (TS _ 20) }
   'declare-const' { PT _ (TS _ 21) }
-  'declare-datatypes' { PT _ (TS _ 22) }
-  'declare-fun' { PT _ (TS _ 23) }
-  'declare-sort' { PT _ (TS _ 24) }
-  'default' { PT _ (TS _ 25) }
-  'define-fun' { PT _ (TS _ 26) }
-  'define-fun-rec' { PT _ (TS _ 27) }
-  'define-funs-rec' { PT _ (TS _ 28) }
-  'distinct' { PT _ (TS _ 29) }
-  'div' { PT _ (TS _ 30) }
-  'exists' { PT _ (TS _ 31) }
-  'false' { PT _ (TS _ 32) }
-  'forall' { PT _ (TS _ 33) }
-  'ite' { PT _ (TS _ 34) }
-  'lambda' { PT _ (TS _ 35) }
-  'let' { PT _ (TS _ 36) }
-  'match' { PT _ (TS _ 37) }
-  'mod' { PT _ (TS _ 38) }
-  'not' { PT _ (TS _ 39) }
-  'or' { PT _ (TS _ 40) }
-  'par' { PT _ (TS _ 41) }
-  'prove' { PT _ (TS _ 42) }
-  'to_real' { PT _ (TS _ 43) }
-  'true' { PT _ (TS _ 44) }
+  'declare-datatype' { PT _ (TS _ 22) }
+  'declare-datatypes' { PT _ (TS _ 23) }
+  'declare-fun' { PT _ (TS _ 24) }
+  'declare-sort' { PT _ (TS _ 25) }
+  'default' { PT _ (TS _ 26) }
+  'define-fun' { PT _ (TS _ 27) }
+  'define-fun-rec' { PT _ (TS _ 28) }
+  'define-funs-rec' { PT _ (TS _ 29) }
+  'distinct' { PT _ (TS _ 30) }
+  'div' { PT _ (TS _ 31) }
+  'exists' { PT _ (TS _ 32) }
+  'false' { PT _ (TS _ 33) }
+  'forall' { PT _ (TS _ 34) }
+  'ite' { PT _ (TS _ 35) }
+  'lambda' { PT _ (TS _ 36) }
+  'let' { PT _ (TS _ 37) }
+  'match' { PT _ (TS _ 38) }
+  'mod' { PT _ (TS _ 39) }
+  'not' { PT _ (TS _ 40) }
+  'or' { PT _ (TS _ 41) }
+  'par' { PT _ (TS _ 42) }
+  'prove' { PT _ (TS _ 43) }
+  'to_real' { PT _ (TS _ 44) }
+  'true' { PT _ (TS _ 45) }
 
 L_integ  { PT _ (TI $$) }
 L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
@@ -110,7 +114,8 @@ Start : ListDecl { Tip.Parser.AbsTIP.Start $1 }
 ListDecl :: { [Decl] }
 ListDecl : {- empty -} { [] } | '(' Decl ')' ListDecl { (:) $2 $4 }
 Decl :: { Decl }
-Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
+Decl : 'declare-datatype' AttrSymbol Datatype { Tip.Parser.AbsTIP.DeclareDatatype $2 $3 }
+     | 'declare-datatypes' '(' ListDatatypeName ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
      | 'declare-sort' AttrSymbol Integer { Tip.Parser.AbsTIP.DeclareSort $2 $3 }
      | 'declare-const' AttrSymbol ConstType { Tip.Parser.AbsTIP.DeclareConst $2 $3 }
      | 'declare-fun' AttrSymbol FunType { Tip.Parser.AbsTIP.DeclareFun $2 $3 }
@@ -137,8 +142,13 @@ InnerFunDec : '(' ListBinding ')' Type { Tip.Parser.AbsTIP.InnerFunDec (reverse 
 FunDec :: { FunDec }
 FunDec : AttrSymbol InnerFunDec { Tip.Parser.AbsTIP.FunDecMono $1 $2 }
        | AttrSymbol '(' Par '(' InnerFunDec ')' ')' { Tip.Parser.AbsTIP.FunDecPoly $1 $3 $5 }
+DatatypeName :: { DatatypeName }
+DatatypeName : '(' AttrSymbol Integer ')' { Tip.Parser.AbsTIP.DatatypeName $2 $3 }
+InnerDatatype :: { InnerDatatype }
+InnerDatatype : '(' ListConstructor ')' { Tip.Parser.AbsTIP.InnerDatatype (reverse $2) }
 Datatype :: { Datatype }
-Datatype : '(' AttrSymbol ListConstructor ')' { Tip.Parser.AbsTIP.Datatype $2 (reverse $3) }
+Datatype : InnerDatatype { Tip.Parser.AbsTIP.DatatypeMono $1 }
+         | '(' Par InnerDatatype ')' { Tip.Parser.AbsTIP.DatatypePoly $2 $3 }
 Constructor :: { Constructor }
 Constructor : '(' AttrSymbol ListBinding ')' { Tip.Parser.AbsTIP.Constructor $2 (reverse $3) }
 Binding :: { Binding }
@@ -230,6 +240,9 @@ ListFunDec : {- empty -} { [] }
            | ListFunDec FunDec { flip (:) $1 $2 }
 ListAttr :: { [Attr] }
 ListAttr : {- empty -} { [] } | ListAttr Attr { flip (:) $1 $2 }
+ListDatatypeName :: { [DatatypeName] }
+ListDatatypeName : {- empty -} { [] }
+                 | ListDatatypeName DatatypeName { flip (:) $1 $2 }
 Symbol :: { Symbol }
 Symbol : UnquotedSymbol { Tip.Parser.AbsTIP.Unquoted $1 }
        | QuotedSymbol { Tip.Parser.AbsTIP.Quoted $1 }

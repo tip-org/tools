@@ -16,7 +16,8 @@ data Start = Start [Decl]
   deriving (Eq, Ord, Show, Read)
 
 data Decl
-    = DeclareDatatypes [Symbol] [Datatype]
+    = DeclareDatatype AttrSymbol Datatype
+    | DeclareDatatypes [DatatypeName] [Datatype]
     | DeclareSort AttrSymbol Integer
     | DeclareConst AttrSymbol ConstType
     | DeclareFun AttrSymbol FunType
@@ -51,7 +52,14 @@ data FunDec
     | FunDecPoly AttrSymbol Par InnerFunDec
   deriving (Eq, Ord, Show, Read)
 
-data Datatype = Datatype AttrSymbol [Constructor]
+data DatatypeName = DatatypeName AttrSymbol Integer
+  deriving (Eq, Ord, Show, Read)
+
+data InnerDatatype = InnerDatatype [Constructor]
+  deriving (Eq, Ord, Show, Read)
+
+data Datatype
+    = DatatypeMono InnerDatatype | DatatypePoly Par InnerDatatype
   deriving (Eq, Ord, Show, Read)
 
 data Constructor = Constructor AttrSymbol [Binding]

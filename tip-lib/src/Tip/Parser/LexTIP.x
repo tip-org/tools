@@ -21,7 +21,7 @@ $i = [$l $d _ ']          -- identifier character
 $u = [\0-\255]          -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \( | \) | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \= | \_
+   \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \= | \_
 
 :-
 ";" [.]* ; -- Toss single line comments
@@ -109,7 +109,7 @@ eitherResIdent tv s = treeFind resWords
                               | s == a = t
 
 resWords :: BTree
-resWords = b "declare-fun" 23 (b ">=" 12 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b ">" 11 (b "=>" 10 N N) N))) (b "and" 18 (b "Int" 15 (b "Bool" 14 (b "@" 13 N N) N) (b "_" 17 (b "Real" 16 N N) N)) (b "declare-const" 21 (b "case" 20 (b "assert" 19 N N) N) (b "declare-datatypes" 22 N N)))) (b "ite" 34 (b "distinct" 29 (b "define-fun" 26 (b "default" 25 (b "declare-sort" 24 N N) N) (b "define-funs-rec" 28 (b "define-fun-rec" 27 N N) N)) (b "false" 32 (b "exists" 31 (b "div" 30 N N) N) (b "forall" 33 N N))) (b "or" 40 (b "match" 37 (b "let" 36 (b "lambda" 35 N N) N) (b "not" 39 (b "mod" 38 N N) N)) (b "to_real" 43 (b "prove" 42 (b "par" 41 N N) N) (b "true" 44 N N))))
+resWords = b "declare-datatypes" 23 (b ">=" 12 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b ">" 11 (b "=>" 10 N N) N))) (b "and" 18 (b "Int" 15 (b "Bool" 14 (b "@" 13 N N) N) (b "_" 17 (b "Real" 16 N N) N)) (b "declare-const" 21 (b "case" 20 (b "assert" 19 N N) N) (b "declare-datatype" 22 N N)))) (b "ite" 35 (b "define-funs-rec" 29 (b "default" 26 (b "declare-sort" 25 (b "declare-fun" 24 N N) N) (b "define-fun-rec" 28 (b "define-fun" 27 N N) N)) (b "exists" 32 (b "div" 31 (b "distinct" 30 N N) N) (b "forall" 34 (b "false" 33 N N) N))) (b "or" 41 (b "match" 38 (b "let" 37 (b "lambda" 36 N N) N) (b "not" 40 (b "mod" 39 N N) N)) (b "to_real" 44 (b "prove" 43 (b "par" 42 N N) N) (b "true" 45 N N))))
    where b s n = let bs = id s
                   in B bs (TS bs n)
 

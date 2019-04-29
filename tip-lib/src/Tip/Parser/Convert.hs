@@ -100,17 +100,28 @@ trDecl :: A.Decl -> CM (Theory Id)
 trDecl x =
   local $
     case x of
-      DeclareDatatypes tvs datatypes ->
+      DeclareDatatype name datatype ->
+        let (Par tvs, _) = unpackData datatype in
+        trDecl (DeclareDatatypes [DatatypeName name (fromIntegral (length tvs))] [datatype])
+      DeclareDatatypes names datatypes ->
         do -- add their types, abstractly
-           forM_ datatypes $ \dt -> do
-             sym <- addSym GlobalId (dataSym dt)
-             tvi <- mapM (addSym LocalId) tvs
-             newSort (Sort sym (trAttrs (dataAttrs dt)) tvi)
-           newScope $
-             do tvi <- mapM (addSym LocalId) tvs
-                mapM newTyVar tvi
-                ds <- mapM (trDatatype tvi) datatypes
-                return emptyTheory{ thy_datatypes = ds }
+           unless (length names == length datatypes) $
+             throwError "declare-datatypes used with different number of names and definitions"
+           forM_ (zip names datatypes) $ \(DatatypeName (AttrSymbol name attrs) arity, dt0) -> do
+             let (Par tvs, _) = unpackData dt0
+             unless (arity == fromIntegral (length tvs)) $
+               throwError "declare-datatypes: arity declaration does not match number of type variables"
+             sym <- addSym GlobalId name
+             newScope $ do
+               tvi <- mapM (addSym LocalId) tvs
+               newSort (Sort sym (trAttrs attrs) tvi)
+           ds <- forM (zip names datatypes) $ \(DatatypeName name _, dt0) ->
+             newScope $ do
+               let (Par tvs, dt) = unpackData dt0
+               tvi <- mapM (addSym LocalId) tvs
+               mapM newTyVar tvi
+               trDatatype tvi name dt
+           return emptyTheory{ thy_datatypes = ds }
 
       DeclareSort (AttrSymbol s attrs) n ->
         do i <- addSym GlobalId s
@@ -147,6 +158,8 @@ trDecl x =
 
       DefineFunsRec decs bodies ->
         do -- add their correct types, abstractly
+           unless (length decs == length bodies) $
+             throwError "define-funs-rec used with different number of signatures and bodies"
            fds <- sequence [trFunDecl sym tvs (map bindingType binds) ty | (sym, tvs, binds, ty) <- map unpackFunDec decs]
            withTheory emptyTheory{ thy_sigs = fds } $ do
              fns <- sequence
@@ -192,14 +205,12 @@ trFunDef (AttrSymbol fsym attrs) (Par tvs) bindings res_type body =
        args <- mapM trLocalBinding bindings
        Function f (trAttrs attrs) tvi args <$> trType res_type <*> trExpr body
 
-dataSym :: A.Datatype -> Symbol
-dataSym (A.Datatype (AttrSymbol sym _) _) = sym
+unpackData :: A.Datatype -> (Par, A.InnerDatatype)
+unpackData (DatatypeMono dt) = (emptyPar, dt)
+unpackData (DatatypePoly par dt) = (par, dt)
 
-dataAttrs :: A.Datatype -> [A.Attr]
-dataAttrs (A.Datatype (AttrSymbol _ attrs) _) = attrs
-
-trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
-trDatatype tvs (A.Datatype (AttrSymbol sym attrs) constructors) =
+trDatatype :: [Id] -> AttrSymbol -> A.InnerDatatype -> CM (T.Datatype Id)
+trDatatype tvs (AttrSymbol sym attrs) (A.InnerDatatype constructors) =
   do x <- lkSym sym
      T.Datatype x (trAttrs attrs) tvs <$> mapM trConstructor constructors
 
