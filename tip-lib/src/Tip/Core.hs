@@ -413,7 +413,10 @@ letExpr (Lcl x) k = k x
 letExpr b k =
   do v <- freshLocal (exprType b)
      rest <- k v
-     return (Let v b rest)
+     if v `elem` bound rest then
+       return (Let v b rest)
+     else
+       return rest
 
 -- | Substitution, but without refreshing. Only use when the replacement
 -- expression contains no binders (i.e. no lambdas, no lets, no quantifiers),

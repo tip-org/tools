@@ -270,7 +270,7 @@ smtQuoted :: [String]
 smtQuoted = [
   "check-sat", "assert", "assert-not", "declare-datatypes",
   "declare-sort", "declare-const", "declare-fun", "define-fun",
-  "define-fun-rec", "define-funs-rec", "par", "case", "default" ]
+  "define-fun-rec", "define-funs-rec", "par", "case"]
 
 -- Keywords which can not be used at all in TIP
 -- (e.g. predefined types and functions)
@@ -279,7 +279,7 @@ tipKeywords = [
   "Int", "Real", "Bool", "as", "match", "let", "true", "false",
   "lambda", "forall", "exists", "@", "ite", "if", "and", "or", "not",
   "=>", "=", "equals", "distinct", "+", "-", "*", "/", "div", "mod",
-  ">", ">=", "<", "<=", "to_real", "!"]
+  ">", ">=", "<", "<=", "to_real", "!", "default"]
 
 -- Keywords which can not be used at all in some SMT solvers
 smtKeywords :: [String]

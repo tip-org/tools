@@ -109,7 +109,7 @@ eitherResIdent tv s = treeFind resWords
                               | s == a = t
 
 resWords :: BTree
-resWords = b "declare-datatypes" 23 (b ">=" 12 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b ">" 11 (b "=>" 10 N N) N))) (b "and" 18 (b "Int" 15 (b "Bool" 14 (b "@" 13 N N) N) (b "_" 17 (b "Real" 16 N N) N)) (b "declare-const" 21 (b "case" 20 (b "assert" 19 N N) N) (b "declare-datatype" 22 N N)))) (b "ite" 35 (b "define-funs-rec" 29 (b "default" 26 (b "declare-sort" 25 (b "declare-fun" 24 N N) N) (b "define-fun-rec" 28 (b "define-fun" 27 N N) N)) (b "exists" 32 (b "div" 31 (b "distinct" 30 N N) N) (b "forall" 34 (b "false" 33 N N) N))) (b "or" 41 (b "match" 38 (b "let" 37 (b "lambda" 36 N N) N) (b "not" 40 (b "mod" 39 N N) N)) (b "to_real" 44 (b "prove" 43 (b "par" 42 N N) N) (b "true" 45 N N))))
+resWords = b "declare-datatypes" 22 (b ">" 11 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b "=>" 10 N N))) (b "_" 17 (b "Bool" 14 (b "@" 13 (b ">=" 12 N N) N) (b "Real" 16 (b "Int" 15 N N) N)) (b "declare-const" 20 (b "assert" 19 (b "and" 18 N N) N) (b "declare-datatype" 21 N N)))) (b "ite" 33 (b "distinct" 28 (b "define-fun" 25 (b "declare-sort" 24 (b "declare-fun" 23 N N) N) (b "define-funs-rec" 27 (b "define-fun-rec" 26 N N) N)) (b "false" 31 (b "exists" 30 (b "div" 29 N N) N) (b "forall" 32 N N))) (b "or" 39 (b "match" 36 (b "let" 35 (b "lambda" 34 N N) N) (b "not" 38 (b "mod" 37 N N) N)) (b "to_real" 42 (b "prove" 41 (b "par" 40 N N) N) (b "true" 43 N N))))
    where b s n = let bs = id s
                   in B bs (TS bs n)
 

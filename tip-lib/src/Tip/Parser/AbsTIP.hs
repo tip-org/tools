@@ -99,7 +99,7 @@ data Case = Case Pattern Expr
   deriving (Eq, Ord, Show, Read)
 
 data Pattern
-    = Default | ConPat Symbol [Symbol] | SimplePat Symbol | LitPat Lit
+    = ConPat Symbol [Symbol] | SimplePat Symbol | LitPat Lit
   deriving (Eq, Ord, Show, Read)
 
 data Head

@@ -69,32 +69,30 @@ import Tip.Parser.ErrM
   '_' { PT _ (TS _ 17) }
   'and' { PT _ (TS _ 18) }
   'assert' { PT _ (TS _ 19) }
-  'case' { PT _ (TS _ 20) }
-  'declare-const' { PT _ (TS _ 21) }
-  'declare-datatype' { PT _ (TS _ 22) }
-  'declare-datatypes' { PT _ (TS _ 23) }
-  'declare-fun' { PT _ (TS _ 24) }
-  'declare-sort' { PT _ (TS _ 25) }
-  'default' { PT _ (TS _ 26) }
-  'define-fun' { PT _ (TS _ 27) }
-  'define-fun-rec' { PT _ (TS _ 28) }
-  'define-funs-rec' { PT _ (TS _ 29) }
-  'distinct' { PT _ (TS _ 30) }
-  'div' { PT _ (TS _ 31) }
-  'exists' { PT _ (TS _ 32) }
-  'false' { PT _ (TS _ 33) }
-  'forall' { PT _ (TS _ 34) }
-  'ite' { PT _ (TS _ 35) }
-  'lambda' { PT _ (TS _ 36) }
-  'let' { PT _ (TS _ 37) }
-  'match' { PT _ (TS _ 38) }
-  'mod' { PT _ (TS _ 39) }
-  'not' { PT _ (TS _ 40) }
-  'or' { PT _ (TS _ 41) }
-  'par' { PT _ (TS _ 42) }
-  'prove' { PT _ (TS _ 43) }
-  'to_real' { PT _ (TS _ 44) }
-  'true' { PT _ (TS _ 45) }
+  'declare-const' { PT _ (TS _ 20) }
+  'declare-datatype' { PT _ (TS _ 21) }
+  'declare-datatypes' { PT _ (TS _ 22) }
+  'declare-fun' { PT _ (TS _ 23) }
+  'declare-sort' { PT _ (TS _ 24) }
+  'define-fun' { PT _ (TS _ 25) }
+  'define-fun-rec' { PT _ (TS _ 26) }
+  'define-funs-rec' { PT _ (TS _ 27) }
+  'distinct' { PT _ (TS _ 28) }
+  'div' { PT _ (TS _ 29) }
+  'exists' { PT _ (TS _ 30) }
+  'false' { PT _ (TS _ 31) }
+  'forall' { PT _ (TS _ 32) }
+  'ite' { PT _ (TS _ 33) }
+  'lambda' { PT _ (TS _ 34) }
+  'let' { PT _ (TS _ 35) }
+  'match' { PT _ (TS _ 36) }
+  'mod' { PT _ (TS _ 37) }
+  'not' { PT _ (TS _ 38) }
+  'or' { PT _ (TS _ 39) }
+  'par' { PT _ (TS _ 40) }
+  'prove' { PT _ (TS _ 41) }
+  'to_real' { PT _ (TS _ 42) }
+  'true' { PT _ (TS _ 43) }
 
 L_integ  { PT _ (TI $$) }
 L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
@@ -165,7 +163,7 @@ Type : Symbol { Tip.Parser.AbsTIP.TyVar $1 }
 Expr :: { Expr }
 Expr : PolySymbol { Tip.Parser.AbsTIP.Var $1 }
      | '(' Head ListExpr ')' { Tip.Parser.AbsTIP.App $2 (reverse $3) }
-     | '(' 'match' Expr ListCase ')' { Tip.Parser.AbsTIP.Match $3 (reverse $4) }
+     | '(' 'match' Expr '(' ListCase ')' ')' { Tip.Parser.AbsTIP.Match $3 (reverse $5) }
      | '(' 'let' '(' ListLetDecl ')' Expr ')' { Tip.Parser.AbsTIP.Let (reverse $4) $6 }
      | '(' Binder '(' ListBinding ')' Expr ')' { Tip.Parser.AbsTIP.Binder $2 (reverse $4) $6 }
      | Lit { Tip.Parser.AbsTIP.Lit $1 }
@@ -179,10 +177,9 @@ Binder : 'lambda' { Tip.Parser.AbsTIP.Lambda }
        | 'forall' { Tip.Parser.AbsTIP.Forall }
        | 'exists' { Tip.Parser.AbsTIP.Exists }
 Case :: { Case }
-Case : '(' 'case' Pattern Expr ')' { Tip.Parser.AbsTIP.Case $3 $4 }
+Case : '(' Pattern Expr ')' { Tip.Parser.AbsTIP.Case $2 $3 }
 Pattern :: { Pattern }
-Pattern : 'default' { Tip.Parser.AbsTIP.Default }
-        | '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
+Pattern : '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
         | Symbol { Tip.Parser.AbsTIP.SimplePat $1 }
         | Lit { Tip.Parser.AbsTIP.LitPat $1 }
 Head :: { Head }

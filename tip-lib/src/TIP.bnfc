@@ -50,7 +50,7 @@ BoolTy.  Type ::= "Bool";
 
 Var.       Expr ::= PolySymbol;
 App.       Expr ::= "(" Head [Expr] ")";
-Match.     Expr ::= "(" "match" Expr [Case] ")";
+Match.     Expr ::= "(" "match" Expr "(" [Case] ")" ")";
 Let.       Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
 Binder.    Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
 Lit.       Expr ::= Lit;
@@ -64,9 +64,8 @@ Lambda. Binder ::= "lambda";
 Forall. Binder ::= "forall";
 Exists. Binder ::= "exists";
 
-Case.    Case ::= "(" "case" Pattern Expr ")";
+Case.    Case ::= "(" Pattern Expr ")";
 
-Default.    Pattern ::= "default";
 ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
 SimplePat.  Pattern ::= Symbol;
 LitPat.     Pattern ::= Lit;
