@@ -112,42 +112,47 @@ trDecl x =
                 ds <- mapM (trDatatype tvi) datatypes
                 return emptyTheory{ thy_datatypes = ds }
 
-      DeclareSort (A.AttrSymbol s attrs) n ->
+      DeclareSort (AttrSymbol s attrs) n ->
         do i <- addSym GlobalId s
            tvs <- lift . lift $ mapM refresh (replicate (fromInteger n) i)
            return emptyTheory{ thy_sorts = [Sort i (trAttrs attrs) tvs] }
 
-      DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
+      DeclareConst sym (ConstTypeMono ty) ->
+        trDecl (DeclareFun sym (FunTypeMono (InnerFunType [] ty)))
+      DeclareConst sym (ConstTypePoly par ty) ->
+        trDecl (DeclareFun sym (FunTypePoly par (InnerFunType [] ty)))
 
-      DeclareConstPar par (ConstDecl s t) -> trDecl (DeclareFunPar par (FunDecl s [] t))
-
-      DeclareFun        decl -> trDecl (DeclareFunPar emptyPar decl)
-      DeclareFunPar par decl ->
-        do d <- trFunDecl par decl
+      DeclareFun sym (FunTypeMono ty) ->
+        trDecl (DeclareFun sym (FunTypePoly emptyPar ty))
+      DeclareFun sym (FunTypePoly par (InnerFunType args ty)) ->
+        do d <- trFunDecl sym par args ty
            return emptyTheory{ thy_sigs = [d] }
 
-      DefineFun        def -> trDecl (DefineFunPar emptyPar def)
-      DefineFunPar par def@(FunDef (A.AttrSymbol f _) _ _ _) ->
-        do thy <- trDecl (DefineFunRecPar par def)
+      DefineFun (FunDecMono sym ty) body ->
+        trDecl (DefineFun (FunDecPoly sym emptyPar ty) body)
+      DefineFun dec@(FunDecPoly (AttrSymbol f _) _ _) body ->
+        do thy <- trDecl (DefineFunRec dec body)
            let [fn] = thy_funcs thy
            when (func_name fn `elem` uses fn)
                 (throwError $ ppSym f <+> "is recursive, but define-fun-rec was not used!")
            return thy
 
-      DefineFunRec        def -> trDecl (DefineFunRecPar emptyPar def)
-      DefineFunRecPar par def ->
-        do sig <- trFunDecl par (defToDecl def)
+      DefineFunRec (FunDecMono sym ty) body ->
+        trDecl (DefineFunRec (FunDecPoly sym emptyPar ty) body)
+      DefineFunRec (FunDecPoly sym par (InnerFunDec binds ty)) body ->
+        do sig <- trFunDecl sym par (map bindingType binds) ty
            withTheory emptyTheory{ thy_sigs = [sig] } $ do
-             fn <- trFunDef par def
+             fn <- trFunDef sym par binds ty body
              return emptyTheory{ thy_funcs = [fn] }
 
       DefineFunsRec decs bodies ->
         do -- add their correct types, abstractly
-           fds <- mapM (uncurry trFunDecl . decToDecl) decs
+           fds <- sequence [trFunDecl sym tvs (map bindingType binds) ty | (sym, tvs, binds, ty) <- map unpackFunDec decs]
            withTheory emptyTheory{ thy_sigs = fds } $ do
              fns <- sequence
-                [ uncurry trFunDef (decToDef dec body)
-                | (dec,body) <- decs `zip` bodies
+                [ trFunDef sym par binds ty body
+                | (dec,body) <- decs `zip` bodies,
+                  let (sym, par, binds, ty) = unpackFunDec dec
                 ]
              return emptyTheory{ thy_funcs = fns }
 
@@ -163,18 +168,14 @@ trDecl x =
 emptyPar :: Par
 emptyPar = Par []
 
-decToDecl :: FunDec -> (Par,FunDecl)
-decToDecl dec = case dec of
-  MonoFunDec inner -> decToDecl (ParFunDec emptyPar inner)
-  ParFunDec par (InnerFunDec fsym bindings res_type) ->
-    (par,FunDecl fsym (map bindingType bindings) res_type)
+unpackFunDec :: FunDec -> (AttrSymbol, Par, [Binding], A.Type)
+unpackFunDec (FunDecMono sym (InnerFunDec binds ty)) =
+  (sym, emptyPar, binds, ty)
+unpackFunDec (FunDecPoly sym par (InnerFunDec binds ty)) =
+  (sym, par, binds, ty)
 
-defToDecl :: FunDef -> FunDecl
-defToDecl (FunDef fsym bindings res_type _) =
-  FunDecl fsym (map bindingType bindings) res_type
-
-trFunDecl :: Par -> FunDecl -> CM (T.Signature Id)
-trFunDecl (Par tvs) (FunDecl (A.AttrSymbol fsym attrs) args res) =
+trFunDecl :: AttrSymbol -> Par -> [A.Type] -> A.Type -> CM (T.Signature Id)
+trFunDecl (AttrSymbol fsym attrs) (Par tvs) args res =
     newScope $
       do f <- addSym GlobalId fsym
          tvi <- mapM (addSym LocalId) tvs
@@ -182,14 +183,8 @@ trFunDecl (Par tvs) (FunDecl (A.AttrSymbol fsym attrs) args res) =
          pt <- PolyType tvi <$> mapM trType args <*> trType res
          return (Signature f (trAttrs attrs) pt)
 
-decToDef :: FunDec -> A.Expr -> (Par,FunDef)
-decToDef dec body = case dec of
-  MonoFunDec inner -> decToDef (ParFunDec emptyPar inner) body
-  ParFunDec par (InnerFunDec fsym bindings res_type) ->
-    (par,FunDef fsym bindings res_type body)
-
-trFunDef :: Par -> FunDef -> CM (T.Function Id)
-trFunDef (Par tvs) (FunDef (A.AttrSymbol fsym attrs) bindings res_type body) =
+trFunDef :: AttrSymbol -> Par -> [Binding] -> A.Type -> A.Expr -> CM (T.Function Id)
+trFunDef (AttrSymbol fsym attrs) (Par tvs) bindings res_type body =
   newScope $
     do f <- lkSym fsym
        tvi <- mapM (addSym LocalId) tvs
@@ -198,18 +193,18 @@ trFunDef (Par tvs) (FunDef (A.AttrSymbol fsym attrs) bindings res_type body) =
        Function f (trAttrs attrs) tvi args <$> trType res_type <*> trExpr body
 
 dataSym :: A.Datatype -> Symbol
-dataSym (A.Datatype (A.AttrSymbol sym _) _) = sym
+dataSym (A.Datatype (AttrSymbol sym _) _) = sym
 
 dataAttrs :: A.Datatype -> [A.Attr]
-dataAttrs (A.Datatype (A.AttrSymbol _ attrs) _) = attrs
+dataAttrs (A.Datatype (AttrSymbol _ attrs) _) = attrs
 
 trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
-trDatatype tvs (A.Datatype (A.AttrSymbol sym attrs) constructors) =
+trDatatype tvs (A.Datatype (AttrSymbol sym attrs) constructors) =
   do x <- lkSym sym
      T.Datatype x (trAttrs attrs) tvs <$> mapM trConstructor constructors
 
 trConstructor :: A.Constructor -> CM (T.Constructor Id)
-trConstructor (A.Constructor (A.AttrSymbol name attrs) args) =
+trConstructor (A.Constructor (AttrSymbol name attrs) args) =
   do c <- addSym GlobalId name
      is_c <- addSym GlobalId (Unquoted (UnquotedSymbol (symPos name, "is-" ++ symStr name)))
      T.Constructor c (trAttrs attrs) is_c <$> mapM (trBinding GlobalId) args

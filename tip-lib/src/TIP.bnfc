@@ -6,14 +6,10 @@ Start. Start ::= [Decl];
 
 DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
 DeclareSort.      Decl ::= "declare-sort" AttrSymbol Integer;
-DeclareConst.     Decl ::= "declare-const" ConstDecl;
-DeclareConstPar.  Decl ::= "declare-const" "(" Par "(" ConstDecl ")" ")";
-DeclareFun.       Decl ::= "declare-fun" FunDecl;
-DeclareFunPar.    Decl ::= "declare-fun" "(" Par "(" FunDecl ")" ")";
-DefineFun.        Decl ::= "define-fun" FunDef;
-DefineFunPar.     Decl ::= "define-fun" "(" Par "(" FunDef ")" ")";
-DefineFunRec.     Decl ::= "define-fun-rec" FunDef;
-DefineFunRecPar.  Decl ::= "define-fun-rec" "(" Par "(" FunDef ")" ")";
+DeclareConst.     Decl ::= "declare-const" AttrSymbol ConstType ;
+DeclareFun.       Decl ::= "declare-fun" AttrSymbol FunType;
+DefineFun.        Decl ::= "define-fun" FunDec Expr;
+DefineFunRec.     Decl ::= "define-fun-rec" FunDec Expr;
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
 Formula.          Decl ::= Assertion [Attr] Expr;
 FormulaPar.       Decl ::= Assertion [Attr] "(" Par Expr ")";
@@ -23,15 +19,16 @@ Prove.  Assertion ::= "prove";
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
-ConstDecl.   ConstDecl ::= AttrSymbol Type;
+ConstTypeMono. ConstType ::= Type;
+ConstTypePoly. ConstType ::= "(" Par Type ")";
 
-FunDecl.     FunDecl ::= AttrSymbol "(" [Type] ")" Type;
+InnerFunType. InnerFunType ::= "(" [Type] ")" Type;
+FunTypeMono.  FunType ::= InnerFunType;
+FunTypePoly.  FunType ::= "(" Par "(" InnerFunType ")" ")";
 
-FunDef.      FunDef ::= AttrSymbol "(" [Binding] ")" Type Expr;
-
-ParFunDec.   FunDec ::= "(" Par InnerFunDec ")";
-MonoFunDec.  FunDec ::= InnerFunDec;
-InnerFunDec. InnerFunDec ::= "(" AttrSymbol "(" [Binding] ")" Type ")";
+InnerFunDec.  InnerFunDec ::= "(" [Binding] ")" Type;
+FunDecMono.   FunDec ::= AttrSymbol InnerFunDec;
+FunDecPoly.   FunDec ::= AttrSymbol "(" Par "(" InnerFunDec ")" ")";
 
 Datatype.     Datatype ::= "(" AttrSymbol [Constructor] ")";
 Constructor.  Constructor ::= "(" AttrSymbol [Binding] ")";
@@ -106,8 +103,6 @@ terminator Constructor "";
 terminator Binding "";
 terminator Symbol "";
 terminator Type "";
-terminator FunDecl "";
-terminator FunDef "";
 terminator FunDec "";
 terminator Attr "";
 

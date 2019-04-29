@@ -18,14 +18,10 @@ data Start = Start [Decl]
 data Decl
     = DeclareDatatypes [Symbol] [Datatype]
     | DeclareSort AttrSymbol Integer
-    | DeclareConst ConstDecl
-    | DeclareConstPar Par ConstDecl
-    | DeclareFun FunDecl
-    | DeclareFunPar Par FunDecl
-    | DefineFun FunDef
-    | DefineFunPar Par FunDef
-    | DefineFunRec FunDef
-    | DefineFunRecPar Par FunDef
+    | DeclareConst AttrSymbol ConstType
+    | DeclareFun AttrSymbol FunType
+    | DefineFun FunDec Expr
+    | DefineFunRec FunDec Expr
     | DefineFunsRec [FunDec] [Expr]
     | Formula Assertion [Attr] Expr
     | FormulaPar Assertion [Attr] Par Expr
@@ -37,19 +33,22 @@ data Assertion = Assert | Prove
 data Par = Par [Symbol]
   deriving (Eq, Ord, Show, Read)
 
-data ConstDecl = ConstDecl AttrSymbol Type
+data ConstType = ConstTypeMono Type | ConstTypePoly Par Type
   deriving (Eq, Ord, Show, Read)
 
-data FunDecl = FunDecl AttrSymbol [Type] Type
+data InnerFunType = InnerFunType [Type] Type
   deriving (Eq, Ord, Show, Read)
 
-data FunDef = FunDef AttrSymbol [Binding] Type Expr
+data FunType
+    = FunTypeMono InnerFunType | FunTypePoly Par InnerFunType
   deriving (Eq, Ord, Show, Read)
 
-data FunDec = ParFunDec Par InnerFunDec | MonoFunDec InnerFunDec
+data InnerFunDec = InnerFunDec [Binding] Type
   deriving (Eq, Ord, Show, Read)
 
-data InnerFunDec = InnerFunDec AttrSymbol [Binding] Type
+data FunDec
+    = FunDecMono AttrSymbol InnerFunDec
+    | FunDecPoly AttrSymbol Par InnerFunDec
   deriving (Eq, Ord, Show, Read)
 
 data Datatype = Datatype AttrSymbol [Constructor]

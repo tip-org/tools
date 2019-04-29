@@ -13,11 +13,11 @@ import Tip.Parser.ErrM
 %name pDecl Decl
 %name pAssertion Assertion
 %name pPar Par
-%name pConstDecl ConstDecl
-%name pFunDecl FunDecl
-%name pFunDef FunDef
-%name pFunDec FunDec
+%name pConstType ConstType
+%name pInnerFunType InnerFunType
+%name pFunType FunType
 %name pInnerFunDec InnerFunDec
+%name pFunDec FunDec
 %name pDatatype Datatype
 %name pConstructor Constructor
 %name pBinding Binding
@@ -40,8 +40,6 @@ import Tip.Parser.ErrM
 %name pListBinding ListBinding
 %name pListSymbol ListSymbol
 %name pListType ListType
-%name pListFunDecl ListFunDecl
-%name pListFunDef ListFunDef
 %name pListFunDec ListFunDec
 %name pListAttr ListAttr
 %name pSymbol Symbol
@@ -114,14 +112,10 @@ ListDecl : {- empty -} { [] } | '(' Decl ')' ListDecl { (:) $2 $4 }
 Decl :: { Decl }
 Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
      | 'declare-sort' AttrSymbol Integer { Tip.Parser.AbsTIP.DeclareSort $2 $3 }
-     | 'declare-const' ConstDecl { Tip.Parser.AbsTIP.DeclareConst $2 }
-     | 'declare-const' '(' Par '(' ConstDecl ')' ')' { Tip.Parser.AbsTIP.DeclareConstPar $3 $5 }
-     | 'declare-fun' FunDecl { Tip.Parser.AbsTIP.DeclareFun $2 }
-     | 'declare-fun' '(' Par '(' FunDecl ')' ')' { Tip.Parser.AbsTIP.DeclareFunPar $3 $5 }
-     | 'define-fun' FunDef { Tip.Parser.AbsTIP.DefineFun $2 }
-     | 'define-fun' '(' Par '(' FunDef ')' ')' { Tip.Parser.AbsTIP.DefineFunPar $3 $5 }
-     | 'define-fun-rec' FunDef { Tip.Parser.AbsTIP.DefineFunRec $2 }
-     | 'define-fun-rec' '(' Par '(' FunDef ')' ')' { Tip.Parser.AbsTIP.DefineFunRecPar $3 $5 }
+     | 'declare-const' AttrSymbol ConstType { Tip.Parser.AbsTIP.DeclareConst $2 $3 }
+     | 'declare-fun' AttrSymbol FunType { Tip.Parser.AbsTIP.DeclareFun $2 $3 }
+     | 'define-fun' FunDec Expr { Tip.Parser.AbsTIP.DefineFun $2 $3 }
+     | 'define-fun-rec' FunDec Expr { Tip.Parser.AbsTIP.DefineFunRec $2 $3 }
      | 'define-funs-rec' '(' ListFunDec ')' '(' ListExpr ')' { Tip.Parser.AbsTIP.DefineFunsRec (reverse $3) (reverse $6) }
      | Assertion ListAttr Expr { Tip.Parser.AbsTIP.Formula $1 (reverse $2) $3 }
      | Assertion ListAttr '(' Par Expr ')' { Tip.Parser.AbsTIP.FormulaPar $1 (reverse $2) $4 $5 }
@@ -130,17 +124,19 @@ Assertion : 'assert' { Tip.Parser.AbsTIP.Assert }
           | 'prove' { Tip.Parser.AbsTIP.Prove }
 Par :: { Par }
 Par : 'par' '(' ListSymbol ')' { Tip.Parser.AbsTIP.Par (reverse $3) }
-ConstDecl :: { ConstDecl }
-ConstDecl : AttrSymbol Type { Tip.Parser.AbsTIP.ConstDecl $1 $2 }
-FunDecl :: { FunDecl }
-FunDecl : AttrSymbol '(' ListType ')' Type { Tip.Parser.AbsTIP.FunDecl $1 (reverse $3) $5 }
-FunDef :: { FunDef }
-FunDef : AttrSymbol '(' ListBinding ')' Type Expr { Tip.Parser.AbsTIP.FunDef $1 (reverse $3) $5 $6 }
-FunDec :: { FunDec }
-FunDec : '(' Par InnerFunDec ')' { Tip.Parser.AbsTIP.ParFunDec $2 $3 }
-       | InnerFunDec { Tip.Parser.AbsTIP.MonoFunDec $1 }
+ConstType :: { ConstType }
+ConstType : Type { Tip.Parser.AbsTIP.ConstTypeMono $1 }
+          | '(' Par Type ')' { Tip.Parser.AbsTIP.ConstTypePoly $2 $3 }
+InnerFunType :: { InnerFunType }
+InnerFunType : '(' ListType ')' Type { Tip.Parser.AbsTIP.InnerFunType (reverse $2) $4 }
+FunType :: { FunType }
+FunType : InnerFunType { Tip.Parser.AbsTIP.FunTypeMono $1 }
+        | '(' Par '(' InnerFunType ')' ')' { Tip.Parser.AbsTIP.FunTypePoly $2 $4 }
 InnerFunDec :: { InnerFunDec }
-InnerFunDec : '(' AttrSymbol '(' ListBinding ')' Type ')' { Tip.Parser.AbsTIP.InnerFunDec $2 (reverse $4) $6 }
+InnerFunDec : '(' ListBinding ')' Type { Tip.Parser.AbsTIP.InnerFunDec (reverse $2) $4 }
+FunDec :: { FunDec }
+FunDec : AttrSymbol InnerFunDec { Tip.Parser.AbsTIP.FunDecMono $1 $2 }
+       | AttrSymbol '(' Par '(' InnerFunDec ')' ')' { Tip.Parser.AbsTIP.FunDecPoly $1 $3 $5 }
 Datatype :: { Datatype }
 Datatype : '(' AttrSymbol ListConstructor ')' { Tip.Parser.AbsTIP.Datatype $2 (reverse $3) }
 Constructor :: { Constructor }
@@ -229,12 +225,6 @@ ListSymbol : {- empty -} { [] }
            | ListSymbol Symbol { flip (:) $1 $2 }
 ListType :: { [Type] }
 ListType : {- empty -} { [] } | ListType Type { flip (:) $1 $2 }
-ListFunDecl :: { [FunDecl] }
-ListFunDecl : {- empty -} { [] }
-            | ListFunDecl FunDecl { flip (:) $1 $2 }
-ListFunDef :: { [FunDef] }
-ListFunDef : {- empty -} { [] }
-           | ListFunDef FunDef { flip (:) $1 $2 }
 ListFunDec :: { [FunDec] }
 ListFunDec : {- empty -} { [] }
            | ListFunDec FunDec { flip (:) $1 $2 }
