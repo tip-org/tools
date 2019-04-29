@@ -183,7 +183,7 @@ ppQuant Forall = "forall"
 ppQuant Exists = "exists"
 
 ppCase :: (Ord a, PrettyVar a) => Case a -> Doc
-ppCase (Case pat rhs) = parExprSep "case" [ppPat pat,ppExpr rhs]
+ppCase (Case pat rhs) = parens (fsep [ppPat pat, ppExpr rhs])
 
 ppPat :: PrettyVar a => Pattern a -> Doc
 ppPat Default         = "default"
