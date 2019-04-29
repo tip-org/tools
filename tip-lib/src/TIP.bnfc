@@ -5,7 +5,7 @@ Start. Start ::= [Decl];
 (:). [Decl] ::= "(" Decl ")"  [Decl];
 
 DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
-DeclareSort.      Decl ::= "declare-sort" Symbol [Attr] Integer;
+DeclareSort.      Decl ::= "declare-sort" AttrSymbol Integer;
 DeclareConst.     Decl ::= "declare-const" ConstDecl;
 DeclareConstPar.  Decl ::= "declare-const" "(" Par "(" ConstDecl ")" ")";
 DeclareFun.       Decl ::= "declare-fun" FunDecl;
@@ -23,18 +23,18 @@ Prove.  Assertion ::= "prove";
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
-ConstDecl.   ConstDecl ::= Symbol [Attr] Type;
+ConstDecl.   ConstDecl ::= AttrSymbol Type;
 
-FunDecl.     FunDecl ::= Symbol [Attr] "(" [Type] ")" Type;
+FunDecl.     FunDecl ::= AttrSymbol "(" [Type] ")" Type;
 
-FunDef.      FunDef ::= Symbol [Attr] "(" [Binding] ")" Type Expr;
+FunDef.      FunDef ::= AttrSymbol "(" [Binding] ")" Type Expr;
 
 ParFunDec.   FunDec ::= "(" Par InnerFunDec ")";
 MonoFunDec.  FunDec ::= InnerFunDec;
-InnerFunDec. InnerFunDec ::= "(" Symbol [Attr] "(" [Binding] ")" Type ")";
+InnerFunDec. InnerFunDec ::= "(" AttrSymbol "(" [Binding] ")" Type ")";
 
-Datatype.     Datatype ::= "(" Symbol [Attr] [Constructor] ")";
-Constructor.  Constructor ::= "(" Symbol [Attr] [Binding] ")";
+Datatype.     Datatype ::= "(" AttrSymbol [Constructor] ")";
+Constructor.  Constructor ::= "(" AttrSymbol [Binding] ")";
 
 Binding. Binding ::= "(" Symbol Type ")";
 
@@ -94,6 +94,7 @@ NumWiden.   Head ::= "to_real";
 NoAs. PolySymbol ::= Symbol;
 As.   PolySymbol ::= "(" "_" Symbol [Type] ")";
 
+AttrSymbol. AttrSymbol ::= Symbol [Attr];
 NoValue. Attr ::= Keyword;
 Value.   Attr ::= Keyword Symbol;
 

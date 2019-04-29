@@ -17,7 +17,7 @@ data Start = Start [Decl]
 
 data Decl
     = DeclareDatatypes [Symbol] [Datatype]
-    | DeclareSort Symbol [Attr] Integer
+    | DeclareSort AttrSymbol Integer
     | DeclareConst ConstDecl
     | DeclareConstPar Par ConstDecl
     | DeclareFun FunDecl
@@ -37,25 +37,25 @@ data Assertion = Assert | Prove
 data Par = Par [Symbol]
   deriving (Eq, Ord, Show, Read)
 
-data ConstDecl = ConstDecl Symbol [Attr] Type
+data ConstDecl = ConstDecl AttrSymbol Type
   deriving (Eq, Ord, Show, Read)
 
-data FunDecl = FunDecl Symbol [Attr] [Type] Type
+data FunDecl = FunDecl AttrSymbol [Type] Type
   deriving (Eq, Ord, Show, Read)
 
-data FunDef = FunDef Symbol [Attr] [Binding] Type Expr
+data FunDef = FunDef AttrSymbol [Binding] Type Expr
   deriving (Eq, Ord, Show, Read)
 
 data FunDec = ParFunDec Par InnerFunDec | MonoFunDec InnerFunDec
   deriving (Eq, Ord, Show, Read)
 
-data InnerFunDec = InnerFunDec Symbol [Attr] [Binding] Type
+data InnerFunDec = InnerFunDec AttrSymbol [Binding] Type
   deriving (Eq, Ord, Show, Read)
 
-data Datatype = Datatype Symbol [Attr] [Constructor]
+data Datatype = Datatype AttrSymbol [Constructor]
   deriving (Eq, Ord, Show, Read)
 
-data Constructor = Constructor Symbol [Attr] [Binding]
+data Constructor = Constructor AttrSymbol [Binding]
   deriving (Eq, Ord, Show, Read)
 
 data Binding = Binding Symbol Type
@@ -119,6 +119,9 @@ data Head
   deriving (Eq, Ord, Show, Read)
 
 data PolySymbol = NoAs Symbol | As Symbol [Type]
+  deriving (Eq, Ord, Show, Read)
+
+data AttrSymbol = AttrSymbol Symbol [Attr]
   deriving (Eq, Ord, Show, Read)
 
 data Attr = NoValue Keyword | Value Keyword Symbol
