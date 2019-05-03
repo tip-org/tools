@@ -21,7 +21,7 @@ $i = [$l $d _ ']          -- identifier character
 $u = [\0-\255]          -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \= | \_
+   \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \_ | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \=
 
 :-
 ";" [.]* ; -- Toss single line comments

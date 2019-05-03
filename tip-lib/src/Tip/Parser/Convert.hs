@@ -76,14 +76,6 @@ lkSym sym =
        Just (i,_) -> return $ i { idPos = Just (symPos sym) }
        Nothing    -> throwError $ "Symbol" <+> ppSym sym <+> "not bound"
 
-isGlobalSym :: Symbol -> CM Bool
-isGlobalSym sym =
-  do mik <- lift $ gets (M.lookup (symStr sym))
-     return $
-       case mik of
-         Just (_, GlobalId) -> True
-         _ -> False
-
 addSym :: IdKind -> Symbol -> CM Id
 addSym ik sym =
   do mik <- lift $ gets (M.lookup (symStr sym))
@@ -283,7 +275,7 @@ trExpr e0 = case e0 of
   A.App head exprs           -> trHead head =<< mapM trExpr exprs
 
   A.Match expr cases  -> do e <- trExpr expr
-                            cases' <- sort <$> mapM (trCase e) cases
+                            cases' <- sort <$> mapM (trCase (exprType e)) cases
                             return (T.Match e cases')
   A.Let letdecls expr -> trLetDecls letdecls expr
   A.Binder binder bindings expr -> newScope $ trBinder binder <$> mapM trLocalBinding bindings <*> trExpr expr
@@ -347,35 +339,20 @@ trBinder b = case b of
   A.Forall -> mkQuant T.Forall
   A.Exists -> mkQuant T.Exists
 
-trCase :: T.Expr Id -> A.Case -> CM (T.Case Id)
-trCase scrutinee (A.Case pattern expr) =
-  newScope $ do
-    (pat, trans) <- trPattern scrutinee pattern
-    exp <- trans expr
-    return (T.Case pat exp)
+trCase :: T.Type Id -> A.Case -> CM (T.Case Id)
+trCase goal_type (A.Case pattern expr) =
+  newScope $ T.Case <$> trPattern goal_type pattern <*> trExpr expr
 
-trPattern :: T.Expr Id -> A.Pattern -> CM (T.Pattern Id, A.Expr -> CM (T.Expr Id))
-trPattern scrutinee p = case p of
-  A.SimplePat sym ->
-    do g <- isGlobalSym sym
-       if g then
-         trPattern scrutinee (A.ConPat sym [])
-       else do
-         x <- addSym LocalId sym
-         let l = Local x (exprType scrutinee)
-         return (T.Default,
-                 \body ->
-                    newScope $
-                      do newLocal l
-                         exp <- trExpr body
-                         if l `elem` free exp then return (T.Let l scrutinee exp) else return exp)
-
+trPattern :: T.Type Id -> A.Pattern -> CM (T.Pattern Id)
+trPattern goal_type p = case p of
+  A.Default          -> return T.Default
+  A.SimplePat sym    -> trPattern goal_type (A.ConPat sym [])
   A.ConPat sym bound ->
     do x <- lkSym sym
        mt <- gets (fmap globalType . lookupGlobal x)
        case mt of
          Just pt@(PolyType tvs arg res)
-           | Just ty_app <- matchTypesIn tvs [(res,exprType scrutinee)] ->
+           | Just ty_app <- matchTypesIn tvs [(res,goal_type)] ->
              do let (var_types, _) = applyPolyType pt ty_app
                 ls <- sequence
                    [ do b <- addSym LocalId b_sym
@@ -384,9 +361,9 @@ trPattern scrutinee p = case p of
                         return l
                    | (b_sym,t) <- bound `zip` var_types
                    ]
-                return (T.ConPat (Global x pt ty_app) ls, trExpr)
+                return (T.ConPat (Global x pt ty_app) ls)
          _ -> throwError $ "type-incorrect case"
-  A.LitPat l -> return (T.LitPat (trLit l), trExpr)
+  A.LitPat l -> return (T.LitPat (trLit l))
 
 trType :: A.Type -> CM (T.Type Id)
 trType t0 = case t0 of

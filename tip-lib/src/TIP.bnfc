@@ -66,6 +66,7 @@ Exists. Binder ::= "exists";
 
 Case.    Case ::= "(" Pattern Expr ")";
 
+Default.    Pattern ::= "_";
 ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
 SimplePat.  Pattern ::= Symbol;
 LitPat.     Pattern ::= Lit;

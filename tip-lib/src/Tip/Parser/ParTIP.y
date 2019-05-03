@@ -179,7 +179,8 @@ Binder : 'lambda' { Tip.Parser.AbsTIP.Lambda }
 Case :: { Case }
 Case : '(' Pattern Expr ')' { Tip.Parser.AbsTIP.Case $2 $3 }
 Pattern :: { Pattern }
-Pattern : '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
+Pattern : '_' { Tip.Parser.AbsTIP.Default }
+        | '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
         | Symbol { Tip.Parser.AbsTIP.SimplePat $1 }
         | Lit { Tip.Parser.AbsTIP.LitPat $1 }
 Head :: { Head }

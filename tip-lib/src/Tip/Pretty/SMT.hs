@@ -226,7 +226,7 @@ ppCase :: (Ord a, PrettyVar a) => Case a -> Doc
 ppCase (Case pat rhs) = parens (fsep [ppPat pat, ppExpr rhs])
 
 ppPat :: PrettyVar a => Pattern a -> Doc
-ppPat Default         = "default"
+ppPat Default         = "_"
 ppPat (ConPat g args) = expr (ppVarSMT (gbl_name g)) [ppVarSMT (lcl_name arg) | arg <- args]
 ppPat (LitPat lit)    = ppLit lit
 
@@ -319,7 +319,7 @@ tipKeywords = [
   "Int", "Real", "Bool", "as", "match", "let", "true", "false",
   "lambda", "forall", "exists", "@", "ite", "if", "and", "or", "not",
   "=>", "=", "equals", "distinct", "+", "-", "*", "/", "div", "mod",
-  ">", ">=", "<", "<=", "to_real", "!", "default"]
+  ">", ">=", "<", "<=", "to_real", "!"]
 
 -- Keywords which can not be used at all in some SMT solvers
 smtKeywords :: [String]
