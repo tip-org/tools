@@ -1,5 +1,0 @@
-(declare-sort a 0)
-(declare-datatypes (b) ((list (nil))))
-(declare-fun xs () (list a))
-(declare-fun ys () (list a))
-(prove (= xs ys))
