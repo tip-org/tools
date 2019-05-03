@@ -13,11 +13,13 @@ import Tip.Parser.ErrM
 %name pDecl Decl
 %name pAssertion Assertion
 %name pPar Par
-%name pConstDecl ConstDecl
-%name pFunDecl FunDecl
-%name pFunDef FunDef
-%name pFunDec FunDec
+%name pConstType ConstType
+%name pInnerFunType InnerFunType
+%name pFunType FunType
 %name pInnerFunDec InnerFunDec
+%name pFunDec FunDec
+%name pDatatypeName DatatypeName
+%name pInnerDatatype InnerDatatype
 %name pDatatype Datatype
 %name pConstructor Constructor
 %name pBinding Binding
@@ -30,6 +32,7 @@ import Tip.Parser.ErrM
 %name pPattern Pattern
 %name pHead Head
 %name pPolySymbol PolySymbol
+%name pAttrSymbol AttrSymbol
 %name pAttr Attr
 %name pListLetDecl ListLetDecl
 %name pListCase ListCase
@@ -39,10 +42,9 @@ import Tip.Parser.ErrM
 %name pListBinding ListBinding
 %name pListSymbol ListSymbol
 %name pListType ListType
-%name pListFunDecl ListFunDecl
-%name pListFunDef ListFunDef
 %name pListFunDec ListFunDec
 %name pListAttr ListAttr
+%name pListDatatypeName ListDatatypeName
 %name pSymbol Symbol
 -- no lexer declaration
 %monad { Err } { thenM } { returnM }
@@ -67,31 +69,30 @@ import Tip.Parser.ErrM
   '_' { PT _ (TS _ 17) }
   'and' { PT _ (TS _ 18) }
   'assert' { PT _ (TS _ 19) }
-  'case' { PT _ (TS _ 20) }
-  'declare-const' { PT _ (TS _ 21) }
+  'declare-const' { PT _ (TS _ 20) }
+  'declare-datatype' { PT _ (TS _ 21) }
   'declare-datatypes' { PT _ (TS _ 22) }
   'declare-fun' { PT _ (TS _ 23) }
   'declare-sort' { PT _ (TS _ 24) }
-  'default' { PT _ (TS _ 25) }
-  'define-fun' { PT _ (TS _ 26) }
-  'define-fun-rec' { PT _ (TS _ 27) }
-  'define-funs-rec' { PT _ (TS _ 28) }
-  'distinct' { PT _ (TS _ 29) }
-  'div' { PT _ (TS _ 30) }
-  'exists' { PT _ (TS _ 31) }
-  'false' { PT _ (TS _ 32) }
-  'forall' { PT _ (TS _ 33) }
-  'ite' { PT _ (TS _ 34) }
-  'lambda' { PT _ (TS _ 35) }
-  'let' { PT _ (TS _ 36) }
-  'match' { PT _ (TS _ 37) }
-  'mod' { PT _ (TS _ 38) }
-  'not' { PT _ (TS _ 39) }
-  'or' { PT _ (TS _ 40) }
-  'par' { PT _ (TS _ 41) }
-  'prove' { PT _ (TS _ 42) }
-  'to_real' { PT _ (TS _ 43) }
-  'true' { PT _ (TS _ 44) }
+  'define-fun' { PT _ (TS _ 25) }
+  'define-fun-rec' { PT _ (TS _ 26) }
+  'define-funs-rec' { PT _ (TS _ 27) }
+  'distinct' { PT _ (TS _ 28) }
+  'div' { PT _ (TS _ 29) }
+  'exists' { PT _ (TS _ 30) }
+  'false' { PT _ (TS _ 31) }
+  'forall' { PT _ (TS _ 32) }
+  'ite' { PT _ (TS _ 33) }
+  'lambda' { PT _ (TS _ 34) }
+  'let' { PT _ (TS _ 35) }
+  'match' { PT _ (TS _ 36) }
+  'mod' { PT _ (TS _ 37) }
+  'not' { PT _ (TS _ 38) }
+  'or' { PT _ (TS _ 39) }
+  'par' { PT _ (TS _ 40) }
+  'prove' { PT _ (TS _ 41) }
+  'to_real' { PT _ (TS _ 42) }
+  'true' { PT _ (TS _ 43) }
 
 L_integ  { PT _ (TI $$) }
 L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
@@ -111,16 +112,13 @@ Start : ListDecl { Tip.Parser.AbsTIP.Start $1 }
 ListDecl :: { [Decl] }
 ListDecl : {- empty -} { [] } | '(' Decl ')' ListDecl { (:) $2 $4 }
 Decl :: { Decl }
-Decl : 'declare-datatypes' '(' ListSymbol ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
-     | 'declare-sort' Symbol ListAttr Integer { Tip.Parser.AbsTIP.DeclareSort $2 (reverse $3) $4 }
-     | 'declare-const' ConstDecl { Tip.Parser.AbsTIP.DeclareConst $2 }
-     | 'declare-const' '(' Par '(' ConstDecl ')' ')' { Tip.Parser.AbsTIP.DeclareConstPar $3 $5 }
-     | 'declare-fun' FunDecl { Tip.Parser.AbsTIP.DeclareFun $2 }
-     | 'declare-fun' '(' Par '(' FunDecl ')' ')' { Tip.Parser.AbsTIP.DeclareFunPar $3 $5 }
-     | 'define-fun' FunDef { Tip.Parser.AbsTIP.DefineFun $2 }
-     | 'define-fun' '(' Par '(' FunDef ')' ')' { Tip.Parser.AbsTIP.DefineFunPar $3 $5 }
-     | 'define-fun-rec' FunDef { Tip.Parser.AbsTIP.DefineFunRec $2 }
-     | 'define-fun-rec' '(' Par '(' FunDef ')' ')' { Tip.Parser.AbsTIP.DefineFunRecPar $3 $5 }
+Decl : 'declare-datatype' AttrSymbol Datatype { Tip.Parser.AbsTIP.DeclareDatatype $2 $3 }
+     | 'declare-datatypes' '(' ListDatatypeName ')' '(' ListDatatype ')' { Tip.Parser.AbsTIP.DeclareDatatypes (reverse $3) (reverse $6) }
+     | 'declare-sort' AttrSymbol Integer { Tip.Parser.AbsTIP.DeclareSort $2 $3 }
+     | 'declare-const' AttrSymbol ConstType { Tip.Parser.AbsTIP.DeclareConst $2 $3 }
+     | 'declare-fun' AttrSymbol FunType { Tip.Parser.AbsTIP.DeclareFun $2 $3 }
+     | 'define-fun' FunDec Expr { Tip.Parser.AbsTIP.DefineFun $2 $3 }
+     | 'define-fun-rec' FunDec Expr { Tip.Parser.AbsTIP.DefineFunRec $2 $3 }
      | 'define-funs-rec' '(' ListFunDec ')' '(' ListExpr ')' { Tip.Parser.AbsTIP.DefineFunsRec (reverse $3) (reverse $6) }
      | Assertion ListAttr Expr { Tip.Parser.AbsTIP.Formula $1 (reverse $2) $3 }
      | Assertion ListAttr '(' Par Expr ')' { Tip.Parser.AbsTIP.FormulaPar $1 (reverse $2) $4 $5 }
@@ -129,21 +127,28 @@ Assertion : 'assert' { Tip.Parser.AbsTIP.Assert }
           | 'prove' { Tip.Parser.AbsTIP.Prove }
 Par :: { Par }
 Par : 'par' '(' ListSymbol ')' { Tip.Parser.AbsTIP.Par (reverse $3) }
-ConstDecl :: { ConstDecl }
-ConstDecl : Symbol ListAttr Type { Tip.Parser.AbsTIP.ConstDecl $1 (reverse $2) $3 }
-FunDecl :: { FunDecl }
-FunDecl : Symbol ListAttr '(' ListType ')' Type { Tip.Parser.AbsTIP.FunDecl $1 (reverse $2) (reverse $4) $6 }
-FunDef :: { FunDef }
-FunDef : Symbol ListAttr '(' ListBinding ')' Type Expr { Tip.Parser.AbsTIP.FunDef $1 (reverse $2) (reverse $4) $6 $7 }
-FunDec :: { FunDec }
-FunDec : '(' Par InnerFunDec ')' { Tip.Parser.AbsTIP.ParFunDec $2 $3 }
-       | InnerFunDec { Tip.Parser.AbsTIP.MonoFunDec $1 }
+ConstType :: { ConstType }
+ConstType : Type { Tip.Parser.AbsTIP.ConstTypeMono $1 }
+          | '(' Par Type ')' { Tip.Parser.AbsTIP.ConstTypePoly $2 $3 }
+InnerFunType :: { InnerFunType }
+InnerFunType : '(' ListType ')' Type { Tip.Parser.AbsTIP.InnerFunType (reverse $2) $4 }
+FunType :: { FunType }
+FunType : InnerFunType { Tip.Parser.AbsTIP.FunTypeMono $1 }
+        | '(' Par '(' InnerFunType ')' ')' { Tip.Parser.AbsTIP.FunTypePoly $2 $4 }
 InnerFunDec :: { InnerFunDec }
-InnerFunDec : '(' Symbol ListAttr '(' ListBinding ')' Type ')' { Tip.Parser.AbsTIP.InnerFunDec $2 (reverse $3) (reverse $5) $7 }
+InnerFunDec : '(' ListBinding ')' Type { Tip.Parser.AbsTIP.InnerFunDec (reverse $2) $4 }
+FunDec :: { FunDec }
+FunDec : AttrSymbol InnerFunDec { Tip.Parser.AbsTIP.FunDecMono $1 $2 }
+       | AttrSymbol '(' Par '(' InnerFunDec ')' ')' { Tip.Parser.AbsTIP.FunDecPoly $1 $3 $5 }
+DatatypeName :: { DatatypeName }
+DatatypeName : '(' AttrSymbol Integer ')' { Tip.Parser.AbsTIP.DatatypeName $2 $3 }
+InnerDatatype :: { InnerDatatype }
+InnerDatatype : '(' ListConstructor ')' { Tip.Parser.AbsTIP.InnerDatatype (reverse $2) }
 Datatype :: { Datatype }
-Datatype : '(' Symbol ListAttr ListConstructor ')' { Tip.Parser.AbsTIP.Datatype $2 (reverse $3) (reverse $4) }
+Datatype : InnerDatatype { Tip.Parser.AbsTIP.DatatypeMono $1 }
+         | '(' Par InnerDatatype ')' { Tip.Parser.AbsTIP.DatatypePoly $2 $3 }
 Constructor :: { Constructor }
-Constructor : '(' Symbol ListAttr ListBinding ')' { Tip.Parser.AbsTIP.Constructor $2 (reverse $3) (reverse $4) }
+Constructor : '(' AttrSymbol ListBinding ')' { Tip.Parser.AbsTIP.Constructor $2 (reverse $3) }
 Binding :: { Binding }
 Binding : '(' Symbol Type ')' { Tip.Parser.AbsTIP.Binding $2 $3 }
 LetDecl :: { LetDecl }
@@ -158,7 +163,7 @@ Type : Symbol { Tip.Parser.AbsTIP.TyVar $1 }
 Expr :: { Expr }
 Expr : PolySymbol { Tip.Parser.AbsTIP.Var $1 }
      | '(' Head ListExpr ')' { Tip.Parser.AbsTIP.App $2 (reverse $3) }
-     | '(' 'match' Expr ListCase ')' { Tip.Parser.AbsTIP.Match $3 (reverse $4) }
+     | '(' 'match' Expr '(' ListCase ')' ')' { Tip.Parser.AbsTIP.Match $3 (reverse $5) }
      | '(' 'let' '(' ListLetDecl ')' Expr ')' { Tip.Parser.AbsTIP.Let (reverse $4) $6 }
      | '(' Binder '(' ListBinding ')' Expr ')' { Tip.Parser.AbsTIP.Binder $2 (reverse $4) $6 }
      | Lit { Tip.Parser.AbsTIP.Lit $1 }
@@ -172,10 +177,9 @@ Binder : 'lambda' { Tip.Parser.AbsTIP.Lambda }
        | 'forall' { Tip.Parser.AbsTIP.Forall }
        | 'exists' { Tip.Parser.AbsTIP.Exists }
 Case :: { Case }
-Case : '(' 'case' Pattern Expr ')' { Tip.Parser.AbsTIP.Case $3 $4 }
+Case : '(' Pattern Expr ')' { Tip.Parser.AbsTIP.Case $2 $3 }
 Pattern :: { Pattern }
-Pattern : 'default' { Tip.Parser.AbsTIP.Default }
-        | '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
+Pattern : '(' Symbol ListSymbol ')' { Tip.Parser.AbsTIP.ConPat $2 (reverse $3) }
         | Symbol { Tip.Parser.AbsTIP.SimplePat $1 }
         | Lit { Tip.Parser.AbsTIP.LitPat $1 }
 Head :: { Head }
@@ -202,6 +206,8 @@ Head : PolySymbol { Tip.Parser.AbsTIP.Const $1 }
 PolySymbol :: { PolySymbol }
 PolySymbol : Symbol { Tip.Parser.AbsTIP.NoAs $1 }
            | '(' '_' Symbol ListType ')' { Tip.Parser.AbsTIP.As $3 (reverse $4) }
+AttrSymbol :: { AttrSymbol }
+AttrSymbol : Symbol ListAttr { Tip.Parser.AbsTIP.AttrSymbol $1 (reverse $2) }
 Attr :: { Attr }
 Attr : Keyword { Tip.Parser.AbsTIP.NoValue $1 }
      | Keyword Symbol { Tip.Parser.AbsTIP.Value $1 $2 }
@@ -226,17 +232,14 @@ ListSymbol : {- empty -} { [] }
            | ListSymbol Symbol { flip (:) $1 $2 }
 ListType :: { [Type] }
 ListType : {- empty -} { [] } | ListType Type { flip (:) $1 $2 }
-ListFunDecl :: { [FunDecl] }
-ListFunDecl : {- empty -} { [] }
-            | ListFunDecl FunDecl { flip (:) $1 $2 }
-ListFunDef :: { [FunDef] }
-ListFunDef : {- empty -} { [] }
-           | ListFunDef FunDef { flip (:) $1 $2 }
 ListFunDec :: { [FunDec] }
 ListFunDec : {- empty -} { [] }
            | ListFunDec FunDec { flip (:) $1 $2 }
 ListAttr :: { [Attr] }
 ListAttr : {- empty -} { [] } | ListAttr Attr { flip (:) $1 $2 }
+ListDatatypeName :: { [DatatypeName] }
+ListDatatypeName : {- empty -} { [] }
+                 | ListDatatypeName DatatypeName { flip (:) $1 $2 }
 Symbol :: { Symbol }
 Symbol : UnquotedSymbol { Tip.Parser.AbsTIP.Unquoted $1 }
        | QuotedSymbol { Tip.Parser.AbsTIP.Quoted $1 }
@@ -254,7 +257,7 @@ happyError ts =
   case ts of
     [] -> []
     [Err _] -> " due to lexer error"
-    _ -> " before " ++ unwords (map (id . prToken) (take 4 ts))
+    t:_ -> " before `" ++ id(prToken t) ++ "'"
 
 myLexer = tokens
 }

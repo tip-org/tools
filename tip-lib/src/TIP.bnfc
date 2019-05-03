@@ -4,16 +4,13 @@ Start. Start ::= [Decl];
 [].  [Decl] ::= ;
 (:). [Decl] ::= "(" Decl ")"  [Decl];
 
-DeclareDatatypes. Decl ::= "declare-datatypes" "(" [Symbol] ")" "(" [Datatype] ")";
-DeclareSort.      Decl ::= "declare-sort" Symbol [Attr] Integer;
-DeclareConst.     Decl ::= "declare-const" ConstDecl;
-DeclareConstPar.  Decl ::= "declare-const" "(" Par "(" ConstDecl ")" ")";
-DeclareFun.       Decl ::= "declare-fun" FunDecl;
-DeclareFunPar.    Decl ::= "declare-fun" "(" Par "(" FunDecl ")" ")";
-DefineFun.        Decl ::= "define-fun" FunDef;
-DefineFunPar.     Decl ::= "define-fun" "(" Par "(" FunDef ")" ")";
-DefineFunRec.     Decl ::= "define-fun-rec" FunDef;
-DefineFunRecPar.  Decl ::= "define-fun-rec" "(" Par "(" FunDef ")" ")";
+DeclareDatatype.  Decl ::= "declare-datatype" AttrSymbol Datatype;
+DeclareDatatypes. Decl ::= "declare-datatypes" "(" [DatatypeName] ")" "(" [Datatype] ")";
+DeclareSort.      Decl ::= "declare-sort" AttrSymbol Integer;
+DeclareConst.     Decl ::= "declare-const" AttrSymbol ConstType ;
+DeclareFun.       Decl ::= "declare-fun" AttrSymbol FunType;
+DefineFun.        Decl ::= "define-fun" FunDec Expr;
+DefineFunRec.     Decl ::= "define-fun-rec" FunDec Expr;
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
 Formula.          Decl ::= Assertion [Attr] Expr;
 FormulaPar.       Decl ::= Assertion [Attr] "(" Par Expr ")";
@@ -23,18 +20,22 @@ Prove.  Assertion ::= "prove";
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 
-ConstDecl.   ConstDecl ::= Symbol [Attr] Type;
+ConstTypeMono. ConstType ::= Type;
+ConstTypePoly. ConstType ::= "(" Par Type ")";
 
-FunDecl.     FunDecl ::= Symbol [Attr] "(" [Type] ")" Type;
+InnerFunType. InnerFunType ::= "(" [Type] ")" Type;
+FunTypeMono.  FunType ::= InnerFunType;
+FunTypePoly.  FunType ::= "(" Par "(" InnerFunType ")" ")";
 
-FunDef.      FunDef ::= Symbol [Attr] "(" [Binding] ")" Type Expr;
+InnerFunDec.  InnerFunDec ::= "(" [Binding] ")" Type;
+FunDecMono.   FunDec ::= AttrSymbol InnerFunDec;
+FunDecPoly.   FunDec ::= AttrSymbol "(" Par "(" InnerFunDec ")" ")";
 
-ParFunDec.   FunDec ::= "(" Par InnerFunDec ")";
-MonoFunDec.  FunDec ::= InnerFunDec;
-InnerFunDec. InnerFunDec ::= "(" Symbol [Attr] "(" [Binding] ")" Type ")";
-
-Datatype.     Datatype ::= "(" Symbol [Attr] [Constructor] ")";
-Constructor.  Constructor ::= "(" Symbol [Attr] [Binding] ")";
+DatatypeName. DatatypeName ::= "(" AttrSymbol Integer ")";
+InnerDatatype. InnerDatatype ::= "(" [Constructor] ")";
+DatatypeMono. Datatype ::= InnerDatatype;
+DatatypePoly. Datatype ::= "(" Par InnerDatatype ")";
+Constructor.  Constructor ::= "(" AttrSymbol [Binding] ")";
 
 Binding. Binding ::= "(" Symbol Type ")";
 
@@ -49,7 +50,7 @@ BoolTy.  Type ::= "Bool";
 
 Var.       Expr ::= PolySymbol;
 App.       Expr ::= "(" Head [Expr] ")";
-Match.     Expr ::= "(" "match" Expr [Case] ")";
+Match.     Expr ::= "(" "match" Expr "(" [Case] ")" ")";
 Let.       Expr ::= "(" "let" "(" [LetDecl] ")" Expr ")";
 Binder.    Expr ::= "(" Binder "(" [Binding] ")" Expr ")";
 Lit.       Expr ::= Lit;
@@ -63,9 +64,8 @@ Lambda. Binder ::= "lambda";
 Forall. Binder ::= "forall";
 Exists. Binder ::= "exists";
 
-Case.    Case ::= "(" "case" Pattern Expr ")";
+Case.    Case ::= "(" Pattern Expr ")";
 
-Default.    Pattern ::= "default";
 ConPat.     Pattern ::= "(" Symbol [Symbol] ")";
 SimplePat.  Pattern ::= Symbol;
 LitPat.     Pattern ::= Lit;
@@ -94,6 +94,7 @@ NumWiden.   Head ::= "to_real";
 NoAs. PolySymbol ::= Symbol;
 As.   PolySymbol ::= "(" "_" Symbol [Type] ")";
 
+AttrSymbol. AttrSymbol ::= Symbol [Attr];
 NoValue. Attr ::= Keyword;
 Value.   Attr ::= Keyword Symbol;
 
@@ -105,10 +106,9 @@ terminator Constructor "";
 terminator Binding "";
 terminator Symbol "";
 terminator Type "";
-terminator FunDecl "";
-terminator FunDef "";
 terminator FunDec "";
 terminator Attr "";
+terminator DatatypeName "";
 
 Unquoted. Symbol ::= UnquotedSymbol;
 Quoted.   Symbol ::= QuotedSymbol;

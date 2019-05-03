@@ -21,7 +21,7 @@ $i = [$l $d _ ']          -- identifier character
 $u = [\0-\255]          -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \( | \) | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \= | \_
+   \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \= | \_
 
 :-
 ";" [.]* ; -- Toss single line comments
@@ -64,10 +64,12 @@ data Token =
  | Err Posn
   deriving (Eq,Show,Ord)
 
+printPosn :: Posn -> String
+printPosn (Pn _ l c) = "line " ++ show l ++ ", column " ++ show c
+
 tokenPos :: [Token] -> String
-tokenPos (PT (Pn _ l _) _ :_) = "line " ++ show l
-tokenPos (Err (Pn _ l _) :_) = "line " ++ show l
-tokenPos _ = "end of file"
+tokenPos (t:_) = printPosn (tokenPosn t)
+tokenPos [] = "end of file"
 
 tokenPosn :: Token -> Posn
 tokenPosn (PT p _) = p
@@ -90,6 +92,7 @@ prToken t = case t of
   PT _ (TV s)   -> s
   PT _ (TD s)   -> s
   PT _ (TC s)   -> s
+  Err _         -> "#error"
   PT _ (T_UnquotedSymbol s) -> s
   PT _ (T_QuotedSymbol s) -> s
   PT _ (T_Keyword s) -> s
@@ -106,7 +109,7 @@ eitherResIdent tv s = treeFind resWords
                               | s == a = t
 
 resWords :: BTree
-resWords = b "declare-fun" 23 (b ">=" 12 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b ">" 11 (b "=>" 10 N N) N))) (b "and" 18 (b "Int" 15 (b "Bool" 14 (b "@" 13 N N) N) (b "_" 17 (b "Real" 16 N N) N)) (b "declare-const" 21 (b "case" 20 (b "assert" 19 N N) N) (b "declare-datatypes" 22 N N)))) (b "ite" 34 (b "distinct" 29 (b "define-fun" 26 (b "default" 25 (b "declare-sort" 24 N N) N) (b "define-funs-rec" 28 (b "define-fun-rec" 27 N N) N)) (b "false" 32 (b "exists" 31 (b "div" 30 N N) N) (b "forall" 33 N N))) (b "or" 40 (b "match" 37 (b "let" 36 (b "lambda" 35 N N) N) (b "not" 39 (b "mod" 38 N N) N)) (b "to_real" 43 (b "prove" 42 (b "par" 41 N N) N) (b "true" 44 N N))))
+resWords = b "declare-datatypes" 22 (b ">" 11 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b "=>" 10 N N))) (b "_" 17 (b "Bool" 14 (b "@" 13 (b ">=" 12 N N) N) (b "Real" 16 (b "Int" 15 N N) N)) (b "declare-const" 20 (b "assert" 19 (b "and" 18 N N) N) (b "declare-datatype" 21 N N)))) (b "ite" 33 (b "distinct" 28 (b "define-fun" 25 (b "declare-sort" 24 (b "declare-fun" 23 N N) N) (b "define-funs-rec" 27 (b "define-fun-rec" 26 N N) N)) (b "false" 31 (b "exists" 30 (b "div" 29 N N) N) (b "forall" 32 N N))) (b "or" 39 (b "match" 36 (b "let" 35 (b "lambda" 34 N N) N) (b "not" 38 (b "mod" 37 N N) N)) (b "to_real" 42 (b "prove" 41 (b "par" 40 N N) N) (b "true" 43 N N))))
    where b s n = let bs = id s
                   in B bs (TS bs n)
 

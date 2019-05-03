@@ -76,6 +76,14 @@ lkSym sym =
        Just (i,_) -> return $ i { idPos = Just (symPos sym) }
        Nothing    -> throwError $ "Symbol" <+> ppSym sym <+> "not bound"
 
+isGlobalSym :: Symbol -> CM Bool
+isGlobalSym sym =
+  do mik <- lift $ gets (M.lookup (symStr sym))
+     return $
+       case mik of
+         Just (_, GlobalId) -> True
+         _ -> False
+
 addSym :: IdKind -> Symbol -> CM Id
 addSym ik sym =
   do mik <- lift $ gets (M.lookup (symStr sym))
@@ -100,54 +108,72 @@ trDecl :: A.Decl -> CM (Theory Id)
 trDecl x =
   local $
     case x of
-      DeclareDatatypes tvs datatypes ->
+      DeclareDatatype name datatype ->
+        let (Par tvs, _) = unpackData datatype in
+        trDecl (DeclareDatatypes [DatatypeName name (fromIntegral (length tvs))] [datatype])
+      DeclareDatatypes names datatypes ->
         do -- add their types, abstractly
-           forM_ datatypes $ \dt -> do
-             sym <- addSym GlobalId (dataSym dt)
-             tvi <- mapM (addSym LocalId) tvs
-             newSort (Sort sym (trAttrs (dataAttrs dt)) tvi)
-           newScope $
-             do tvi <- mapM (addSym LocalId) tvs
-                mapM newTyVar tvi
-                ds <- mapM (trDatatype tvi) datatypes
-                return emptyTheory{ thy_datatypes = ds }
+           unless (length names == length datatypes) $
+             throwError "declare-datatypes used with different number of names and definitions"
+           forM_ (zip names datatypes) $ \(DatatypeName (AttrSymbol name attrs) arity, dt0) -> do
+             let (Par tvs, _) = unpackData dt0
+             unless (arity == fromIntegral (length tvs)) $
+               throwError "declare-datatypes: arity declaration does not match number of type variables"
+             sym <- addSym GlobalId name
+             newScope $ do
+               tvi <- mapM (addSym LocalId) tvs
+               newSort (Sort sym (trAttrs attrs) tvi)
+           ds <- forM (zip names datatypes) $ \(DatatypeName name _, dt0) ->
+             newScope $ do
+               let (Par tvs, dt) = unpackData dt0
+               tvi <- mapM (addSym LocalId) tvs
+               mapM newTyVar tvi
+               trDatatype tvi name dt
+           return emptyTheory{ thy_datatypes = ds }
 
-      DeclareSort s attrs n ->
+      DeclareSort (AttrSymbol s attrs) n ->
         do i <- addSym GlobalId s
            tvs <- lift . lift $ mapM refresh (replicate (fromInteger n) i)
            return emptyTheory{ thy_sorts = [Sort i (trAttrs attrs) tvs] }
 
-      DeclareConst const_decl -> trDecl (DeclareConstPar emptyPar const_decl)
+      DeclareConst sym (ConstTypeMono ty) ->
+        trDecl (DeclareFun sym (FunTypeMono (InnerFunType [] ty)))
+      DeclareConst sym (ConstTypePoly par ty) ->
+        trDecl (DeclareFun sym (FunTypePoly par (InnerFunType [] ty)))
 
-      DeclareConstPar par (ConstDecl s attrs t) -> trDecl (DeclareFunPar par (FunDecl s attrs [] t))
-
-      DeclareFun        decl -> trDecl (DeclareFunPar emptyPar decl)
-      DeclareFunPar par decl ->
-        do d <- trFunDecl par decl
+      DeclareFun sym (FunTypeMono ty) ->
+        trDecl (DeclareFun sym (FunTypePoly emptyPar ty))
+      DeclareFun sym (FunTypePoly par (InnerFunType args ty)) ->
+        do d <- trFunDecl sym par args ty
            return emptyTheory{ thy_sigs = [d] }
 
-      DefineFun        def -> trDecl (DefineFunPar emptyPar def)
-      DefineFunPar par def@(FunDef f _ _ _ _) ->
-        do thy <- trDecl (DefineFunRecPar par def)
+      DefineFun (FunDecMono sym ty) body ->
+        trDecl (DefineFun (FunDecPoly sym emptyPar ty) body)
+      DefineFun dec@(FunDecPoly (AttrSymbol f _) _ _) body ->
+        do thy <- trDecl (DefineFunRec dec body)
            let [fn] = thy_funcs thy
            when (func_name fn `elem` uses fn)
                 (throwError $ ppSym f <+> "is recursive, but define-fun-rec was not used!")
            return thy
 
-      DefineFunRec        def -> trDecl (DefineFunRecPar emptyPar def)
-      DefineFunRecPar par def ->
-        do sig <- trFunDecl par (defToDecl def)
+      DefineFunRec (FunDecMono sym ty) body ->
+        trDecl (DefineFunRec (FunDecPoly sym emptyPar ty) body)
+      DefineFunRec (FunDecPoly sym par (InnerFunDec binds ty)) body ->
+        do sig <- trFunDecl sym par (map bindingType binds) ty
            withTheory emptyTheory{ thy_sigs = [sig] } $ do
-             fn <- trFunDef par def
+             fn <- trFunDef sym par binds ty body
              return emptyTheory{ thy_funcs = [fn] }
 
       DefineFunsRec decs bodies ->
         do -- add their correct types, abstractly
-           fds <- mapM (uncurry trFunDecl . decToDecl) decs
+           unless (length decs == length bodies) $
+             throwError "define-funs-rec used with different number of signatures and bodies"
+           fds <- sequence [trFunDecl sym tvs (map bindingType binds) ty | (sym, tvs, binds, ty) <- map unpackFunDec decs]
            withTheory emptyTheory{ thy_sigs = fds } $ do
              fns <- sequence
-                [ uncurry trFunDef (decToDef dec body)
-                | (dec,body) <- decs `zip` bodies
+                [ trFunDef sym par binds ty body
+                | (dec,body) <- decs `zip` bodies,
+                  let (sym, par, binds, ty) = unpackFunDec dec
                 ]
              return emptyTheory{ thy_funcs = fns }
 
@@ -163,18 +189,14 @@ trDecl x =
 emptyPar :: Par
 emptyPar = Par []
 
-decToDecl :: FunDec -> (Par,FunDecl)
-decToDecl dec = case dec of
-  MonoFunDec inner -> decToDecl (ParFunDec emptyPar inner)
-  ParFunDec par (InnerFunDec fsym attrs bindings res_type) ->
-    (par,FunDecl fsym attrs (map bindingType bindings) res_type)
+unpackFunDec :: FunDec -> (AttrSymbol, Par, [Binding], A.Type)
+unpackFunDec (FunDecMono sym (InnerFunDec binds ty)) =
+  (sym, emptyPar, binds, ty)
+unpackFunDec (FunDecPoly sym par (InnerFunDec binds ty)) =
+  (sym, par, binds, ty)
 
-defToDecl :: FunDef -> FunDecl
-defToDecl (FunDef fsym attrs bindings res_type _) =
-  FunDecl fsym attrs (map bindingType bindings) res_type
-
-trFunDecl :: Par -> FunDecl -> CM (T.Signature Id)
-trFunDecl (Par tvs) (FunDecl fsym attrs args res) =
+trFunDecl :: AttrSymbol -> Par -> [A.Type] -> A.Type -> CM (T.Signature Id)
+trFunDecl (AttrSymbol fsym attrs) (Par tvs) args res =
     newScope $
       do f <- addSym GlobalId fsym
          tvi <- mapM (addSym LocalId) tvs
@@ -182,14 +204,8 @@ trFunDecl (Par tvs) (FunDecl fsym attrs args res) =
          pt <- PolyType tvi <$> mapM trType args <*> trType res
          return (Signature f (trAttrs attrs) pt)
 
-decToDef :: FunDec -> A.Expr -> (Par,FunDef)
-decToDef dec body = case dec of
-  MonoFunDec inner -> decToDef (ParFunDec emptyPar inner) body
-  ParFunDec par (InnerFunDec fsym attrs bindings res_type) ->
-    (par,FunDef fsym attrs bindings res_type body)
-
-trFunDef :: Par -> FunDef -> CM (T.Function Id)
-trFunDef (Par tvs) (FunDef fsym attrs bindings res_type body) =
+trFunDef :: AttrSymbol -> Par -> [Binding] -> A.Type -> A.Expr -> CM (T.Function Id)
+trFunDef (AttrSymbol fsym attrs) (Par tvs) bindings res_type body =
   newScope $
     do f <- lkSym fsym
        tvi <- mapM (addSym LocalId) tvs
@@ -197,19 +213,17 @@ trFunDef (Par tvs) (FunDef fsym attrs bindings res_type body) =
        args <- mapM trLocalBinding bindings
        Function f (trAttrs attrs) tvi args <$> trType res_type <*> trExpr body
 
-dataSym :: A.Datatype -> Symbol
-dataSym (A.Datatype sym _ _) = sym
+unpackData :: A.Datatype -> (Par, A.InnerDatatype)
+unpackData (DatatypeMono dt) = (emptyPar, dt)
+unpackData (DatatypePoly par dt) = (par, dt)
 
-dataAttrs :: A.Datatype -> [A.Attr]
-dataAttrs (A.Datatype _ attrs _) = attrs
-
-trDatatype :: [Id] -> A.Datatype -> CM (T.Datatype Id)
-trDatatype tvs (A.Datatype sym attrs constructors) =
+trDatatype :: [Id] -> AttrSymbol -> A.InnerDatatype -> CM (T.Datatype Id)
+trDatatype tvs (AttrSymbol sym attrs) (A.InnerDatatype constructors) =
   do x <- lkSym sym
      T.Datatype x (trAttrs attrs) tvs <$> mapM trConstructor constructors
 
 trConstructor :: A.Constructor -> CM (T.Constructor Id)
-trConstructor (A.Constructor name attrs args) =
+trConstructor (A.Constructor (AttrSymbol name attrs) args) =
   do c <- addSym GlobalId name
      is_c <- addSym GlobalId (Unquoted (UnquotedSymbol (symPos name, "is-" ++ symStr name)))
      T.Constructor c (trAttrs attrs) is_c <$> mapM (trBinding GlobalId) args
@@ -269,7 +283,7 @@ trExpr e0 = case e0 of
   A.App head exprs           -> trHead head =<< mapM trExpr exprs
 
   A.Match expr cases  -> do e <- trExpr expr
-                            cases' <- sort <$> mapM (trCase (exprType e)) cases
+                            cases' <- sort <$> mapM (trCase e) cases
                             return (T.Match e cases')
   A.Let letdecls expr -> trLetDecls letdecls expr
   A.Binder binder bindings expr -> newScope $ trBinder binder <$> mapM trLocalBinding bindings <*> trExpr expr
@@ -333,20 +347,35 @@ trBinder b = case b of
   A.Forall -> mkQuant T.Forall
   A.Exists -> mkQuant T.Exists
 
-trCase :: T.Type Id -> A.Case -> CM (T.Case Id)
-trCase goal_type (A.Case pattern expr) =
-  newScope $ T.Case <$> trPattern goal_type pattern <*> trExpr expr
+trCase :: T.Expr Id -> A.Case -> CM (T.Case Id)
+trCase scrutinee (A.Case pattern expr) =
+  newScope $ do
+    (pat, trans) <- trPattern scrutinee pattern
+    exp <- trans expr
+    return (T.Case pat exp)
 
-trPattern :: T.Type Id -> A.Pattern -> CM (T.Pattern Id)
-trPattern goal_type p = case p of
-  A.Default          -> return T.Default
-  A.SimplePat sym    -> trPattern goal_type (A.ConPat sym [])
+trPattern :: T.Expr Id -> A.Pattern -> CM (T.Pattern Id, A.Expr -> CM (T.Expr Id))
+trPattern scrutinee p = case p of
+  A.SimplePat sym ->
+    do g <- isGlobalSym sym
+       if g then
+         trPattern scrutinee (A.ConPat sym [])
+       else do
+         x <- addSym LocalId sym
+         let l = Local x (exprType scrutinee)
+         return (T.Default,
+                 \body ->
+                    newScope $
+                      do newLocal l
+                         exp <- trExpr body
+                         if l `elem` free exp then return (T.Let l scrutinee exp) else return exp)
+
   A.ConPat sym bound ->
     do x <- lkSym sym
        mt <- gets (fmap globalType . lookupGlobal x)
        case mt of
          Just pt@(PolyType tvs arg res)
-           | Just ty_app <- matchTypesIn tvs [(res,goal_type)] ->
+           | Just ty_app <- matchTypesIn tvs [(res,exprType scrutinee)] ->
              do let (var_types, _) = applyPolyType pt ty_app
                 ls <- sequence
                    [ do b <- addSym LocalId b_sym
@@ -355,9 +384,9 @@ trPattern goal_type p = case p of
                         return l
                    | (b_sym,t) <- bound `zip` var_types
                    ]
-                return (T.ConPat (Global x pt ty_app) ls)
+                return (T.ConPat (Global x pt ty_app) ls, trExpr)
          _ -> throwError $ "type-incorrect case"
-  A.LitPat l -> return (T.LitPat (trLit l))
+  A.LitPat l -> return (T.LitPat (trLit l), trExpr)
 
 trType :: A.Type -> CM (T.Type Id)
 trType t0 = case t0 of
