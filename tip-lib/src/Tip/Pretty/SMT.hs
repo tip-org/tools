@@ -138,7 +138,7 @@ ppFuncs fs = expr "define-funs-rec"
 
 ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
 ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
-    sep [ppVarSMT f, ppAttrs attrs] $\ fsep [par tyvars (fsep  [ppLocals args, ppType res_ty]), content]
+    sep [ppVarSMT f, ppAttrs attrs] $$ fsep [par tyvars (fsep  [ppLocals args, ppType res_ty]), content]
 --  parv tyvars (sep [ppVarSMT f, ppAttrs attrs] $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => ProveMode -> Formula a -> Doc
