@@ -33,7 +33,7 @@ module Tip.Passes
   , cseMatch
   , cseMatchNormal
   , cseMatchWhy3
-  , fillInCases
+  , makeMatchExhaustive
 
   -- * Duplicated functions
   , collapseEqual
@@ -86,7 +86,7 @@ import Tip.Pass.Lift
 import Tip.Pass.Monomorphise
 import Tip.Pass.Booleans
 import Tip.Pass.EliminateDeadCode
-import Tip.Pass.FillInCases
+import Tip.Pass.MakeMatchExhaustive
 import Tip.Pass.AxiomatizeFuncdefs
 import Tip.Pass.AxiomatizeDatadecls
 import Tip.Pass.SelectConjecture
@@ -122,6 +122,7 @@ data StandardPass
   | AddMatch
   | CommuteMatch
   | RemoveMatch
+  | MakeMatchExhaustive
   | CollapseEqual
   | RemoveAliases
   | LambdaLift
@@ -168,6 +169,7 @@ instance Pass StandardPass where
     AddMatch             -> single $ addMatch
     CommuteMatch         -> single $ commuteMatchTheory
     RemoveMatch          -> single $ removeMatch
+    MakeMatchExhaustive  -> single $ makeMatchExhaustive
     CollapseEqual        -> single $ return . removeAliases . collapseEqual
     RemoveAliases        -> single $ return . removeAliases
     LambdaLift           -> single $ lambdaLift
@@ -234,6 +236,8 @@ instance Pass StandardPass where
         help "Eliminate matches that occur in weird positions (e.g. as arguments to function calls)",
       unitPass RemoveMatch $
         help "Replace pattern matching with SMTLIB-style datatype access",
+      unitPass MakeMatchExhaustive $
+        help "Fill in any missing cases by returning an unspecified constant",
       unitPass CollapseEqual $
         help "Merge functions with equal definitions",
       unitPass RemoveAliases $

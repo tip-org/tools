@@ -70,10 +70,10 @@ library
     Tip.Pass.UniqLocals
     Tip.Pass.EliminateDeadCode
     Tip.Pass.EqualFunctions
-    Tip.Pass.FillInCases
     Tip.Pass.Induction
     Tip.Pass.Lift
     Tip.Pass.Monomorphise
+    Tip.Pass.MakeMatchExhaustive
     Tip.Pass.Pipeline
     Tip.Pass.RemoveMatch
     Tip.Pass.RemoveNewtype
