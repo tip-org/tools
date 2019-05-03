@@ -181,10 +181,10 @@ trDecl x =
 emptyPar :: Par
 emptyPar = Par []
 
-unpackFunDec :: FunDec -> (AttrSymbol, Par, [Binding], A.Type)
-unpackFunDec (FunDecMono sym (InnerFunDec binds ty)) =
+unpackFunDec :: BracketedFunDec -> (AttrSymbol, Par, [Binding], A.Type)
+unpackFunDec (BracketedFunDec (FunDecMono sym (InnerFunDec binds ty))) =
   (sym, emptyPar, binds, ty)
-unpackFunDec (FunDecPoly sym par (InnerFunDec binds ty)) =
+unpackFunDec (BracketedFunDec (FunDecPoly sym par (InnerFunDec binds ty))) =
   (sym, par, binds, ty)
 
 trFunDecl :: AttrSymbol -> Par -> [A.Type] -> A.Type -> CM (T.Signature Id)

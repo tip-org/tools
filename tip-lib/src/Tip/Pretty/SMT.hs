@@ -135,7 +135,7 @@ ppFuncs [f] =
               else "define-fun")
            [ppFuncSig f (ppExpr (func_body f))]
 ppFuncs fs = expr "define-funs-rec"
-  [ parens (vcat [ppFuncSig f empty | f <- fs])
+  [ parens (vcat [parens (ppFuncSig f empty) | f <- fs])
   , parens (vcat (map (ppExpr . func_body) fs))
   ]
 

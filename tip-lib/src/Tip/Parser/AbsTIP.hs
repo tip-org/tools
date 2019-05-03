@@ -23,7 +23,7 @@ data Decl
     | DeclareFun AttrSymbol FunType
     | DefineFun FunDec Expr
     | DefineFunRec FunDec Expr
-    | DefineFunsRec [FunDec] [Expr]
+    | DefineFunsRec [BracketedFunDec] [Expr]
     | Formula Assertion [Attr] Expr
     | FormulaPar Assertion [Attr] Par Expr
   deriving (Eq, Ord, Show, Read)
@@ -50,6 +50,9 @@ data InnerFunDec = InnerFunDec [Binding] Type
 data FunDec
     = FunDecMono AttrSymbol InnerFunDec
     | FunDecPoly AttrSymbol Par InnerFunDec
+  deriving (Eq, Ord, Show, Read)
+
+data BracketedFunDec = BracketedFunDec FunDec
   deriving (Eq, Ord, Show, Read)
 
 data DatatypeName = DatatypeName AttrSymbol Integer

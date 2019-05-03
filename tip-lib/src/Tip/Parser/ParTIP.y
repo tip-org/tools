@@ -18,6 +18,7 @@ import Tip.Parser.ErrM
 %name pFunType FunType
 %name pInnerFunDec InnerFunDec
 %name pFunDec FunDec
+%name pBracketedFunDec BracketedFunDec
 %name pDatatypeName DatatypeName
 %name pInnerDatatype InnerDatatype
 %name pDatatype Datatype
@@ -43,6 +44,7 @@ import Tip.Parser.ErrM
 %name pListSymbol ListSymbol
 %name pListType ListType
 %name pListFunDec ListFunDec
+%name pListBracketedFunDec ListBracketedFunDec
 %name pListAttr ListAttr
 %name pListDatatypeName ListDatatypeName
 %name pSymbol Symbol
@@ -119,7 +121,7 @@ Decl : 'declare-datatype' AttrSymbol Datatype { Tip.Parser.AbsTIP.DeclareDatatyp
      | 'declare-fun' AttrSymbol FunType { Tip.Parser.AbsTIP.DeclareFun $2 $3 }
      | 'define-fun' FunDec Expr { Tip.Parser.AbsTIP.DefineFun $2 $3 }
      | 'define-fun-rec' FunDec Expr { Tip.Parser.AbsTIP.DefineFunRec $2 $3 }
-     | 'define-funs-rec' '(' ListFunDec ')' '(' ListExpr ')' { Tip.Parser.AbsTIP.DefineFunsRec (reverse $3) (reverse $6) }
+     | 'define-funs-rec' '(' ListBracketedFunDec ')' '(' ListExpr ')' { Tip.Parser.AbsTIP.DefineFunsRec (reverse $3) (reverse $6) }
      | Assertion ListAttr Expr { Tip.Parser.AbsTIP.Formula $1 (reverse $2) $3 }
      | Assertion ListAttr '(' Par Expr ')' { Tip.Parser.AbsTIP.FormulaPar $1 (reverse $2) $4 $5 }
 Assertion :: { Assertion }
@@ -140,6 +142,8 @@ InnerFunDec : '(' ListBinding ')' Type { Tip.Parser.AbsTIP.InnerFunDec (reverse 
 FunDec :: { FunDec }
 FunDec : AttrSymbol InnerFunDec { Tip.Parser.AbsTIP.FunDecMono $1 $2 }
        | AttrSymbol '(' Par '(' InnerFunDec ')' ')' { Tip.Parser.AbsTIP.FunDecPoly $1 $3 $5 }
+BracketedFunDec :: { BracketedFunDec }
+BracketedFunDec : '(' FunDec ')' { Tip.Parser.AbsTIP.BracketedFunDec $2 }
 DatatypeName :: { DatatypeName }
 DatatypeName : '(' AttrSymbol Integer ')' { Tip.Parser.AbsTIP.DatatypeName $2 $3 }
 InnerDatatype :: { InnerDatatype }
@@ -236,6 +240,9 @@ ListType : {- empty -} { [] } | ListType Type { flip (:) $1 $2 }
 ListFunDec :: { [FunDec] }
 ListFunDec : {- empty -} { [] }
            | ListFunDec FunDec { flip (:) $1 $2 }
+ListBracketedFunDec :: { [BracketedFunDec] }
+ListBracketedFunDec : {- empty -} { [] }
+                    | ListBracketedFunDec BracketedFunDec { flip (:) $1 $2 }
 ListAttr :: { [Attr] }
 ListAttr : {- empty -} { [] } | ListAttr Attr { flip (:) $1 $2 }
 ListDatatypeName :: { [DatatypeName] }

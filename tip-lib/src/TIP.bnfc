@@ -11,7 +11,7 @@ DeclareConst.     Decl ::= "declare-const" AttrSymbol ConstType ;
 DeclareFun.       Decl ::= "declare-fun" AttrSymbol FunType;
 DefineFun.        Decl ::= "define-fun" FunDec Expr;
 DefineFunRec.     Decl ::= "define-fun-rec" FunDec Expr;
-DefineFunsRec.    Decl ::= "define-funs-rec" "(" [FunDec] ")" "(" [Expr] ")";
+DefineFunsRec.    Decl ::= "define-funs-rec" "(" [BracketedFunDec] ")" "(" [Expr] ")";
 Formula.          Decl ::= Assertion [Attr] Expr;
 FormulaPar.       Decl ::= Assertion [Attr] "(" Par Expr ")";
 
@@ -30,6 +30,7 @@ FunTypePoly.  FunType ::= "(" Par "(" InnerFunType ")" ")";
 InnerFunDec.  InnerFunDec ::= "(" [Binding] ")" Type;
 FunDecMono.   FunDec ::= AttrSymbol InnerFunDec;
 FunDecPoly.   FunDec ::= AttrSymbol "(" Par "(" InnerFunDec ")" ")";
+BracketedFunDec. BracketedFunDec ::= "(" FunDec ")";
 
 DatatypeName. DatatypeName ::= "(" AttrSymbol Integer ")";
 InnerDatatype. InnerDatatype ::= "(" [Constructor] ")";
@@ -108,6 +109,7 @@ terminator Binding "";
 terminator Symbol "";
 terminator Type "";
 terminator FunDec "";
+terminator BracketedFunDec "";
 terminator Attr "";
 terminator DatatypeName "";
 
