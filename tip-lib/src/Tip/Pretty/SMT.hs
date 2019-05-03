@@ -5,7 +5,7 @@ import Text.PrettyPrint
 
 import Tip.Pretty
 import Tip.Types
-import Tip.Core (ifView, topsort, exprType, makeGlobal, uses, collectLets)
+import Tip.Core (ifView, topsort, exprType, makeGlobal, uses, collectLets, theoryGoals)
 import Tip.Rename
 import Data.Maybe
 import Data.Char (isAlphaNum)
@@ -47,17 +47,39 @@ isValidSMTString (x:xs)
 isValidSMTString xs =
   and [ isAlphaNum x || x `elem` ("~!@$%^&*_-+=<>.?/" :: String) | x <- xs ]
 
-ppTheory :: (Ord a,PrettyVar a) => [String] -> Theory a -> Doc
-ppTheory keywords thy =
+data Config =
+  Config {
+    config_keywords :: [String],
+    config_use_prove :: Bool }
+  deriving Show
+data ProveMode = UseProve | UsePushPopAssert | UseAssert
+  deriving (Eq, Show)
+
+smtConfig, tipConfig :: Config
+smtConfig =
+  Config {
+    config_keywords = smtKeywords,
+    config_use_prove = False }
+tipConfig =
+  Config {
+    config_keywords = [],
+    config_use_prove = True }
+
+ppTheory :: (Ord a,PrettyVar a) => Config -> Theory a -> Doc
+ppTheory Config{..} thy =
   vcat $
     map ppSort thy_sorts ++
     map ppDatas (topsort thy_datatypes) ++
     map ppUninterp thy_sigs ++
     map ppFuncs (topsort thy_funcs) ++
-    map ppFormula thy_asserts
+    map (ppFormula proveMode) thy_asserts
   where
     Theory{..} =
-      renameAvoiding (tipKeywords ++ keywords) id thy
+      renameAvoiding (tipKeywords ++ config_keywords) id thy
+    proveMode
+      | config_use_prove = UseProve
+      | length (theoryGoals thy) == 1 = UseAssert
+      | otherwise = UsePushPopAssert
 
 ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAttrs attrs], int (length tvs)]
@@ -118,11 +140,19 @@ ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
 ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
   parv tyvars (sep [ppVarSMT f, ppAttrs attrs] $\ fsep [ppLocals args, ppType res_ty, content])
 
-ppFormula :: (Ord a, PrettyVar a) => Formula a -> Doc
-ppFormula (Formula Prove attrs tvs term)  =
+ppFormula :: (Ord a, PrettyVar a) => ProveMode -> Formula a -> Doc
+ppFormula UseProve (Formula Prove attrs tvs term) =
   apply "prove" $
     ppAttrs attrs $$ par' tvs (ppExpr term)
-ppFormula (Formula Assert attrs tvs term) =
+ppFormula UseAssert (Formula Prove attrs tvs term) =
+  apply "assert" (apply "not" (ppAttrs attrs $$ par' tvs (ppExpr term))) $$
+  parens (text "check-sat")
+ppFormula UsePushPopAssert form@(Formula Prove _ _ _) =
+  vcat [
+    apply "push" (text "1"),
+    ppFormula UseAssert form,
+    apply "pop" (text "1")]
+ppFormula _ (Formula Assert attrs tvs term) =
   apply "assert" $
    ppAttrs attrs $$ par' tvs (ppExpr term)
 
@@ -225,10 +255,10 @@ instance (Ord a,PrettyVar a) => Pretty (Decl a) where
   pp (SortDecl d)   = ppSort d
   pp (SigDecl d)    = ppUninterp d
   pp (FuncDecl d)   = ppFuncs [d]
-  pp (AssertDecl d) = ppFormula d
+  pp (AssertDecl d) = ppFormula UseProve d
 
 instance (Ord a,PrettyVar a) => Pretty (Theory a) where
-  pp = ppTheory []
+  pp = ppTheory tipConfig
 
 instance (Ord a, PrettyVar a) => Pretty (Expr a) where
   pp = ppExpr
@@ -249,7 +279,7 @@ instance (Ord a, PrettyVar a) => Pretty (Function a) where
   pp = ppFuncs . return
 
 instance (Ord a, PrettyVar a) => Pretty (Formula a) where
-  pp = ppFormula
+  pp = ppFormula UseProve
 
 instance PrettyVar a => Pretty (Datatype a) where
   pp = ppDatas . return

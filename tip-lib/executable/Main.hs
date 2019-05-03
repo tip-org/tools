@@ -27,7 +27,7 @@ import Control.Monad
 import Data.Monoid ((<>))
 import Text.PrettyPrint hiding ((<>))
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | Twee | Waldmeister | Equations
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | Twee | Waldmeister | Equations
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -40,8 +40,9 @@ parseOutputMode =
   <|> flag' (Haskell HS.Smten)                  (long "haskell-smten"        <> help "Haskell output with Smten (depth given on command line)")
   <|> flag' (Haskell (HS.QuickSpec (HS.QuickSpecParams {foreground_functions = Nothing, predicates = Nothing, max_test_size = 20, max_size = 7, use_observers = False})))      (long "haskell-spec"   <> help "Haskell output with QuickSpec signature (Feat generators)")
   <|> flag' Why3 (long "why" <> help "WhyML output")
-  <|> flag' (SMTLIB False) (long "smtlib" <> help "SMTLIB output")
-  <|> flag' (SMTLIB True)  (long "smtlib-ax-fun" <> help "SMTLIB output (axiomatise function declarations)")
+  <|> flag' (SMTLIB False False) (long "smtlib" <> help "SMTLIB output")
+  <|> flag' (SMTLIB False True) (long "smtlib-no-match" <> help "SMTLIB output (eliminate match)")
+  <|> flag' (SMTLIB True True)  (long "smtlib-ax-fun" <> help "SMTLIB output (eliminate match and function declarations)")
   <|> flag' (Isabelle False) (long "isabelle" <> help "Isabelle output")
   <|> flag' (Isabelle True) (long "isabelle-explicit-forall" <> help "Isabelle output (with variables explicitly forall quantified)")
   <|> flag' Hopster (long "hopster" <> help "Hopster output")
@@ -84,16 +85,16 @@ handle passes mode multipath s =
       let show_passes c = fmap (\ s -> c ++ show passes ++ "\n" ++ s)
       let (pretty,pipeline,ext) =
             case mode of
-              SMTLIB ax_func_decls ->
-                ( \t -> SMT.ppTheory SMT.smtKeywords t $$ text "(check-sat)"
+              SMTLIB ax_func_decls remove_match ->
+                ( \t -> SMT.ppTheory SMT.smtConfig t
                 , passes ++
                   [ Monomorphise False 1
                   , AxiomatizeLambdas
-                  , SimplifyGently, CollapseEqual
-                  , SimplifyGently, RemoveMatch
-                  , SimplifyGently, Monomorphise False 1 ]
+                  , SimplifyGently, CollapseEqual ]
+                  ++ concat [ [SimplifyGently, RemoveMatch] | remove_match ]
+                  ++ [ SimplifyGently, Monomorphise False 1 ]
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
-                  ++ [ SimplifyGently, NegateConjecture, DropAttributes ]
+                  ++ [ SimplifyGently, DropAttributes ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory
@@ -133,7 +134,7 @@ handle passes mode multipath s =
               Isabelle expl_forall -> (Isabelle.ppTheory expl_forall, passes, "thy")
               Hipster -> (Hipster.ppHipsterConjs, passes, "txt")
               Hopster -> (Hopster.ppHopsterConjs, passes, "txt")
-              TIP       -> (SMT.ppTheory [],      passes, "smt2")
+              TIP       -> (SMT.ppTheory SMT.tipConfig, passes, "smt2")
               Equations -> (Equations.ppEquations, passes, "txt")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
