@@ -63,13 +63,20 @@ ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAttrs attrs], int (length tvs)]
 
 ppDatas :: PrettyVar a => [Datatype a] -> Doc
-ppDatas datatypes@(Datatype _ _ tyvars _:_) =
-  parExprSep "declare-datatypes" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppData datatypes))]
+ppDatas [datatype@(Datatype tycon attrs _ _)] =
+  parExprSep "declare-datatype" [fsep [ppVarSMT tycon, ppAttrs attrs, ppData datatype]]
+
+ppDatas datatypes@(Datatype tycon _ tyvars _:_) =
+  parExprSep "declare-datatypes" [parens (fsep (map ppDTypeName datatypes)), parens (fsep (map ppData datatypes))]
 ppDatas [] = error "empty scc"
 
+ppDTypeName :: PrettyVar a => Datatype a -> Doc
+ppDTypeName (Datatype tycon attrs tyvars _) =
+  parExprSep (sep [ppVarSMT tycon, ppAttrs attrs]) [int (length tyvars)]
+
 ppData :: PrettyVar a => Datatype a -> Doc
-ppData (Datatype tycon attrs _ datacons) =
-  parExprSep (sep [ppVarSMT tycon, ppAttrs attrs]) (map ppCon datacons)
+ppData (Datatype _ _ tyvars datacons) =
+    parExprSep "par" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppCon datacons))]
 
 ppCon :: PrettyVar a => Constructor a -> Doc
 ppCon (Constructor datacon attrs selector args) =
@@ -214,7 +221,7 @@ ppKeyword x = text (':':x)
 -- Temporary use SMTLIB as the pretty printer:
 
 instance (Ord a,PrettyVar a) => Pretty (Decl a) where
-  pp (DataDecl d)   = ppData d
+  pp (DataDecl d)   = ppDatas [d]
   pp (SortDecl d)   = ppSort d
   pp (SigDecl d)    = ppUninterp d
   pp (FuncDecl d)   = ppFuncs [d]
