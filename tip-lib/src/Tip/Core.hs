@@ -15,7 +15,7 @@ import Tip.Utils
 import Data.Traversable (Traversable)
 import qualified Data.Foldable as F
 import Data.Generics.Geniplate
-import Data.List ((\\),partition)
+import Data.List ((\\),partition,intersect)
 import Data.Maybe
 import Control.Monad
 import qualified Data.Map as Map
@@ -173,9 +173,13 @@ makeLets ((x,ex):xes) e = Let x ex (makeLets xes e)
 
 -- * Predicates and examinations on expressions
 
-collectLets :: Expr a -> ([(Local a,Expr a)],Expr a)
-collectLets (Let y rhs e) = let (bs,e') = collectLets e in ((y,rhs):bs,e')
-collectLets e             = ([],e)
+collectLets :: Ord a => Expr a -> ([(Local a,Expr a)],Expr a)
+collectLets e = loop [] e
+  where
+    loop bound (Let y rhs e)
+      | null (intersect (free rhs) bound) =
+        let (bs,e') = loop (y:bound) e in ((y,rhs):bs,e')
+    loop _ e = ([], e)
 
 litView :: Expr a -> Maybe Lit
 litView (Builtin (Lit l) :@: []) = Just l
