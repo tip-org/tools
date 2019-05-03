@@ -75,11 +75,14 @@ ppTheory Config{..} thy =
     map (ppFormula proveMode) thy_asserts
   where
     Theory{..} =
-      renameAvoiding (tipKeywords ++ config_keywords) id thy
+      renameAvoiding (tipKeywords ++ config_keywords) removeForbidden thy
     proveMode
       | config_use_prove = UseProve
       | length (theoryGoals thy) == 1 = UseAssert
       | otherwise = UsePushPopAssert
+    removeForbidden xs@('.':_) = 'x':xs
+    removeForbidden xs@('@':_) = 'x':xs
+    removeForbidden xs = xs
 
 ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAttrs attrs], int (length tvs)]
@@ -97,7 +100,7 @@ ppDTypeName (Datatype tycon attrs tyvars _) =
   parExprSep (sep [ppVarSMT tycon, ppAttrs attrs]) [int (length tyvars)]
 
 ppData :: PrettyVar a => Datatype a -> Doc
-ppData (Datatype _ _ tyvars datacons) = par tyvars (fsep (map ppCon datacons))
+ppData (Datatype _ _ tyvars datacons) = par'' tyvars (fsep (map ppCon datacons))
 --    parExprSep "par" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppCon datacons))]
 
 ppCon :: PrettyVar a => Constructor a -> Doc
@@ -119,27 +122,26 @@ par'' xs d = par' xs (parens d)
 ppUninterp :: PrettyVar a => Signature a -> Doc
 ppUninterp (Signature f attrs (PolyType tyvars arg_types result_type)) =
   apply (if null arg_types then "declare-const" else "declare-fun")
-    (par tyvars
-      (sep [ppVarSMT f, ppAttrs attrs] $\
+    (sep [ppVarSMT f, ppAttrs attrs] $\
+      (par tyvars
         (sep [ if null arg_types then empty else parens (fsep (map ppType arg_types))
-             , ppType result_type
-             ])))
+              , ppType result_type
+              ])))
 
 ppFuncs :: (Ord a, PrettyVar a) => [Function a] -> Doc
 ppFuncs [f] =
       expr (if func_name f `elem` uses f
               then "define-fun-rec"
               else "define-fun")
-           [ppFuncSig par f (ppExpr (func_body f))]
+           [ppFuncSig f (ppExpr (func_body f))]
 ppFuncs fs = expr "define-funs-rec"
-  [ parens (vcat [ppFuncSig par'' f empty | f <- fs])
+  [ parens (vcat [ppFuncSig f empty | f <- fs])
   , parens (vcat (map (ppExpr . func_body) fs))
   ]
 
-ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
-ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
+ppFuncSig :: PrettyVar a => Function a -> Doc -> Doc
+ppFuncSig (Function f attrs tyvars args res_ty body) content =
     sep [ppVarSMT f, ppAttrs attrs] $$ fsep [par tyvars (fsep  [ppLocals args, ppType res_ty]), content]
---  parv tyvars (sep [ppVarSMT f, ppAttrs attrs] $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => ProveMode -> Formula a -> Doc
 ppFormula UseProve (Formula Prove attrs tvs term) =
