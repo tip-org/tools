@@ -46,8 +46,6 @@ Right nat_theory =
       "(match x",
         "((zero y)",
          "((succ x) (succ (plus x y))))))",
-    -- 0 - succ(x) is left undefined to better correspond to
-    -- integer subtraction
     "(define-fun-rec minus :definition :source |-|",
       "((x Nat) (y Nat)) Nat",
       "(match x",
@@ -55,7 +53,7 @@ Right nat_theory =
          "((succ x)",
            "(match y",
              "(((succ y) (minus x y))",
-               "zero zero))))))",
+               "(zero zero)))))))",
     "(define-fun-rec times :definition :source |*|",
       "((x Nat) (y Nat)) Nat",
       "(match x",
