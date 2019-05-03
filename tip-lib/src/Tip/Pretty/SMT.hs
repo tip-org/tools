@@ -97,8 +97,8 @@ ppDTypeName (Datatype tycon attrs tyvars _) =
   parExprSep (sep [ppVarSMT tycon, ppAttrs attrs]) [int (length tyvars)]
 
 ppData :: PrettyVar a => Datatype a -> Doc
-ppData (Datatype _ _ tyvars datacons) =
-    parExprSep "par" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppCon datacons))]
+ppData (Datatype _ _ tyvars datacons) = par tyvars (fsep (map ppCon datacons))
+--    parExprSep "par" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppCon datacons))]
 
 ppCon :: PrettyVar a => Constructor a -> Doc
 ppCon (Constructor datacon attrs selector args) =
@@ -138,7 +138,8 @@ ppFuncs fs = expr "define-funs-rec"
 
 ppFuncSig :: PrettyVar a => ([a] -> Doc -> Doc) -> Function a -> Doc -> Doc
 ppFuncSig parv (Function f attrs tyvars args res_ty body) content =
-  parv tyvars (sep [ppVarSMT f, ppAttrs attrs] $\ fsep [ppLocals args, ppType res_ty, content])
+    sep [ppVarSMT f, ppAttrs attrs] $\ fsep [par tyvars (fsep  [ppLocals args, ppType res_ty]), content]
+--  parv tyvars (sep [ppVarSMT f, ppAttrs attrs] $\ fsep [ppLocals args, ppType res_ty, content])
 
 ppFormula :: (Ord a, PrettyVar a) => ProveMode -> Formula a -> Doc
 ppFormula UseProve (Formula Prove attrs tvs term) =
@@ -164,7 +165,7 @@ ppExpr e@(hd@(Gbl Global{..}) :@: es)
 ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVarSMT (lcl_name l)
 ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]
-ppExpr (Match e as) = "(match" $\ ppExpr e $\ (vcat (map ppCase as) <> ")")
+ppExpr (Match e as) = "(match" $\ ppExpr e $\ (parens (vcat (map ppCase as)) <> ")")
 ppExpr lets@Let{} =
   parExprSep "let"
     [ parens (vcat (map parens [ppVarSMT (lcl_name x) $\ ppExpr b | (x,b) <- bs]))
