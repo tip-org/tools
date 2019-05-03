@@ -36,8 +36,8 @@ ppVarSMT x
   | otherwise = text ("|" ++ concatMap escape str ++ "|")
   where
     str = varStr x
-    escape '\\' = "\\\\"
-    escape '|' = "\\|"
+    escape '\\' = "backslash"
+    escape '|' = "bar"
     escape x = [x]
 
 isValidSMTString :: String -> Bool
@@ -325,4 +325,5 @@ tipKeywords = [
 smtKeywords :: [String]
 smtKeywords = [
   "abs", "Array", "List", "insert", "isZero", "map", "select",
-  "subset", "union", "intersect", "concat", "member"]
+  "subset", "union", "intersect", "concat", "member",
+  "exp", "store"]
