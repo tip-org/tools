@@ -164,9 +164,17 @@ replaceInt replacement_thy thy
               return $
                 Match e [Case (ConPat succGlobal [x]) (pred e)]
             replaceE (Builtin NumLt :@: [_, z]) | z == zero = return (bool False)
+            replaceE (Builtin NumLt :@: [z, e]) | z == zero =
+              return $ Gbl (discriminator nat succCon []) :@: [e]
             replaceE (Builtin NumLe :@: [z, _]) | z == zero = return (bool True)
+            replaceE (Builtin NumLe :@: [e, z]) | z == zero =
+              return $ Gbl (discriminator nat zeroCon []) :@: [e]
             replaceE (Builtin NumGt :@: [z, _]) | z == zero = return (bool False)
+            replaceE (Builtin NumGt :@: [e, z]) | z == zero =
+              return $ Gbl (discriminator nat succCon []) :@: [e]
             replaceE (Builtin NumGe :@: [_, z]) | z == zero = return (bool True)
+            replaceE (Builtin NumGe :@: [z, e]) | z == zero =
+              return $ Gbl (discriminator nat zeroCon []) :@: [e]
             replaceE (Builtin IntMod :@: [e, two]) | two == succ (succ zero) = do
               tell [FuncDecl even]
               return (makeIf (applyFunction even [] [e]) zero (succ zero))
