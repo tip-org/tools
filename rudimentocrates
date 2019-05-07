@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Run the input file through QuickSpec.
-# Discovered lemmas get added as new goals.
-echo Dreaming up conjectures...
-file=$(tip-spec $1)
-
 # Sends a TIP problem to E, without doing induction.
 # Reads the problem from stdin, succeeds if E proves the goal.
 # Expects one argument, which is the timeout (in seconds).
@@ -15,6 +10,13 @@ e() {
   jukebox fof /dev/stdin 2>/dev/null |
   # Send the FOF problem to E.
   eprover --tstp-in --soft-cpu-limit=$1 --auto --silent >& /dev/null
+}
+
+# Actually use CVC4 rather than E.
+e() {
+  (echo '(set-logic ALL)'; tip --smtlib) |
+  cvc4 --lang smt --tlimit=$1 |
+  grep -q unsat
 }
 
 # Sends a whole directory of TIP problems to E, without doing induction.
@@ -51,7 +53,18 @@ inductive_e() {
         ((n=$n+1))
       fi
     else
-      # Tried all variables unsuccessfully - fail.
+      # Tried all variables unsuccessfully - now try simultaneous induction.
+      ((n=$n-1))
+      for i in $(seq 0 $n); do
+        for j in $(seq 0 $n); do
+          echo "$file"|tip --induction "[$i,$j]" --split-conjecture - $dir/ >& /dev/null
+          if dir_e $dir $1; then
+            # Success!
+            rm -r $dir
+            return
+          fi
+        done
+      done
       rm -r $dir
       return 1
     fi
@@ -102,9 +115,20 @@ prove() {
   echo "$file"
 }
 
+if inductive_e 1000 < $1; then
+    echo 'Proved without theory exploration!'
+    tip --proved-conjecture 0 $1
+    exit
+fi
+
+# Run the input file through QuickSpec.
+# Discovered lemmas get added as new goals.
+echo Dreaming up conjectures...
+file=$(tip-spec $1)
+
 # Run the proof loop, gradually increasing the timeout.
 echo Trying to prove conjectures...
-for i in 0 1 5 30; do
+for i in 100 1000 5000; do
   file=$(echo "$file" | prove $i)
 done
 
