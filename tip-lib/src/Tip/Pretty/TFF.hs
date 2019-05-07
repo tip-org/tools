@@ -76,14 +76,14 @@ tffvarify = uppercase . fmap (Why3Var False)
       Local (Why3Var True lcl_name) lcl_type
 
 ppExpr :: (Ord a, PrettyVar a) => Int -> Expr a -> Doc
-ppExpr _ (Builtin Equal :@: [t, u])
+ppExpr p (Builtin Equal :@: [t, u])
   | exprType t == BuiltinType Boolean =
-    hang (ppExpr 2 t <+> "<=>") 2 (ppExpr 2 u)
+    parIf (p > 0) $ hang (ppExpr 2 t <+> "<=>") 2 (ppExpr 2 u)
   | otherwise =
     hang (ppExpr 2 t <+> "=") 2 (ppExpr 2 u)
 ppExpr p (Builtin Distinct :@: [t, u])
   | exprType t == BuiltinType Boolean =
-    hang (ppExpr 2 t <+> "<~>") 2 (ppExpr 2 u)
+    parIf (p > 0) $ hang (ppExpr 2 t <+> "<~>") 2 (ppExpr 2 u)
   | otherwise =
     hang (ppExpr 2 t <+> "!=") 2 (ppExpr 2 u)
 ppExpr p (Builtin And :@: ts) =
