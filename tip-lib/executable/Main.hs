@@ -90,8 +90,7 @@ handle passes mode multipath s =
                 , passes ++
                   [ Monomorphise False 1
                   , AxiomatizeLambdas
-                  , SimplifyGently, CollapseEqual
-                  , SimplifyGently, MakeMatchExhaustive]
+                  , SimplifyGently, CollapseEqual]
                   ++ concat [ [SimplifyGently, RemoveMatch] | remove_match ]
                   ++ [ SimplifyGently, Monomorphise False 1 ]
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
