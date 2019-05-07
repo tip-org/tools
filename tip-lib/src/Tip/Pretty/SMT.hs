@@ -120,13 +120,15 @@ par'' :: (PrettyVar a) => [a] -> Doc -> Doc
 par'' xs d = par' xs (parens d)
 
 ppUninterp :: PrettyVar a => Signature a -> Doc
-ppUninterp (Signature f attrs (PolyType tyvars arg_types result_type)) =
-  apply (if null arg_types then "declare-const" else "declare-fun")
-    (sep [ppVarSMT f, ppAttrs attrs] $\
-      (par tyvars
-        (sep [ if null arg_types then empty else parens (fsep (map ppType arg_types))
-              , ppType result_type
-              ])))
+ppUninterp (Signature f attrs (PolyType tyvars arg_types result_type))
+  | null arg_types =
+    apply "declare-const"
+      (sep [ppVarSMT f, ppAttrs attrs] $\ par' tyvars (ppType result_type))
+  | otherwise =
+    apply "declare-fun"
+      (sep [ppVarSMT f, ppAttrs attrs] $\
+        (par tyvars
+          (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
 
 ppFuncs :: (Ord a, PrettyVar a) => [Function a] -> Doc
 ppFuncs [f] =
