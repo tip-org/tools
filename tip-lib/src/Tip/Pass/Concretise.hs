@@ -68,6 +68,11 @@ Right nat_theory =
       "(match (lt x y)",
         "((true x)",
          "(_ (imod (minus x y) y)))))",
+    "(define-fun-rec even :definition :source |even|",
+      "((x Nat)) Bool",
+      "(match x",
+        "((zero true)",
+         "((succ y) (not (even y))))))",
     "(assert :axiom |commutativity of +|",
       "(forall ((x Nat) (y Nat)) (= (plus x y) (plus y x))))",
     "(assert :axiom |associativity of +|",
@@ -141,7 +146,7 @@ replaceInt replacement_thy thy
             succ e = Gbl succGlobal :@: [e]
             pred e = Gbl (projector nat succCon 0 []) :@: [e]
 
-        let [lt,le,gt,ge,plus,minus,times,div,mod] = thy_funcs nat_thy
+        let [lt,le,gt,ge,plus,minus,times,div,mod,even] = thy_funcs nat_thy
             [plus1, plus2, plus3, plus4,
              times1, times2, times3, times4, times5, times6, times7, times8] =
               thy_asserts nat_thy
@@ -161,6 +166,9 @@ replaceInt replacement_thy thy
             replaceE (Builtin NumLe :@: [z, _]) | z == zero = return (bool True)
             replaceE (Builtin NumGt :@: [z, _]) | z == zero = return (bool False)
             replaceE (Builtin NumGe :@: [_, z]) | z == zero = return (bool True)
+            replaceE (Builtin IntMod :@: [e, two]) | two == succ (succ zero) = do
+              tell [FuncDecl even]
+              return (makeIf (applyFunction even [] [e]) zero (succ zero))
             replaceE e0@(Builtin b :@: (es@(e1:_)))
               | exprType e1 `elem` [BuiltinType Integer, TyCon (data_name nat) []] =
                 case builtinOp b of
