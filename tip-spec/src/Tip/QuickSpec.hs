@@ -7,7 +7,7 @@ import Tip.Fresh (Name)
 import Tip.Haskell.Translate hiding (quickSpec)
 import Tip.Core (Theory)
 
-import QuickSpec
+import QuickSpec.Internal
 
 import Language.Haskell.Interpreter
 import Language.Haskell.Interpreter.Unsafe
@@ -33,7 +33,7 @@ theorySignature params thy =
            do unsafeSetGhcOption "-hide-package QuickCheck"
               unsafeSetGhcOption "-package QuickCheck-2.10.1"
               loadModules ["A"]
-              setImports ["A","QuickSpec","QuickSpec.Term","Prelude"]
+              setImports ["A","QuickSpec","Prelude"]
               sig <- interpret "sig" (undefined :: [Sig])
               return (sig,rename_map)
          case r of

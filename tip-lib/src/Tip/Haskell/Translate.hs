@@ -54,12 +54,6 @@ quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 quickSpec :: String -> HsId a
 quickSpec = Qualified "QuickSpec" (Just "QS")
 
-quickSpecTerm :: String -> HsId a
-quickSpecTerm = Qualified "QuickSpec.Term" (Just "QS")
-
--- quickSpecSig :: String -> HsId a
--- quickSpecSig = Qualified "QuickSpec.Signature" (Just "QS")
-
 constraints :: String -> HsId a
 constraints = Qualified "Data.Constraint" (Just "QS")
 

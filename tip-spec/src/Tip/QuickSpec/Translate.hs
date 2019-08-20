@@ -12,11 +12,10 @@ import qualified Data.Typeable as Typeable
 
 import qualified Tip.Core as Tip
 
-import qualified QuickSpec.Type as QS
-import qualified QuickSpec.Prop as QS
-import qualified QuickSpec.Term as QS
-import qualified QuickSpec.Haskell as QS
-import qualified QuickSpec.Explore.PartialApplication as QS
+import qualified QuickSpec.Internal.Type as QS
+import qualified QuickSpec.Internal.Prop as QS
+import qualified QuickSpec.Internal.Term as QS
+import qualified QuickSpec.Internal.Haskell as QS
 import qualified Twee.Base as Twee
 
 import qualified Data.Foldable as F
@@ -27,13 +26,14 @@ import Tip.Haskell.Rename (RenameMap)
 
 import Tip.Scope
 import Tip.Fresh
+import Tip.Simplify
 
 import Tip.Pretty (PrettyVar(..), pp)
 import Tip.Pretty.SMT ()
 
 import Data.Maybe
 
-type Term = QS.Term (QS.PartiallyApplied QS.Constant)
+type Term = QS.Term QS.Constant
 
 data BackEntry a
   = Head
@@ -113,18 +113,16 @@ trTerm d bm tm =
   case tm of
     QS.Var v ->
       Tip.Lcl (Tip.Local (Var v) (trType Inner bm (QS.typ v)))
-    QS.App (QS.Apply _) [t, u] ->
-      Tip.Builtin Tip.At Tip.:@: [trTerm (d+1) bm t, trTerm (d+1) bm u]
-    QS.App (QS.Partial c _) as ->
+    QS.Fun c ->
       let name = QS.con_name c
           Head tvs ty mk = FROMJUST(name) (M.lookup name bm)
-          nargs = QS.typeArity (QS.typ c)
           hd = mk (matchTypes name tvs ty (trType Outer bm (QS.typ c)))
-          missing = drop (length as) (headArgs hd)
-          lcls = [Tip.Local (Eta d n) ty | (n, ty) <- zip [0..] missing]
+          lcls = [Tip.Local (Eta d n) ty | (n, ty) <- zip [0..] (headArgs hd)]
       in
         flip (foldr (Tip.Lam . return)) lcls $
-        hd Tip.:@: (map (trTerm (d+1) bm) as ++ map Tip.Lcl lcls)
+        hd Tip.:@: (map Tip.Lcl lcls)
+    t QS.:$: u ->
+      Tip.Builtin Tip.At Tip.:@: [trTerm (d+1) bm t, trTerm (d+1) bm u]
 
 matchTypes :: (Ord a,PrettyVar a) => String -> [a] -> Tip.Type a -> Tip.Type a -> [Tip.Type a]
 matchTypes name tvs tmpl ty =
@@ -179,5 +177,7 @@ freshMap :: (Ord a,Name b) => [a] -> Fresh (Map a b)
 freshMap xs = M.fromList <$> sequence [ (,) x <$> fresh | x <- xs ]
 
 trProperty :: Name a => BackMap a -> QS.Prop Term -> Fresh (Tip.Formula a)
-trProperty bm = unV . trProp bm
+trProperty bm t = do
+  form <- unV (trProp bm t)
+  simplifyExpr gentlyNoInline form
 
