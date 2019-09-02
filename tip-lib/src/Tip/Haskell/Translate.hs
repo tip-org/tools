@@ -954,7 +954,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
          ]
 
     qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))
-    qsType t = (pre, TyArr (TyCon (constraints "Dict") [TyTup pre]) inner)
+    qsType t = (pre, TyArr (TyCon (constraints "Dict") [tyTup pre]) inner)
     -- FIXME: can we curry the constraints so we don't get tuples of more than 6?
       where
         pre = arbitrary use_observers (map trType qtvs) ++ imps
@@ -962,6 +962,11 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
         inner = trType (applyType tvs qtvs t)
         qtvs = qsTvs (length tvs)
         tvs = tyVars t
+        -- Transform big tuples of constraints into nested tuples
+        -- (because QuickSpec doesn't understand arbitrary tuples of constraints)
+        tyTup [] = TyTup []
+        tyTup [ty] = ty
+        tyTup (ty:tys) = TyTup [ty, tyTup tys]
 
     qsTvs :: Int -> [T.Type (HsId a)]
     qsTvs n = take n (cycle [ T.TyCon (quickSpec qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
