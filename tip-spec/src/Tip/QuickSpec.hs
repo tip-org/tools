@@ -30,9 +30,7 @@ theorySignature params thy =
          writeFile a_file (show thy_doc)
          setCurrentDirectory dir
          r <- runInterpreter $
-           do unsafeSetGhcOption "-hide-package QuickCheck"
-              unsafeSetGhcOption "-package QuickCheck-2.10.1"
-              loadModules ["A"]
+           do loadModules ["A"]
               setImports ["A","QuickSpec","Prelude"]
               sig <- interpret "sig" (undefined :: [Sig])
               return (sig,rename_map)
