@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Tip.Pretty.Haskell (module Tip.Pretty.Haskell, RenameMap, Mode(..)) where
 
+import Prelude hiding ((<>))
 import Tip.Haskell.Repr
 import Tip.Haskell.Translate
 import Tip.Haskell.Rename

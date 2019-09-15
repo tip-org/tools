@@ -190,9 +190,11 @@ emptyTheory = Theory [] [] [] [] []
 joinTheories :: Theory a -> Theory a -> Theory a
 joinTheories (Theory a o e u i) (Theory s n t h d) = Theory (a++s) (o++n) (e++t) (u++h) (i++d)
 
+instance Semigroup (Theory a) where
+  (<>) = joinTheories
+
 instance Monoid (Theory a) where
   mempty  = emptyTheory
-  mappend = joinTheories
 
 data Formula a = Formula
   { fm_role  :: Role

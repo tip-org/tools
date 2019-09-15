@@ -3,6 +3,7 @@ module Tip.Pretty.Waldmeister where
 
 import Text.PrettyPrint
 
+import Prelude hiding ((<>))
 import qualified Tip.Pretty.SMT as SMT
 
 import Tip.Pretty

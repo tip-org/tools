@@ -3,6 +3,7 @@ module Tip.Pretty.Why3 where
 
 import Text.PrettyPrint
 
+import Prelude hiding ((<>))
 import Tip.Pretty
 import Tip.Types
 import Tip.Rename

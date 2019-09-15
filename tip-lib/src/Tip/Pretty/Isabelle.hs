@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings, PatternGuards, ScopedTypeVariables, ViewPatterns #-}
 module Tip.Pretty.Isabelle where
 
+import Prelude hiding ((<>))
 import Text.PrettyPrint
 
 import Tip.Pretty

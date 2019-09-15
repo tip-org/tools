@@ -3,6 +3,7 @@ module Tip.Pretty.TFF where
 
 import Text.PrettyPrint
 
+import Prelude hiding ((<>))
 import Tip.Pretty
 import Tip.Pretty.Why3(Why3Var(..))
 import Tip.Pretty.SMT()

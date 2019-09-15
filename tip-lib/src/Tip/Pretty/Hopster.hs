@@ -3,6 +3,7 @@ module Tip.Pretty.Hopster(ppHopsterConjs) where
 
 import Text.PrettyPrint
 
+import Prelude hiding ((<>))
 import Tip.Pretty
 import Tip.Types
 import Tip.Core (ifView, makeGlobal, exprType, free, source, getAttr, getAttrs, hasAttr, unitAttr)

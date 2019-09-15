@@ -22,7 +22,7 @@ module Tip
     , module Tip.GHC.Annotations
     ) where
 
-import Test.QuickCheck hiding ((===), (==>), (.&&.), (.||.), forAll)
+import Test.QuickCheck hiding ((===), (=/=), (==>), (.&&.), (.||.), forAll)
 import qualified Test.QuickCheck as QC
 import Tip.GHC.Annotations(TipAnnotation(Name, Projections, Inline, Attr, AttrValue))
 

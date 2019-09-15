@@ -3,6 +3,7 @@ module Tip.Pretty.SMT where
 
 import Text.PrettyPrint
 
+import Prelude hiding ((<>))
 import Tip.Pretty
 import Tip.Types
 import Tip.Core (ifView, topsort, exprType, makeGlobal, uses, collectLets, theoryGoals)

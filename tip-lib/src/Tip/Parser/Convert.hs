@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Tip.Parser.Convert where
 
+import Prelude hiding ((<>))
 import Tip.Parser.AbsTIP as A -- from A ...
 import Tip.Core          as T -- ... to T
 import Tip.Pretty

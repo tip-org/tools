@@ -2,6 +2,8 @@
 module Tip.GHC where
 
 #include "errors.h"
+import Prelude hiding ((<>))
+import qualified Prelude
 import CoreSyn
 import GHC hiding (Id, exprType, DataDecl, Name, typeKind)
 import qualified GHC
@@ -120,15 +122,15 @@ readHaskellFile Params{..} name =
 
       -- Finally, a few types (such as lists) are defined in GHC itself
       -- rather than a package. We have to add those by hand.
-      Just (AnId fromIntegerId) <- lookupName fromIntegerName
-      Just (AnId fromRationalId) <- lookupName fromRationalName
-      Just (AnId negateId) <- lookupName negateName
-      Just (ATyCon integerTyCon) <- lookupName integerTyConName
-      Just (ATyCon ratioTyCon) <- lookupName ratioTyConName
-      Just (AConLike (RealDataCon ratioDataCon)) <-
+      ~(Just (AnId fromIntegerId)) <- lookupName fromIntegerName
+      ~(Just (AnId fromRationalId)) <- lookupName fromRationalName
+      ~(Just (AnId negateId)) <- lookupName negateName
+      ~(Just (ATyCon integerTyCon)) <- lookupName integerTyConName
+      ~(Just (ATyCon ratioTyCon)) <- lookupName ratioTyConName
+      ~(Just (AConLike (RealDataCon ratioDataCon))) <-
         lookupGlobalName ratioDataConName
-      Just (AnId eqId) <- lookupName eqName
-      Just (AnId unpackCStringId) <- lookupName unpackCStringName
+      ~(Just (AnId eqId)) <- lookupName eqName
+      ~(Just (AnId unpackCStringId)) <- lookupName unpackCStringName
       let builtin =
             Program (Map.fromList builtinTypes)
               (Map.fromList builtinGlobals) Map.empty
@@ -277,13 +279,14 @@ data GlobalInfo =
     -- Any annotations.
     global_annotations :: [TipAnnotation] }
 
-instance Monoid Program where
-  mempty = Program mempty mempty mempty
-  p1 `mappend` p2 =
+instance Semigroup Program where
+  p1 <> p2 =
     Program
       (prog_types p1 `mappend` prog_types p2)
       (prog_globals p1 `mappend` prog_globals p2)
       (prog_wiredIns p1 `mappend` prog_wiredIns p2)
+instance Monoid Program where
+  mempty = Program mempty mempty mempty
 
 -- Look up the TypeInfo for a type constructor.
 typeInfo :: Program -> TyCon -> TypeInfo
@@ -676,7 +679,7 @@ tipFunction prog x t =
     inline t = t
 
     lit :: Literal -> Tip.Lit
-    lit (LitInteger n _) = Int n
+    lit (LitNumber _ n _) = Int n
     lit l = ERROR("Unsupported literal: " ++ showOutputable l)
 
     special :: Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
