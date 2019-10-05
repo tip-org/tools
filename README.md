@@ -10,7 +10,9 @@ rough around the edges but include:
 
 ## Building the development version of the tools
 
-With Haskell installed and this repository cloned:
+First install [Stack](https://haskellstack.org/), the Haskell package
+management tool. Then run the following commands in the directory
+where you checked out this repository:
 
     stack setup
     stack install
@@ -19,6 +21,18 @@ The tools will be put in your `~/.local/bin` directory.
 
 If you are modifying the TIP parser, you will also need to have BNFC
 installed, and to run ./make_parser.sh whenever you change the parser.
+
+## Troubleshooting build errors
+
+Here are some common build errors and how to fix them:
+
+* Error parsing `stack.yaml`: your version of Stack is too old.
+  Run `stack upgrade` to download a newer version.
+* Error building `minisat`: make sure you have a C++ compiler
+  installed. To install one on Ubuntu, run `sudo apt install
+  build-essential`.
+* `-ltinfo` not found: install the `tinfo` development package. To do
+  this on Ubuntu, run `sudo apt install libtinfo-dev`.
 
 ## Working with TIP problems
 
