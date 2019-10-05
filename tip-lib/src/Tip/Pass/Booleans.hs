@@ -125,12 +125,14 @@ removeBuiltinBoolFrom names = transformBi i . transformBi h . transformBi f . tr
         _ -> e
 
 removeBuiltinBoolWith :: forall a. Ord a => BoolNames a -> Theory a -> Theory a
-removeBuiltinBoolWith names@BoolNames{..} Theory{..}
-  = fixup_asserts
-  $ removeBuiltinBoolFrom names Theory{thy_datatypes=bool_decl:thy_datatypes,..}
+removeBuiltinBoolWith names@BoolNames{..} thy
+  | fixed == thy = thy
+  | otherwise = fixed{thy_datatypes = bool_decl:thy_datatypes fixed}
   where
+    fixed = fixup_asserts $ removeBuiltinBoolFrom names thy
+
     -- Note: take thy_asserts from original theory; we fix it ourselves
-    fixup_asserts thy = thy{thy_asserts=map fixup_assert thy_asserts}
+    fixup_asserts thy1 = thy1{thy_asserts=map fixup_assert (thy_asserts thy)}
     fixup_assert form = form { fm_body = fixup_expr (fm_body form) }
     -- Keep outermost formula structure as Booleans
     fixup_expr (Quant qi q vs e) = Quant qi q (map (transformBi fixup_type) vs) (fixup_expr e)
