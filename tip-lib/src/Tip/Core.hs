@@ -708,6 +708,7 @@ lemma = unitAttr "lemma"
 skolem = unitAttr "skolem"
 lambda = unitAttr "lambda"
 letVar = unitAttr "let"
+typeclassInstance = unitAttr "typeclass-instance"
 
 inductionHypothesis :: Attr Int
 inductionHypothesis = readAttr "induction-hypothesis"

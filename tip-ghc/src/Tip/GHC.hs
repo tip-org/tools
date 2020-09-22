@@ -64,6 +64,8 @@ import Control.Monad.Trans.State.Strict
 import Data.Maybe
 import System.IO
 import RepType
+import InstEnv
+import Tip.Scope(scope, isType, isGlobal)
 
 ----------------------------------------------------------------------
 -- The main program.
@@ -108,13 +110,13 @@ readHaskellFile Params{..} name =
       -- one ModDetails record per module.
       let
         home = mconcat
-          [ program (eltsUFM md_types) (mkAnnEnv md_anns)
+          [ program (eltsUFM md_types) md_insts (mkAnnEnv md_anns)
           | HomeModInfo{hm_details = ModDetails{..}} <- eltsUDFM hsc_HPT ]
 
       -- Away modules are combined into one giant record, the "external
       -- package state".
       EPS{..} <- liftIO $ readIORef hsc_EPS
-      let away = program (eltsUFM eps_PTE) eps_ann_env
+      let away = program (eltsUFM eps_PTE) (instEnvElts eps_inst_env) eps_ann_env
 
           mods =
             [(hm_iface mod, Home) | mod <- eltsUDFM hsc_HPT] ++
@@ -132,7 +134,7 @@ readHaskellFile Params{..} name =
       ~(Just (AnId eqId)) <- lookupName eqName
       ~(Just (AnId unpackCStringId)) <- lookupName unpackCStringName
       let builtin =
-            Program (Map.fromList builtinTypes)
+            Program (Map.fromList builtinTypes) Map.empty Map.empty
               (Map.fromList builtinGlobals) Map.empty
           builtinTypes =
             [tyCon listTyCon [Name "list"],
@@ -181,7 +183,7 @@ readHaskellFile Params{..} name =
 
       let
         thy =
-          completeTheory prog $ declsToTheory $
+          completeTheory prog [] $ declsToTheory $
           [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
           | prop <- props ] ++
           [ putAttr keep () (tipToplevelFunction prog func (global_definition (globalInfo prog func)))
@@ -245,6 +247,10 @@ data Program =
   Program {
     -- Data types.
     prog_types     :: Map (UniqueOrd TyCon) TypeInfo,
+    -- Classes.
+    prog_classes   :: Map (UniqueOrd Class) ClassInfo,
+    -- Instances.
+    prog_instances :: Map (UniqueOrd Class, UniqueOrd TyCon) InstanceInfo,
     -- Constructors and functions.
     prog_globals   :: Map Var GlobalInfo,
     -- Any wired-ins found in the program.
@@ -277,22 +283,56 @@ data GlobalInfo =
     -- The function's definition (typically a lambda-expression).
     global_definition  :: CoreExpr,
     -- Any annotations.
+    global_annotations :: [TipAnnotation] } |
+  MethodInfo {
+    -- The class that the method belongs to.
+    global_class       :: Class,
+    -- Any annotations.
     global_annotations :: [TipAnnotation] }
+
+data ClassInfo =
+  ClassInfo {
+    -- The class's methods.
+    class_methods :: [Var],
+    -- Any annotations.
+    class_annotations  :: [TipAnnotation] }
+
+data InstanceInfo =
+  InstanceInfo {
+    -- The type variables in scope for the instance declaration.
+    instance_tvs :: [TyVar],
+    -- The implementation of each of the class's methods
+    -- (in the same order as class_methods).
+    instance_methods :: [CoreExpr] }
 
 instance Semigroup Program where
   p1 <> p2 =
     Program
       (prog_types p1 `mappend` prog_types p2)
+      (prog_classes p1 `mappend` prog_classes p2)
+      (prog_instances p1 `mappend` prog_instances p2)
       (prog_globals p1 `mappend` prog_globals p2)
       (prog_wiredIns p1 `mappend` prog_wiredIns p2)
 instance Monoid Program where
-  mempty = Program mempty mempty mempty
+  mempty = Program mempty mempty mempty mempty mempty
 
 -- Look up the TypeInfo for a type constructor.
 typeInfo :: Program -> TyCon -> TypeInfo
 typeInfo prog ty = Map.findWithDefault err (UniqueOrd ty) (prog_types prog)
   where
     err = ERROR("Type " ++ showOutputable ty ++ " not found or not supported")
+
+-- Look up the ClassInfo for a class.
+classInfo :: Program -> Class -> ClassInfo
+classInfo prog cls = Map.findWithDefault err (UniqueOrd cls) (prog_classes prog)
+  where
+    err = ERROR("Class " ++ showOutputable cls ++ " not found or not supported")
+
+-- Look up the InstanceInfo for a instance.
+instanceInfo :: Program -> Class -> TyCon -> InstanceInfo
+instanceInfo prog cls tc = Map.findWithDefault err (UniqueOrd cls, UniqueOrd tc) (prog_instances prog)
+  where
+    err = ERROR("Instance " ++ showOutputable cls ++ " " ++ showOutputable tc ++ " not found or not supported")
 
 -- Look up the GlobalInfo for a constructor or global function.
 globalInfo :: Program -> Var -> GlobalInfo
@@ -320,22 +360,35 @@ globalAnnotations prog global =
     Nothing -> []
     Just gi -> global_annotations gi
 
--- Build a program from a list of declarations and a list of annotations.
-program :: [TyThing] -> AnnEnv -> Program
-program things anns = Program types globals specials
+-- Build a program from a list of declarations, a list of instances,
+-- and a list of annotations.
+program :: [TyThing] -> [ClsInst] -> AnnEnv -> Program
+program things insts anns = Program types classes instances globals specials
   where
     types =
       Map.fromList
       [ tyCon tc (annotations (tyConName tc))
       | ATyCon tc <- things,
-        isAlgTyCon tc ]
+        isVanillaAlgTyCon tc ]
+    classes =
+      Map.fromList
+      [ classCon tc (annotations (tyConName tc))
+      | ATyCon tc <- things,
+        isClassTyCon tc ]
+    instances =
+      Map.fromList
+      [ classInst inst
+      | inst <- insts ]
     globals =
       Map.fromList $
       [ dataCon dc (annotations (dataConName dc))
       | AConLike (RealDataCon dc) <- things ] ++
       [ (id, FunInfo unfolding (annotations (idName id)))
       | AnId id <- things,
-        Just unfolding <- [maybeUnfoldingTemplate (realIdUnfolding id)] ]
+        Just unfolding <- [maybeUnfoldingTemplate (realIdUnfolding id)] ] ++
+      [ (id, MethodInfo cls (annotations (idName id)))
+      | AnId id <- things,
+        Just cls <- [isClassOpId_maybe id] ]
 
     specials =
       Map.fromList
@@ -354,6 +407,31 @@ tyCon tc anns =
   where
     tvs = tyConTyVars tc
     dcs = tyConDataCons tc
+
+-- Find the information for a class.
+classCon :: TyCon -> [TipAnnotation] -> (UniqueOrd Class, ClassInfo)
+classCon tc anns =
+  (UniqueOrd cls, ClassInfo (classMethods cls) anns)
+  where
+    Just cls = tyConClass_maybe tc
+
+-- Find the information for an instance.
+classInst :: ClsInst -> ((UniqueOrd Class, UniqueOrd TyCon), InstanceInfo)
+classInst ClsInst{..} =
+  ((UniqueOrd is_cls, UniqueOrd tc), InstanceInfo is_tvs es)
+  where
+    [tc] = map tyConAppTyCon is_tys
+    es =
+      case realIdUnfolding is_dfun of
+        DFunUnfolding{..} -> df_args
+        NoUnfolding -> error "no unfolding"
+        BootUnfolding -> error "boot unfolding"
+        OtherCon _ -> error "other con"
+        CoreUnfolding{uf_tmpl = Cast e _} ->
+          -- A typeclass with one method
+          [e]
+        CoreUnfolding{..} -> error $ "core unfolding " ++ showOutputable (is_dfun, is_cls, tc, uf_tmpl)
+    --DFunUnfolding{df_args = es} = realIdUnfolding is_dfun
 
 -- Find the information for a data constructor.
 dataCon :: DataCon -> [TipAnnotation] -> (Var, GlobalInfo)
@@ -454,11 +532,11 @@ discriminatorId prog x =
 -- return the name of that function.
 toHaskellName :: NamedThing a => a -> Maybe String
 toHaskellName name = do
-  mod <- nameModule_maybe (getName name)
   -- Unqualified:
   return (getOccString name)
 
   -- Qualified:
+  -- mod <- nameModule_maybe (getName name)
   -- return (correct (moduleNameString (moduleName mod)) ++ "." ++ getOccString name)
   -- where
   --   correct mod
@@ -490,43 +568,85 @@ toHaskellName name = do
 
 -- Take a theory which may be missing some function and datatype
 -- definitions, and pull those definitions in from the Haskell program.
-completeTheory :: Program -> Theory Id -> Theory Id
-completeTheory prog thy0 =
+completeTheory :: Program -> [(Class, TyCon)] -> Theory Id -> Theory Id
+completeTheory prog instances thy0 =
+  --trace (showOutputable (newFuncs, newTypes, newInstances)) $
   inContext (show msg) $
-    if null funcs && null types then thy else
-    completeTheory prog $!!
-      thy `mappend`
-      declsToTheory (map makeFunc funcs ++ map makeType types)
+    if null newFuncs && null newTypes && null newInstances
+      then thy
+      else
+        completeTheory prog (instances ++ newInstances) $!!
+          thy `mappend`
+          declsToTheory
+            (concatMap makeFunc newFuncs ++
+             map makeType newTypes ++
+             concatMap makeInstance newInstances)
   where
     -- Note: we interleave cleaning and completing the theory so that
     -- we don't pull in the String type when the program calls error
     thy = clean thy0
+    scp = scope thy
 
-    funcs :: [Var]
-    funcs =
+    newFuncs :: [Var]
+    newFuncs =
       usort
       [ x
       | name@(GlobalId _ x) <- map gbl_name (usort (universeBi thy)),
-        FunInfo{} <- [globalInfo prog x],
-        name `notElem` map func_name (thy_funcs thy),
-        name `notElem` map sig_name (thy_sigs thy) ]
+        not (isGlobal name scp) ]
     
-    types :: [TyCon]
-    types =
-      map getUniqueOrd $
-      usort
-      [ x | TyCon name@(TypeId _ x) _ <- usort (universeBi thy),
-        name `notElem` map sort_name (thy_sorts thy),
-        name `notElem` map data_name (thy_datatypes thy) ]
+    newTypes :: [TyCon]
+    newTypes =
+      usortOn UniqueOrd
+      [ x
+      | TyCon name@(TypeId _ (UniqueOrd x)) _ <- usort (universeBi thy),
+        not (isType name scp) ]
 
-    makeFunc :: Var -> Decl Id
+    classes :: [Class]
+    classes =
+      usortOn UniqueOrd
+      [ cls
+      | (x, MethodInfo{global_class = cls}) <- Map.toList (prog_globals prog),
+        isGlobal (globalId prog x) scp ]
+
+    types :: [Tip.Type Id]
+    types = usort (universeBi thy)
+
+    allTypes :: [Tip.Type Id]
+    allTypes = usort (concatMap universeBi types)
+
+    headMatches :: Tip.Type Id -> Tip.Type Id -> Bool
+    headMatches (TyCon tc1 _) (TyCon tc2 _) = tc1 == tc2
+    headMatches (BuiltinType ty1) (BuiltinType ty2) = ty1 == ty2
+    headMatches (_ :=>: _) (_ :=>: _) = True
+    headMatches _ _ = False
+
+    newInstances :: [(Class, TyCon)]
+    newInstances =
+      usortOn (\(x, y) -> (UniqueOrd x, UniqueOrd y)) $
+      [ (cls, tc)
+      | (UniqueOrd cls, UniqueOrd tc) <- Map.keys (prog_instances prog),
+        let ty = tipType prog (mkTyConApp tc []),
+        any (headMatches ty) allTypes,
+        cls `elem` classes,
+        (cls, tc) `notElem` instances ]
+
+    makeFunc :: Var -> [Decl Id]
     makeFunc x =
-      tipToplevelFunction prog x (global_definition (globalInfo prog x))
+      case globalInfo prog x of
+        FunInfo{global_definition = def} ->
+          [tipToplevelFunction prog x def]
+        MethodInfo{} ->
+          [SigDecl (tipUninterpreted prog x)]
+        _ -> []
 
     makeType :: TyCon -> Decl Id
     makeType ty
       | isAny ty = SortDecl (Sort (typeId prog ty) [] [])
       | otherwise = DataDecl (tipDatatype prog ty)
+
+    makeInstance :: (Class, TyCon) -> [Decl Id]
+    makeInstance (cls, tc) =
+      map AssertDecl (tipInstance prog cls tc)
 
     msg =
       PP.vcat [
@@ -574,7 +694,7 @@ tipPolyType prog pty =
     polytype_res  = tipType prog ty
   }
   where
-    (tvs, ty)   = splitForAllTys (expandTypeSynonyms pty)
+    (tvs, ty) = splitForAllTys (expandTypeSynonyms pty)
 
 -- Translate a Haskell type to TIP.
 tipType :: Program -> GHC.Type -> Tip.Type Id
@@ -589,23 +709,28 @@ tipType prog = tipTy . expandTypeSynonyms
         ERROR("Illegal monomorphic type in Haskell program: " ++
               showOutputable ty)
 
+    tipFunTy arg res
+      | eraseType arg = tipTy res
+      | otherwise = [tipTy arg] :=>: tipTy res
+
     tipTyCon _ anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
       BuiltinType ty
     tipTyCon tc _ _ | isAny tc = TyCon (typeId prog tc) []
     tipTyCon tc _ tys =
       TyCon (typeId prog tc) (map tipTy tys)
 
-    tipFunTy arg res
-      | eraseType arg = tipTy res
-      | otherwise = [tipTy arg] :=>: tipTy res
+tipExpr :: Program -> Var -> CoreExpr -> ([Attribute], [Id], Tip.Expr Id)
+tipExpr prog x t =
+  (func_attrs, func_tvs, func_body)
+  where
+    Function{..} = tipFunction prog x t
 
 -- Translate a Haskell property to TIP.
 tipFormula :: Program -> Var -> CoreExpr -> Tip.Formula Id
 tipFormula prog x t =
-  Formula Prove func_attrs func_tvs $
-    freshPass quantify func_body
+  Formula Prove attrs tvs $ freshPass quantify body
   where
-    Function{..} = tipFunction prog x t
+    (attrs, tvs, body) = tipExpr prog x t
 
     -- Try to use names from the formula if possible
     quantify (Tip.Lam xs t) =
@@ -635,7 +760,7 @@ tipFunction prog x t =
   where
     fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
     fun attr ctx x t = inContextM (showOutputable msg) $ do
-      let poly@PolyType{..} = polyType x
+      let PolyType{..} = polyType t
       body <- expr ctx { ctx_types = map TyVar (polytype_tvs) } t
       return $
         Function {
@@ -669,6 +794,13 @@ tipFunction prog x t =
     expr ctx (Let (Rec binds) t) = letRec ctx binds t
     expr ctx (Case t x _ alts) = caseExp ctx (varType x) x t alts
     expr ctx (Tick _ e) = expr ctx e
+    expr ctx (Cast e _)
+      -- If a class has only one method, when calling that method,
+      -- instead of accessing the method from the class dictionary,
+      -- GHC coerces the dictionary to the type of the method.
+      | Just (cls, [ty]) <- getClassPredTys_maybe (expandTypeSynonyms (exprType e)),
+        ClassInfo{class_methods = [m]} <- classInfo prog cls =
+        expr ctx (Var m `App` Type ty)
     expr _ e = ERROR("Unsupported expression: " ++ showOutputable e)
 
     inline :: CoreExpr -> CoreExpr
@@ -719,7 +851,7 @@ tipFunction prog x t =
     var ctx f
       | (spec:_) <-
         [spec | SomeSpecial spec <- globalAnnotations prog f] = do
-          let ([], ty) = applyPolyType (polyType f) (ctx_types ctx)
+          let ([], ty) = applyPolyType (polyType (Var f)) (ctx_types ctx)
           special ty spec
     var _ x
       | (l:_) <- [l | Literal l <- globalAnnotations prog x] =
@@ -755,7 +887,12 @@ tipFunction prog x t =
           FunInfo{} -> do
             let
               global =
-                Global (globalId prog x) (polyType x) (ctx_types ctx)
+                Global (globalId prog x) (polyType (Var x)) (ctx_types ctx)
+            return (Gbl global :@: [])
+          MethodInfo{} -> do
+            let
+              global =
+                Global (globalId prog x) (polyType (Var x)) (ctx_types ctx)
             return (Gbl global :@: [])
 
     app :: Context -> CoreExpr -> CoreExpr -> Fresh (Tip.Expr Id)
@@ -881,8 +1018,8 @@ tipFunction prog x t =
     monoType :: Var -> Tip.Type Id
     monoType = tipType prog . varType
 
-    polyType :: Var -> Tip.PolyType Id
-    polyType = tipPolyType prog . varType
+    polyType :: CoreExpr -> Tip.PolyType Id
+    polyType = tipPolyType prog . exprType
       
     -- Bring a new variable into scope.
     bindVar :: Context -> Var -> (Context -> Local Id -> Fresh a) -> Fresh a
@@ -895,7 +1032,7 @@ tipFunction prog x t =
     bindFun :: Context -> Var -> (Context -> Id -> Fresh a) -> Fresh a
     bindFun ctx x k = do
       name <- freshNamed (globalStr prog x)
-      let sig = Signature name [] (polyType x)
+      let sig = Signature name [] (polyType (Var x))
           f tys = applySignature sig tys []
       bindInlineFun ctx x f (\ctx -> k ctx name)
 
@@ -913,7 +1050,6 @@ tipFunction prog x t =
       bind1 ctx x $ \ctx name ->
         bindMany bind1 ctx xs $ \ctx names ->
           k ctx (name:names)
-
 
     -- Type substitution, which (unlike applyTypeInExpr) also substitutes
     -- into the polytypes of globals.
@@ -950,6 +1086,20 @@ tipToplevelFunction prog x body
     SigDecl (tipUninterpreted prog x)
   | otherwise =
     FuncDecl (tipFunction prog x body)
+
+-- Translate a typeclass instance to TIP. Returns a list of assertions.
+tipInstance :: Program -> Class -> TyCon -> [Tip.Formula Id]
+tipInstance prog cls tc =
+  [ Formula Assert (putAttr typeclassInstance () ann) tv (funExp' === exp')
+  | (fun, exp) <- zip class_methods instance_methods,
+    let (ann, tv, exp') = tipExpr prog fun exp
+        (_, _, funExp) = tipExpr prog fun (Var fun)
+        -- Instantiate 'fun' to have the same type as exp
+        Just sub = matchTypes [(Tip.exprType funExp, Tip.exprType exp')]
+        funExp' = applyTypeInExpr (map fst sub) (map snd sub) funExp ]
+  where
+    ClassInfo{..} = classInfo prog cls
+    InstanceInfo{..} = instanceInfo prog cls tc
 
 -- Compute the TIP attributes for a Haskell function or type,
 -- which includes the name as well as any custom attributes.
@@ -1074,6 +1224,8 @@ instance Outputable GlobalInfo where
       ("annotations", ppr global_annotations)]
   ppr FunInfo{..} =
     pprRecord [("definition", ppr global_definition), ("annotations", ppr global_annotations)]
+  ppr MethodInfo{..} =
+    pprRecord [("class", ppr global_class), ("annotations", ppr global_annotations)]
 
 instance Outputable TypeInfo where
   ppr TypeInfo{..} =
