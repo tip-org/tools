@@ -1,4 +1,4 @@
-resolver: lts-14.6
+resolver: lts-14.20
 
 packages:
 - tip-types/
@@ -11,7 +11,6 @@ extra-deps:
 - minisat-0.1.2
 - twee-lib-2.1.5
 - genifunctors-0.4
-- stm-promise-0.0.3.1
 - spoon-0.3.1
 - testing-feat-1.1.0.0
 - tagshare-0.0
@@ -21,6 +20,8 @@ extra-deps:
 - dictionary-sharing-0.1.0.0
 - git: git://github.com/nick8325/quickspec
   commit: 5a561f73a20e750337d059d6f7783865ae1cd187
+- git: git://github.com/nick8325/stm-promise
+  commit: 9ef7f1e8797f02b22ae4c8a2f30fda04cfbeb2ba
 - git: git://github.com/nick8325/structural-induction
   commit: 6128414b8f7324bcfe208a6465fc07df7aa61861
 flags:
