@@ -104,6 +104,8 @@ ppExpr p (Builtin Not :@: [t]) =
 ppExpr _ (hd :@: ts) =
   apply (ppHead hd) (map (ppExpr 0) ts)
 ppExpr _ (Lcl l) = ppVar (lcl_name l)
+ppExpr p (Quant _ _ [] e) =
+  ppExpr p e
 ppExpr _ (Quant _ q ls e) =
   hang
     (ppQuant q <> brackets (fsep (punctuate "," (map ppLocal ls))) <> ":")
