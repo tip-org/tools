@@ -79,7 +79,7 @@ readHaskellFile Params{..} name =
       parseDynamicFlagsCmdLine dflags $ map noLoc $
         param_include ++
         words ("-hide-package base -hide-package tip-ghc -package tip-prelude " ++
-               "-O0 -fexpose-all-unfoldings -fno-ignore-interface-pragmas " ++
+               "-O0 -fexpose-all-unfoldings -fno-ignore-interface-pragmas -fno-opt-coercion -fno-pre-inlining " ++
                "-fno-omit-interface-pragmas -funfolding-creation-threshold=0 -funfolding-use-threshold=0")
     -- Don't generate object code.
     setSessionDynFlags dflags {
