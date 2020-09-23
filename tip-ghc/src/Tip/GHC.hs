@@ -299,8 +299,6 @@ data ClassInfo =
 
 data InstanceInfo =
   InstanceInfo {
-    -- The type variables in scope for the instance declaration.
-    instance_tvs :: [TyVar],
     -- The implementation of each of the class's methods
     -- (in the same order as class_methods).
     instance_methods :: [CoreExpr] }
@@ -418,19 +416,18 @@ classCon tc anns =
 -- Find the information for an instance.
 classInst :: ClsInst -> ((UniqueOrd Class, UniqueOrd TyCon), InstanceInfo)
 classInst ClsInst{..} =
-  ((UniqueOrd is_cls, UniqueOrd tc), InstanceInfo is_tvs es)
+  ((UniqueOrd is_cls, UniqueOrd tc), InstanceInfo es)
   where
     [tc] = map tyConAppTyCon is_tys
     es =
       case realIdUnfolding is_dfun of
-        DFunUnfolding{..} -> df_args
-        NoUnfolding -> error "no unfolding"
-        BootUnfolding -> error "boot unfolding"
-        OtherCon _ -> error "other con"
+        DFunUnfolding{..} ->
+          [ foldr Lam e (filter isTyVar df_bndrs)
+          | e <- filter (not . isTypeArg) df_args ]
         CoreUnfolding{uf_tmpl = Cast e _} ->
           -- A typeclass with one method
           [e]
-        CoreUnfolding{..} -> error $ "core unfolding " ++ showOutputable (is_dfun, is_cls, tc, uf_tmpl)
+        _ -> error "unknown dictionary unfolding"
     --DFunUnfolding{df_args = es} = realIdUnfolding is_dfun
 
 -- Find the information for a data constructor.
@@ -570,7 +567,6 @@ toHaskellName name = do
 -- definitions, and pull those definitions in from the Haskell program.
 completeTheory :: Program -> [(Class, TyCon)] -> Theory Id -> Theory Id
 completeTheory prog instances thy0 =
-  --trace (showOutputable (newFuncs, newTypes, newInstances)) $
   inContext (show msg) $
     if null newFuncs && null newTypes && null newInstances
       then thy
