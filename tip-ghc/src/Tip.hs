@@ -98,6 +98,9 @@ instance Testable (Neg Bool) where
 instance (Eq a, Show a, Testable b) => Testable (Equality a :=>: b) where
   property (Given (x :=: y) p) = x == y QC.==> p
 
+instance (Eq a, Show a, Testable b) => Testable (Neg (Equality a) :=>: b) where
+  property (Given (Neg (x :=: y)) p) = x /= y QC.==> p
+
 instance (Testable a, Testable b) => Testable (And a b) where
   property (And p q) = p QC..&&. q
 
