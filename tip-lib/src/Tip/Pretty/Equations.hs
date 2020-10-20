@@ -7,6 +7,7 @@ import Tip.Pretty
 import Text.PrettyPrint
 import Data.List
 import Data.Char
+import Tip.Pretty.SMT()
 
 stripModule :: String -> String
 stripModule = reverse . takeWhile (/= '.') . reverse
@@ -29,6 +30,7 @@ ppEquations thy@Theory{..} =
       hang (ppEqn t <+> text "=>") 2 (ppEqn u)
     ppEqn (Builtin Equal :@: [t, u]) =
       hang (ppExpr 0 t <+> text "=") 2 (ppExpr 0 u)
+    ppEqn t = ppExpr 0 t
 
     ppExpr _ (Lcl x) =
       ppVar (lcl_name x)
