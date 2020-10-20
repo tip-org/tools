@@ -112,6 +112,7 @@ data StandardPass
   | NegateConjecture
   | TypeSkolemConjecture
   | IntToNat
+  | IntAxioms
   | SortsToNat
   | SplitConjecture
   | SkolemiseConjecture
@@ -159,6 +160,7 @@ instance Pass StandardPass where
     NegateConjecture     -> (return . splitConjecture) `followedBy` single negateConjecture
     TypeSkolemConjecture -> single $ typeSkolemConjecture ModeConjecture
     IntToNat             -> single $ intToNat
+    IntAxioms            -> single $ intAxioms
     SortsToNat           -> single $ sortsToNat
     SplitConjecture      -> return . splitConjecture
     SkolemiseConjecture  -> skolemiseConjecture
@@ -216,6 +218,8 @@ instance Pass StandardPass where
         help "Skolemise the types in the conjecture",
       unitPass IntToNat $
         help "Replace builtin Integer with a a unary nat datatype nat (if only ordering is used)",
+      unitPass IntAxioms $
+        help "Add axioms for integers",
       unitPass SortsToNat $
         help "Replace abstract sorts with a unary nat datatype.",
       unitPass SplitConjecture $

@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Tip.Pass.Concretise (intToNat, sortsToNat) where
+module Tip.Pass.Concretise (intToNat, sortsToNat, intAxioms) where
 
 import Tip.Core
 import Tip.Parser
@@ -99,6 +99,34 @@ Right nat_theory =
     "(assert :axiom |distributivity|",
       "(forall ((x Nat) (y Nat) (z Nat)) (= (times (plus x y) z) (plus (times x z) (times y z)))))"]
 
+int_axioms :: Theory Id
+Right int_axioms =
+  parse $ unlines [
+    "(assert :axiom |commutativity of +|",
+      "(forall ((x Int) (y Int)) (= (+ x y) (+ y x))))",
+    "(assert :axiom |associativity of +|",
+      "(forall ((x Int) (y Int) (z Int)) (= (+ x (+ y z)) (+ (+ x y) z))))",
+    "(assert :axiom |identity for +|",
+      "(forall ((x Int)) (= (+ x 0) x)))",
+    "(assert :axiom |identity for +|",
+      "(forall ((x Int)) (= (+ 0 x) x)))",
+    "(assert :axiom |commutativity of *|",
+      "(forall ((x Int) (y Int)) (= (* x y) (* y x))))",
+    "(assert :axiom |associativity of *|",
+      "(forall ((x Int) (y Int) (z Int)) (= (* x (* y z)) (* (* x y) z))))",
+    "(assert :axiom |identity for *|",
+      "(forall ((x Int)) (= (* x 1) x)))",
+    "(assert :axiom |identity for *|",
+      "(forall ((x Int)) (= (* 1 x) x)))",
+    "(assert :axiom |0 for *|",
+      "(forall ((x Int)) (= (* x 0) 0)))",
+    "(assert :axiom |0 for *|",
+      "(forall ((x Int)) (= (* 0 x) 0)))",
+    "(assert :axiom |distributivity|",
+      "(forall ((x Int) (y Int) (z Int)) (= (* x (+ y z)) (+ (* x y) (* x z)))))",
+    "(assert :axiom |distributivity|",
+      "(forall ((x Int) (y Int) (z Int)) (= (* (+ x y) z) (+ (* x z) (* y z)))))"]
+
 renameWrt :: (Ord a,PrettyVar a,Name b) => Theory a -> f b -> Fresh (Theory b)
 renameWrt thy _wrt =
   do rename_map <-
@@ -132,6 +160,14 @@ replaceSorts replacement_thy thy
 -- | Replaces the builtin Int with natural numbers,
 intToNat :: forall a . Name a => Theory a -> Fresh (Theory a)
 intToNat = replaceInt nat_theory
+
+-- | Partly axiomatise integers.
+intAxioms :: Name a => Theory a -> Fresh (Theory a)
+intAxioms thy
+  | intType `elem` theoryTypes thy = do
+    int_theory <- int_axioms `renameWrt` thy
+    return (thy `mappend` int_theory)
+  | otherwise = return thy
 
 replaceInt :: forall a . Name a => Theory Id -> Theory a -> Fresh (Theory a)
 replaceInt replacement_thy thy
