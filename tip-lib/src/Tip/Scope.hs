@@ -143,7 +143,7 @@ runScopeT (ScopeT m) = runExceptT (evalStateT m emptyScope)
 checkScopeT :: Monad m => ScopeT a m b -> m b
 checkScopeT m = runScopeT m >>= check
   where
-    check (Left err) = fail (show err)
+    check (Left err) = error (show err)
     check (Right x)  = return x
 
 type ScopeM a = ScopeT a Identity

@@ -776,7 +776,7 @@ tipFunction prog x t =
     expr ctx (Var inl `App` Type _ `App` e)
       | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
         expr ctx (inline e)
-    expr _ (Var prim `App` Type ty `App` Lit (MachStr name))
+    expr _ (Var prim `App` Type ty `App` Lit (LitString name))
       | Special `elem` globalAnnotations prog prim =
         case reads (BS.unpack name) of
           [(spec, "")] ->
@@ -944,7 +944,8 @@ tipFunction prog x t =
       -- into partial TIP functions.
       f <- fun False ctx x t
       case func_tvs f of
-        [] ->
+        -- Uncomment this to always inline join points
+        [] {-   | not (isJoinPointType (exprType t)) -} ->
           bindVar ctx x $ \ctx name ->
             Tip.Let name (func_body f) <$>
             expr ctx u
@@ -1124,6 +1125,12 @@ eraseType ty = prop (expandTypeSynonyms ty)
       | isDictLikeTy ty = True
       | ty `eqType` addrPrimTy = True
       | otherwise = False
+
+isJoinPointType :: GHC.Type -> Bool
+isJoinPointType ty =
+  case splitFunTy_maybe (expandTypeSynonyms ty) of
+    Just (ty, _) | isVoidTy ty -> True
+    _ -> False
 
 -- The 'Any' type is treated specially in a couple of ways:
 -- * It has a kind argument, which should be ignored (in trType).

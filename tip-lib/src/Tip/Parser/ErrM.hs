@@ -14,7 +14,6 @@ data Err a = Ok a | Bad String
 
 instance Monad Err where
   return      = Ok
-  fail        = Bad
   Ok a  >>= f = f a
   Bad s >>= _ = Bad s
 

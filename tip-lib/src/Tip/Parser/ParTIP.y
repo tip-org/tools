@@ -95,19 +95,24 @@ import Tip.Parser.ErrM
   'prove' { PT _ (TS _ 41) }
   'to_real' { PT _ (TS _ 42) }
   'true' { PT _ (TS _ 43) }
-
-L_integ  { PT _ (TI $$) }
-L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
-L_QuotedSymbol { PT _ (T_QuotedSymbol _) }
-L_Keyword { PT _ (T_Keyword $$) }
-
+  L_integ  { PT _ (TI $$) }
+  L_UnquotedSymbol { PT _ (T_UnquotedSymbol _) }
+  L_QuotedSymbol { PT _ (T_QuotedSymbol _) }
+  L_Keyword { PT _ (T_Keyword $$) }
 
 %%
 
-Integer :: { Integer } : L_integ  { (read ( $1)) :: Integer }
-UnquotedSymbol    :: { UnquotedSymbol} : L_UnquotedSymbol { UnquotedSymbol (mkPosToken $1)}
-QuotedSymbol    :: { QuotedSymbol} : L_QuotedSymbol { QuotedSymbol (mkPosToken $1)}
-Keyword    :: { Keyword} : L_Keyword { Keyword ($1)}
+Integer :: { Integer }
+Integer  : L_integ  { (read ( $1)) :: Integer }
+
+UnquotedSymbol :: { UnquotedSymbol}
+UnquotedSymbol  : L_UnquotedSymbol { UnquotedSymbol (mkPosToken $1)}
+
+QuotedSymbol :: { QuotedSymbol}
+QuotedSymbol  : L_QuotedSymbol { QuotedSymbol (mkPosToken $1)}
+
+Keyword :: { Keyword}
+Keyword  : L_Keyword { Keyword ($1)}
 
 Start :: { Start }
 Start : ListDecl { Tip.Parser.AbsTIP.Start $1 }
@@ -261,11 +266,11 @@ thenM = (>>=)
 
 happyError :: [Token] -> Err a
 happyError ts =
-  Bad $ "syntax error at " ++ tokenPos ts ++ 
+  Bad $ "syntax error at " ++ tokenPos ts ++
   case ts of
-    [] -> []
+    []      -> []
     [Err _] -> " due to lexer error"
-    t:_ -> " before `" ++ id(prToken t) ++ "'"
+    t:_     -> " before `" ++ id(prToken t) ++ "'"
 
 myLexer = tokens
 }

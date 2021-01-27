@@ -13,12 +13,12 @@ import Data.Char (ord)
 }
 
 
-$l = [a-zA-Z\192 - \255] # [\215 \247]    -- isolatin1 letter FIXME
-$c = [A-Z\192-\221] # [\215]    -- capital isolatin1 letter FIXME
-$s = [a-z\222-\255] # [\247]    -- small isolatin1 letter FIXME
-$d = [0-9]                -- digit
-$i = [$l $d _ ']          -- identifier character
-$u = [\0-\255]          -- universal: any character
+$c = [A-Z\192-\221] # [\215]  -- capital isolatin1 letter (215 = \times) FIXME
+$s = [a-z\222-\255] # [\247]  -- small   isolatin1 letter (247 = \div  ) FIXME
+$l = [$c $s]         -- letter
+$d = [0-9]           -- digit
+$i = [$l $d _ ']     -- identifier character
+$u = [. \n]          -- universal: any character
 
 @rsyms =    -- symbols and non-identifier-like reserved words
    \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \_ | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \=
@@ -27,15 +27,21 @@ $u = [\0-\255]          -- universal: any character
 ";" [.]* ; -- Toss single line comments
 
 $white+ ;
-@rsyms { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
-($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) * { tok (\p s -> PT p (eitherResIdent (T_UnquotedSymbol . share) s)) }
-\| ($u # \| | \\ $u)* \| { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
-\: ($l | $d | [\-]) * { tok (\p s -> PT p (eitherResIdent (T_Keyword . share) s)) }
+@rsyms
+    { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
+($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) *
+    { tok (\p s -> PT p (eitherResIdent (T_UnquotedSymbol . share) s)) }
+\| ($u # \| | \\ $u)* \|
+    { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
+\: ($l | $d | [\-]) *
+    { tok (\p s -> PT p (eitherResIdent (T_Keyword . share) s)) }
 
-$l $i*   { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
+$l $i*
+    { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
 
 
-$d+      { tok (\p s -> PT p (TI $ share s))    }
+$d+
+    { tok (\p s -> PT p (TI $ share s))    }
 
 
 {
@@ -119,6 +125,8 @@ unescapeInitTail = id . unesc . tail . id where
     '\\':c:cs | elem c ['\"', '\\', '\''] -> c : unesc cs
     '\\':'n':cs  -> '\n' : unesc cs
     '\\':'t':cs  -> '\t' : unesc cs
+    '\\':'r':cs  -> '\r' : unesc cs
+    '\\':'f':cs  -> '\f' : unesc cs
     '"':[]    -> []
     c:cs      -> c : unesc cs
     _         -> []
