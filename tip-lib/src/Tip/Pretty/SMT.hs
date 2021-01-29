@@ -51,7 +51,8 @@ isValidSMTString xs =
 data Config =
   Config {
     config_keywords :: [String],
-    config_use_prove :: Bool }
+    config_use_prove :: Bool,
+    config_use_single_datatype :: Bool }
   deriving Show
 data ProveMode = UseProve | UsePushPopAssert | UseAssert
   deriving (Eq, Show)
@@ -60,17 +61,19 @@ smtConfig, tipConfig :: Config
 smtConfig =
   Config {
     config_keywords = smtKeywords,
-    config_use_prove = False }
+    config_use_prove = False,
+    config_use_single_datatype = False }
 tipConfig =
   Config {
     config_keywords = [],
-    config_use_prove = True }
+    config_use_prove = True,
+    config_use_single_datatype = True }
 
 ppTheory :: (Ord a,PrettyVar a) => Config -> Theory a -> Doc
 ppTheory Config{..} thy =
   vcat $
     map ppSort thy_sorts ++
-    map ppDatas (topsort thy_datatypes) ++
+    map (ppDatas config_use_single_datatype) (topsort thy_datatypes) ++
     map ppUninterp thy_sigs ++
     map ppFuncs (topsort thy_funcs) ++
     map (ppFormula proveMode) thy_asserts
@@ -88,13 +91,13 @@ ppTheory Config{..} thy =
 ppSort :: PrettyVar a => Sort a -> Doc
 ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAttrs attrs], int (length tvs)]
 
-ppDatas :: PrettyVar a => [Datatype a] -> Doc
-ppDatas [datatype@(Datatype tycon attrs _ _)] =
+ppDatas :: PrettyVar a => Bool -> [Datatype a] -> Doc
+ppDatas single [datatype@(Datatype tycon attrs _ _)] | single =
   parExprSep "declare-datatype" [fsep [ppVarSMT tycon, ppAttrs attrs, ppData datatype]]
 
-ppDatas datatypes@(Datatype tycon _ tyvars _:_) =
+ppDatas _ datatypes@(Datatype tycon _ tyvars _:_) =
   parExprSep "declare-datatypes" [parens (fsep (map ppDTypeName datatypes)), parens (fsep (map ppData datatypes))]
-ppDatas [] = error "empty scc"
+ppDatas _ [] = error "empty scc"
 
 ppDTypeName :: PrettyVar a => Datatype a -> Doc
 ppDTypeName (Datatype tycon attrs tyvars _) =
@@ -257,7 +260,7 @@ ppKeyword x = text (':':x)
 -- Temporary use SMTLIB as the pretty printer:
 
 instance (Ord a,PrettyVar a) => Pretty (Decl a) where
-  pp (DataDecl d)   = ppDatas [d]
+  pp (DataDecl d)   = ppDatas True [d]
   pp (SortDecl d)   = ppSort d
   pp (SigDecl d)    = ppUninterp d
   pp (FuncDecl d)   = ppFuncs [d]
@@ -288,7 +291,7 @@ instance (Ord a, PrettyVar a) => Pretty (Formula a) where
   pp = ppFormula UseProve
 
 instance PrettyVar a => Pretty (Datatype a) where
-  pp = ppDatas . return
+  pp = ppDatas True . return
 
 instance PrettyVar a => Pretty (Sort a) where
   pp = ppSort
