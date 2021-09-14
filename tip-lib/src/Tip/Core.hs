@@ -287,6 +287,11 @@ globals e =
     [ gbl_name | Global{..} <- universeBi e ] ++
     [ tc | TyCon tc _ <- universeBi e ]
 
+heads :: Ord a => Expr a -> [Head a]
+heads e =
+  usort $
+    [ hd | hd :@: _ <- universeBi e ]
+
 tyVars :: Ord a => Type a -> [a]
 tyVars t = usort $ [ a | TyVar a <- universeBi t ]
 
