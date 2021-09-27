@@ -422,7 +422,7 @@ letExpr (Lcl x) k = k x
 letExpr b k =
   do v <- freshLocal (exprType b)
      rest <- k v
-     if v `elem` bound rest then
+     if v `elem` free rest then
        return (Let v b rest)
      else
        return rest
