@@ -38,7 +38,9 @@ data Expr a
   | Lam [Local a] (Expr a)
   -- Merge with Quant?
   | Match (Expr a) [Case a]
-  -- ^ The default case comes first if there is one
+  -- ^ The default case must come first if there is one
+  -- (caseExpr can do this for you), and there must not be any
+  -- overlapping cases other than the default case
   | Let (Local a) (Expr a) (Expr a)
   -- ^ @Let (Local x t) b e@ = @(let ((l x)) b e)@
   -- Unlike SMT-LIB, this does not accept a list of bound

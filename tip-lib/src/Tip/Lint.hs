@@ -178,14 +178,13 @@ lintExpr kind (Match expr cases) = do
 
   when (Default `elem` drop 1 (map case_pat cases)) $
     throwError "Default case is in wrong position"
-  unless (Default `elem` map case_pat cases) $ do
-    let strip (ConPat gbl _) = ConPat gbl []
-        strip x = x
-        stripped = map (strip . case_pat) cases
-    unless (nub stripped == stripped) $
-      throwError "The same constructor appears several times"
+  let strip (ConPat gbl _) = ConPat gbl []
+      strip x = x
+      stripped = map (strip . case_pat) cases
+  unless (nub stripped == stripped) $
+    throwError "The same constructor appears several times in a match"
   unless (length (nub (map (exprType . case_rhs) cases)) == 1) $
-    throwError "Not all case clauses have the same type"
+    throwError "Not all match clauses have the same type"
 lintExpr kind (Let lcl@Local{..} expr body) = do
   lintExpr ExprKind expr
   local $ do
