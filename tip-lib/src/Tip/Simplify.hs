@@ -128,7 +128,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
 
         Match e (Case Default (Match e' cases'):cases) | e == e' ->
           hooray $ aux $
-          Match e (filter (not . dead . case_pat) cases' ++ cases)
+          caseExpr e (cases ++ filter (not . dead . case_pat) cases')
           where
             dead (LitPat l)   = LitPat l `elem` map case_pat cases
             dead (ConPat{..}) =
@@ -141,7 +141,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
             Just (d, c@Constructor{..}) <- missingCase mscp ty cases -> do
               let gbl = constructor d c args
               pat <- lift (fmap (ConPat gbl) (freshArgs gbl))
-              aux (Match e (Case pat def:cases))
+              aux (caseExpr e (cases ++ [Case pat def]))
 
         Match e [Case _ e1,Case (LitPat (Bool b)) e2]
           | e1 == bool (not b) && e2 == bool b -> hooray $ return e
