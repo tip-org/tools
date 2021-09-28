@@ -181,7 +181,6 @@ replaceInt replacement_thy thy
             zero = Gbl zeroGlobal :@: []
             succGlobal = constructor nat succCon []
             succ e = Gbl succGlobal :@: [e]
-            pred e = Gbl (projector nat succCon 0 []) :@: [e]
 
         let [lt,le,gt,ge,plus,minus,times,div,mod,even] = thy_funcs nat_thy
             [plus1, plus2, plus3, plus4,
@@ -198,7 +197,7 @@ replaceInt replacement_thy thy
             replaceE (Builtin NumSub :@: [e, one]) | one == succ zero = do
               x <- lift $ freshLocal (TyCon (data_name nat) [])
               return $
-                Match e [Case (ConPat succGlobal [x]) (pred e)]
+                Match e [Case (ConPat succGlobal [x]) (Lcl x)]
             replaceE (Builtin NumLt :@: [_, z]) | z == zero = return (bool False)
             replaceE (Builtin NumLt :@: [z, e]) | z == zero =
               return $ Gbl (discriminator nat succCon []) :@: [e]
