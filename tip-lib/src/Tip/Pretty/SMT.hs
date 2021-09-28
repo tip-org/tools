@@ -173,7 +173,11 @@ ppExpr e@(hd@(Gbl Global{..}) :@: es)
 ppExpr (hd :@: es)  = exprSep (ppHead hd) (map ppExpr es)
 ppExpr (Lcl l)      = ppVarSMT (lcl_name l)
 ppExpr (Lam ls e)   = parExprSep "lambda" [ppLocals ls,ppExpr e]
-ppExpr (Match e as) = "(match" $\ ppExpr e $\ (parens (vcat (map ppCase as)) <> ")")
+ppExpr (Match e as) = "(match" $\ ppExpr e $\ (parens (vcat (map ppCase (sortCases as))) <> ")")
+  where
+    -- Default pattern must come last in SMTLIB
+    sortCases (a@Case{case_pat = Default}:as) = as ++ [a]
+    sortCases as = as
 ppExpr lets@Let{} =
   parExprSep "let"
     [ parens (vcat (map parens [ppVarSMT (lcl_name x) $\ ppExpr b | (x,b) <- bs]))
