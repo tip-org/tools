@@ -980,7 +980,7 @@ tipFunction prog x t =
       --   let x = t in case x of { .. ALTS .. }
       t <- expr ctx t
       bindVar ctx x $ \ctx var ->
-        Tip.Let var t <$> Tip.Match (Lcl var) <$>
+        Tip.Let var t <$> Tip.caseExpr (Lcl var) <$>
         mapM (caseAlt ctx tys) alts
 
     caseAlt :: Context -> [Tip.Type Id] -> Alt Var -> Fresh (Tip.Case Id)

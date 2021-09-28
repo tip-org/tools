@@ -427,6 +427,15 @@ letExpr b k =
      else
        return rest
 
+caseExpr :: Expr a -> [Case a] -> Expr a
+caseExpr e alts =
+  -- Put the default case first
+  Match e (def ++ alts')
+    where
+      (def, alts') = partition (isDefault . case_pat) alts
+      isDefault Default = True
+      isDefault _ = False
+
 -- | Substitution, but without refreshing. Only use when the replacement
 -- expression contains no binders (i.e. no lambdas, no lets, no quantifiers),
 -- since the binders are not refreshed at every insertion point.

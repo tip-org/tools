@@ -276,8 +276,8 @@ trExpr e0 = case e0 of
   A.App head exprs           -> trHead head =<< mapM trExpr exprs
 
   A.Match expr cases  -> do e <- trExpr expr
-                            cases' <- sort <$> mapM (trCase (exprType e)) cases
-                            return (T.Match e cases')
+                            cases' <- mapM (trCase (exprType e)) cases
+                            return (T.caseExpr e cases')
   A.Let letdecls expr -> trLetDecls letdecls expr
   A.Binder binder bindings expr -> newScope $ trBinder binder <$> mapM trLocalBinding bindings <*> trExpr expr
   A.Lit l -> return (literal (trLit l))
