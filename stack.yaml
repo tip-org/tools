@@ -18,11 +18,11 @@ extra-deps:
 - size-based-0.1.2.0
 - testing-type-modifiers-0.1.0.1
 - dictionary-sharing-0.1.0.0
-- git: git://github.com/nick8325/quickspec
+- git: https://github.com/nick8325/quickspec
   commit: 5a561f73a20e750337d059d6f7783865ae1cd187
-- git: git://github.com/nick8325/stm-promise
+- git: https://github.com/nick8325/stm-promise
   commit: 9ef7f1e8797f02b22ae4c8a2f30fda04cfbeb2ba
-- git: git://github.com/nick8325/structural-induction
+- git: https://github.com/nick8325/structural-induction
   commit: 6128414b8f7324bcfe208a6465fc07df7aa61861
 flags:
     tip-spec: {stack: True}
