@@ -53,7 +53,7 @@ Right nat_theory =
          "((succ x)",
            "(match y",
              "(((succ y) (minus x y))",
-               "(zero zero)))))))",
+               "(zero (succ x))))))))",
     "(define-fun-rec times :definition :source |*|",
       "((x Nat) (y Nat)) Nat",
       "(match x",
