@@ -27,7 +27,7 @@ import Control.Monad
 import Data.Monoid ((<>))
 import Text.PrettyPrint hiding ((<>))
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | Twee | Waldmeister | Equations
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | Twee | Waldmeister | Equations | Vampire
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -52,7 +52,8 @@ parseOutputMode =
   <|> flag' Waldmeister (long "waldmeister" <> help "Waldmeister output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
   <|> flag' Equations (long "equations" <> help "Pretty-print conjectures as equations")
-
+  <|> flag' Vampire (long "vampire" <> help "Use assert-claim for conjectures in Vampire")
+  
 optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
 optionParser =
   (,,,) <$> parsePasses <*> parseFile <*> parseOutputMode <*> parseMultiPath
@@ -136,6 +137,15 @@ handle passes mode multipath s =
               Hopster -> (Hopster.ppHopsterConjs, passes, "txt")
               TIP       -> (SMT.ppTheory SMT.tipConfig, passes, "smt2")
               Equations -> (Equations.ppEquations, passes, "txt")
+              Vampire ->
+                ( \t -> SMT.ppTheory SMT.vampConfig t
+                , passes ++
+                  [ Monomorphise False 1
+                  , AxiomatizeLambdas
+                  , SimplifyGently, CollapseEqual]
+                  ++ [ SimplifyGently, Monomorphise False 1 ]    
+                  ++ [ SimplifyGently, DropAttributes ]
+                , "smt2")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of
         Nothing ->

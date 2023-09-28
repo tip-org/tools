@@ -6,7 +6,7 @@ import Text.PrettyPrint
 import Prelude hiding ((<>))
 import Tip.Pretty
 import Tip.Types
-import Tip.Core (ifView, topsort, exprType, makeGlobal, uses, collectLets, theoryGoals)
+import Tip.Core (ifView, topsort, exprType, makeGlobal, uses, collectLets, theoryGoals, hasAttr, lemma)
 import Tip.Rename
 import Data.Maybe
 import Data.Char (isAlphaNum)
@@ -52,23 +52,32 @@ data Config =
   Config {
     config_keywords :: [String],
     config_use_prove :: Bool,
-    config_use_single_datatype :: Bool }
+    config_use_single_datatype :: Bool,
+    config_use_assert_claims :: Bool}
   deriving Show
-data ProveMode = UseProve | UsePushPopAssert | UseAssert
+data ProveMode = UseProve | UsePushPopAssert | UseAssert | UseAssertClaims 
   deriving (Eq, Show)
 
-smtConfig, tipConfig :: Config
+smtConfig, tipConfig, vampConfig :: Config
 smtConfig =
   Config {
     config_keywords = smtKeywords,
     config_use_prove = False,
-    config_use_single_datatype = False }
+    config_use_single_datatype = False,
+    config_use_assert_claims = False}
 tipConfig =
   Config {
     config_keywords = [],
     config_use_prove = True,
-    config_use_single_datatype = True }
-
+    config_use_single_datatype = True,
+    config_use_assert_claims = False}
+vampConfig =
+  Config {
+    config_keywords = smtKeywords,
+    config_use_prove = False,
+    config_use_single_datatype = True,
+    config_use_assert_claims = True}
+    
 ppTheory :: (Ord a,PrettyVar a) => Config -> Theory a -> Doc
 ppTheory Config{..} thy =
   vcat $
@@ -81,6 +90,7 @@ ppTheory Config{..} thy =
     Theory{..} =
       renameAvoiding (tipKeywords ++ config_keywords) removeForbidden thy
     proveMode
+      | config_use_assert_claims = UseAssertClaims
       | config_use_prove = UseProve
       | length (theoryGoals thy) == 1 = UseAssert
       | otherwise = UsePushPopAssert
@@ -155,15 +165,20 @@ ppFormula UseProve (Formula Prove attrs tvs term) =
     ppAttrs attrs $$ par' tvs (ppExpr term)
 ppFormula UseAssert (Formula Prove attrs tvs term) =
   apply "assert" (apply "not" (ppAttrs attrs $$ par' tvs (ppExpr term))) $$
-  parens (text "check-sat")
+  parens (text "check-sat")   
 ppFormula UsePushPopAssert form@(Formula Prove _ _ _) =
   vcat [
     apply "push" (text "1"),
     ppFormula UseAssert form,
     apply "pop" (text "1")]
+ppFormula UseAssertClaims (Formula Prove attrs tvs term) =
+    if (hasAttr lemma attrs) then     
+       apply "assert-claim" (ppAttrs attrs $$ par' tvs (ppExpr term))
+    else apply "assert-not" (ppAttrs attrs $$ par' tvs (ppExpr term))  
 ppFormula _ (Formula Assert attrs tvs term) =
   apply "assert" $
    ppAttrs attrs $$ par' tvs (ppExpr term)
+
 
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
