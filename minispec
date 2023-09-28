@@ -1,0 +1,91 @@
+#!/bin/zsh
+
+VAMPIRE=$HOME/Documents/vampire-4.5.1/./vampire_rel_4.5.1
+
+# arg 1: Prover timeout in seconds
+# arg 2: the filename
+prove_ind() {
+  # Convert the problem to Vampire compatible SMTLIB2.
+    tip $2 --axiomatize-funcdefs2 --smtlib |
+	$VAMPIRE --time_limit $1 -ind struct -indgen on -indoct on --input_syntax smtlib2  >& /dev/null
+}
+prove_no_ind() {
+  # Convert the problem to Vampire compatible SMTLIB2.
+    tip $2 --axiomatize-funcdefs2 --smtlib |
+	$VAMPIRE --time_limit $1 --proof off --input_syntax smtlib2  >& /dev/null
+}
+
+# arg 1: size limit for test data
+# arg 2: max term size
+# arg 3: problem filename
+theory_explore() {
+    #tip-spec --prune --test-size $1 --size $2 $3
+    tip-spec --prune --size $1 $2
+    #tip-spec $1
+}
+
+# arg 1: Prover timeout in seconds
+proof_loop() {
+  file=$(cat)
+
+  progress= # Set to yes if we manage to prove some goal.
+  n=0       # The index of the goal we're trying to prove now.
+
+  while true; do
+    # Check that n isn't out of bounds.
+    if echo "$file"|tip --select-conjecture $n >& /dev/null; then
+      # Make a theory where goal n is the only goal.
+      goal=$(echo "$file"|tip --select-conjecture $n)
+      # Can we prove it without induction?
+      if echo "$goal"| prove_no_ind $1; then
+        # Proved without induction - delete the goal. Actually don't! Might be useful for later proofs!
+        echo -n ':) ' >&2
+        #file=$(echo "$file"|tip --delete-conjecture $n)
+	file=$(echo "$file"|tip --proved-conjecture $n)
+        progress=yes
+      # Can we prove the goal with induction?
+      elif echo "$goal"|prove_ind $1; then
+        # Proved with induction - change the goal into a lemma.
+        echo -n ':D ' >&2
+        file=$(echo "$file"|tip --proved-conjecture $n)
+        progress=yes
+      else
+        # Failed to prove the goal - try the next one.
+        echo -n ':( ' >&2
+        ((n=$n+1))
+      fi
+    else
+      # We've tried all goals - if we failed to prove any,
+      # then stop, otherwise go round again.
+      echo >&2
+      if [ -z $progress ]; then break; fi
+      progress=
+      n=0
+    fi
+  done
+
+  # Print out the final theory.
+  echo "$file"
+}
+
+
+if prove_ind 3 $1; then
+    echo 'Proved without theory exploration!'
+    tip --proved-conjecture 0 $1
+    exit
+fi
+
+# Run the input file through QuickSpec.
+# Discovered lemmas get added as new goals.
+#echo Dreaming up conjectures...
+file=$(theory_explore 7 $1)
+#file=$(theory_explore $1)
+
+# Run the proof loop.
+#echo Trying to prove conjectures...
+file=$(echo "$file" | proof_loop 3) #First run: timout 3 seconds for Vampire.
+
+# Print the final theory out.
+#echo
+#echo ";; Final theory"
+echo "$file"
