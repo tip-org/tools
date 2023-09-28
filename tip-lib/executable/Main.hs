@@ -95,7 +95,7 @@ handle passes mode multipath s =
                   ++ concat [ [SimplifyGently, RemoveMatch] | remove_match ]
                   ++ [ SimplifyGently, Monomorphise False 1 ]
                   ++ [ AxiomatizeFuncdefs | ax_func_decls ]
-                  ++ [ SimplifyGently, DropAttributes ]
+                  ++ [ SimplifyGently ]
                 , "smt2")
               TFF ->
                 ( TFF.ppTheory
@@ -144,7 +144,7 @@ handle passes mode multipath s =
                   , AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual]
                   ++ [ SimplifyGently, Monomorphise False 1 ]    
-                  ++ [ SimplifyGently, DropAttributes ]
+                  ++ [ SimplifyGently ]
                 , "smt2")
       let thys = freshPass (runPasses pipeline) (lint "parse" thy)
       case multipath of

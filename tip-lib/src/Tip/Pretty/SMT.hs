@@ -51,9 +51,9 @@ isValidSMTString xs =
 data Config =
   Config {
     config_keywords :: [String],
-    config_use_prove :: Bool,
+    config_prove_mode :: ProveMode,
     config_use_single_datatype :: Bool,
-    config_use_assert_claims :: Bool}
+    config_print_attrs :: Bool }
   deriving Show
 data ProveMode = UseProve | UsePushPopAssert | UseAssert | UseAssertClaims 
   deriving (Eq, Show)
@@ -62,64 +62,63 @@ smtConfig, tipConfig, vampConfig :: Config
 smtConfig =
   Config {
     config_keywords = smtKeywords,
-    config_use_prove = False,
+    config_prove_mode = UsePushPopAssert,
     config_use_single_datatype = False,
-    config_use_assert_claims = False}
+    config_print_attrs = False }
 tipConfig =
   Config {
     config_keywords = [],
-    config_use_prove = True,
+    config_prove_mode = UseProve,
     config_use_single_datatype = True,
-    config_use_assert_claims = False}
+    config_print_attrs = True }
 vampConfig =
   Config {
     config_keywords = smtKeywords,
-    config_use_prove = False,
+    config_prove_mode = UseAssertClaims,
     config_use_single_datatype = True,
-    config_use_assert_claims = True}
+    config_print_attrs = False }
     
 ppTheory :: (Ord a,PrettyVar a) => Config -> Theory a -> Doc
-ppTheory Config{..} thy =
+ppTheory cfg0 thy =
   vcat $
-    map ppSort thy_sorts ++
-    map (ppDatas config_use_single_datatype) (topsort thy_datatypes) ++
-    map ppUninterp thy_sigs ++
-    map ppFuncs (topsort thy_funcs) ++
-    map (ppFormula proveMode) thy_asserts
+    map (ppSort cfg) thy_sorts ++
+    map (ppDatas cfg) (topsort thy_datatypes) ++
+    map (ppUninterp cfg) thy_sigs ++
+    map (ppFuncs cfg) (topsort thy_funcs) ++
+    map (ppFormula cfg) thy_asserts
   where
+    cfg = cfg0 { config_prove_mode = eliminatePushPop (config_prove_mode cfg0) }
+    eliminatePushPop UsePushPopAssert | length (theoryGoals thy) == 1 = UseAssert
+    eliminatePushPop mode = mode
+
     Theory{..} =
-      renameAvoiding (tipKeywords ++ config_keywords) removeForbidden thy
-    proveMode
-      | config_use_assert_claims = UseAssertClaims
-      | config_use_prove = UseProve
-      | length (theoryGoals thy) == 1 = UseAssert
-      | otherwise = UsePushPopAssert
+      renameAvoiding (tipKeywords ++ config_keywords cfg) removeForbidden thy
     removeForbidden xs@('.':_) = 'x':xs
     removeForbidden xs@('@':_) = 'x':xs
     removeForbidden xs = xs
 
-ppSort :: PrettyVar a => Sort a -> Doc
-ppSort (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAttrs attrs], int (length tvs)]
+ppSort :: PrettyVar a => Config -> Sort a -> Doc
+ppSort cfg (Sort sort attrs tvs) = parExpr "declare-sort" [sep [ppVarSMT sort, ppAttrs cfg attrs], int (length tvs)]
 
-ppDatas :: PrettyVar a => Bool -> [Datatype a] -> Doc
-ppDatas single [datatype@(Datatype tycon attrs _ _)] | single =
-  parExprSep "declare-datatype" [fsep [ppVarSMT tycon, ppAttrs attrs, ppData datatype]]
+ppDatas :: PrettyVar a => Config -> [Datatype a] -> Doc
+ppDatas cfg@Config{..} [datatype@(Datatype tycon attrs _ _)] | config_use_single_datatype =
+  parExprSep "declare-datatype" [fsep [ppVarSMT tycon, ppAttrs cfg attrs, ppData cfg datatype]]
 
-ppDatas _ datatypes@(Datatype tycon _ tyvars _:_) =
-  parExprSep "declare-datatypes" [parens (fsep (map ppDTypeName datatypes)), parens (fsep (map ppData datatypes))]
+ppDatas cfg datatypes@(Datatype tycon _ tyvars _:_) =
+  parExprSep "declare-datatypes" [parens (fsep (map (ppDTypeName cfg) datatypes)), parens (fsep (map (ppData cfg) datatypes))]
 ppDatas _ [] = error "empty scc"
 
-ppDTypeName :: PrettyVar a => Datatype a -> Doc
-ppDTypeName (Datatype tycon attrs tyvars _) =
-  parExprSep (sep [ppVarSMT tycon, ppAttrs attrs]) [int (length tyvars)]
+ppDTypeName :: PrettyVar a => Config -> Datatype a -> Doc
+ppDTypeName cfg (Datatype tycon attrs tyvars _) =
+  parExprSep (sep [ppVarSMT tycon, ppAttrs cfg attrs]) [int (length tyvars)]
 
-ppData :: PrettyVar a => Datatype a -> Doc
-ppData (Datatype _ _ tyvars datacons) = par'' tyvars (fsep (map ppCon datacons))
+ppData :: PrettyVar a => Config -> Datatype a -> Doc
+ppData cfg (Datatype _ _ tyvars datacons) = par'' tyvars (fsep (map (ppCon cfg) datacons))
 --    parExprSep "par" [parens (fsep (map ppVarSMT tyvars)), parens (fsep (map ppCon datacons))]
 
-ppCon :: PrettyVar a => Constructor a -> Doc
-ppCon (Constructor datacon attrs selector args) =
-  parExprSep (sep [ppVarSMT datacon, ppAttrs attrs]) [apply (ppVarSMT p) (ppType t) | (p,t) <- args]
+ppCon :: PrettyVar a => Config -> Constructor a -> Doc
+ppCon cfg (Constructor datacon attrs selector args) =
+  parExprSep (sep [ppVarSMT datacon, ppAttrs cfg attrs]) [apply (ppVarSMT p) (ppType t) | (p,t) <- args]
 
 
 par :: (PrettyVar a) => [a] -> Doc -> Doc
@@ -133,52 +132,53 @@ par' xs d = parExprSep "par" [parens (fsep (map ppVarSMT xs)), d]
 par'' :: (PrettyVar a) => [a] -> Doc -> Doc
 par'' xs d = par' xs (parens d)
 
-ppUninterp :: PrettyVar a => Signature a -> Doc
-ppUninterp (Signature f attrs (PolyType tyvars arg_types result_type))
+ppUninterp :: PrettyVar a => Config -> Signature a -> Doc
+ppUninterp cfg (Signature f attrs (PolyType tyvars arg_types result_type))
   | null arg_types =
     apply "declare-const"
-      (sep [ppVarSMT f, ppAttrs attrs] $\ par' tyvars (ppType result_type))
+      (sep [ppVarSMT f, ppAttrs cfg attrs] $\ par' tyvars (ppType result_type))
   | otherwise =
     apply "declare-fun"
-      (sep [ppVarSMT f, ppAttrs attrs] $\
+      (sep [ppVarSMT f, ppAttrs cfg attrs] $\
         (par tyvars
           (sep [parens (fsep (map ppType arg_types)), ppType result_type])))
 
-ppFuncs :: (Ord a, PrettyVar a) => [Function a] -> Doc
-ppFuncs [f] =
+ppFuncs :: (Ord a, PrettyVar a) => Config -> [Function a] -> Doc
+ppFuncs cfg [f] =
       expr (if func_name f `elem` uses f
               then "define-fun-rec"
               else "define-fun")
-           [ppFuncSig f (ppExpr (func_body f))]
-ppFuncs fs = expr "define-funs-rec"
-  [ parens (vcat [parens (ppFuncSig f empty) | f <- fs])
+           [ppFuncSig cfg f (ppExpr (func_body f))]
+ppFuncs cfg fs = expr "define-funs-rec"
+  [ parens (vcat [parens (ppFuncSig cfg f empty) | f <- fs])
   , parens (vcat (map (ppExpr . func_body) fs))
   ]
 
-ppFuncSig :: PrettyVar a => Function a -> Doc -> Doc
-ppFuncSig (Function f attrs tyvars args res_ty body) content =
-    sep [ppVarSMT f, ppAttrs attrs] $$ fsep [par tyvars (fsep  [ppLocals args, ppType res_ty]), content]
+ppFuncSig :: PrettyVar a => Config -> Function a -> Doc -> Doc
+ppFuncSig cfg (Function f attrs tyvars args res_ty body) content =
+    sep [ppVarSMT f, ppAttrs cfg attrs] $$ fsep [par tyvars (fsep [ppLocals args, ppType res_ty]), content]
 
-ppFormula :: (Ord a, PrettyVar a) => ProveMode -> Formula a -> Doc
-ppFormula UseProve (Formula Prove attrs tvs term) =
-  apply "prove" $
-    ppAttrs attrs $$ par' tvs (ppExpr term)
-ppFormula UseAssert (Formula Prove attrs tvs term) =
-  apply "assert" (apply "not" (ppAttrs attrs $$ par' tvs (ppExpr term))) $$
-  parens (text "check-sat")   
-ppFormula UsePushPopAssert form@(Formula Prove _ _ _) =
-  vcat [
-    apply "push" (text "1"),
-    ppFormula UseAssert form,
-    apply "pop" (text "1")]
-ppFormula UseAssertClaims (Formula Prove attrs tvs term) =
-    if (hasAttr lemma attrs) then     
-       apply "assert-claim" (ppAttrs attrs $$ par' tvs (ppExpr term))
-    else apply "assert-not" (ppAttrs attrs $$ par' tvs (ppExpr term))  
-ppFormula _ (Formula Assert attrs tvs term) =
+ppFormula :: (Ord a, PrettyVar a) => Config -> Formula a -> Doc
+ppFormula cfg form@(Formula Prove attrs tvs term) =
+  case config_prove_mode cfg of
+    UseProve ->
+      apply "prove" $
+        ppAttrs cfg attrs $$ par' tvs (ppExpr term)
+    UseAssert ->
+      apply "assert" (apply "not" (ppAttrs cfg attrs $$ par' tvs (ppExpr term))) $$
+      parens (text "check-sat")
+    UsePushPopAssert ->
+      vcat [
+        apply "push" (text "1"),
+        ppFormula cfg{config_prove_mode = UseAssert} form,
+        apply "pop" (text "1")]
+    UseAssertClaims ->
+      if (hasAttr lemma attrs) then
+        apply "assert-claim" (ppAttrs cfg attrs $$ par' tvs (ppExpr term))
+      else apply "assert-not" (ppAttrs cfg attrs $$ par' tvs (ppExpr term))
+ppFormula cfg (Formula Assert attrs tvs term) =
   apply "assert" $
-   ppAttrs attrs $$ par' tvs (ppExpr term)
-
+   ppAttrs cfg attrs $$ par' tvs (ppExpr term)
 
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
@@ -201,7 +201,9 @@ ppExpr lets@Let{} =
   where (bs,e) = collectLets lets
 ppExpr (LetRec fs e) =
   parExpr "letrec"
-    [ parens (ppFuncs fs), ppExpr e ]
+    -- HACK: use tipConfig when printing letrec.
+    -- letrec is not allowed in tip files anyway, only in intermediate code.
+    [ parens (ppFuncs tipConfig fs), ppExpr e ]
 ppExpr (Quant _ q ls e) = parExprSep (ppQuant q) [ppLocals ls, ppExpr e]
 
 ppLocals :: PrettyVar a => [Local a] -> Doc
@@ -266,8 +268,10 @@ ppBuiltinType Integer = "Int"
 ppBuiltinType Real    = "Real"
 ppBuiltinType Boolean = "Bool"
 
-ppAttrs :: [Attribute] -> Doc
-ppAttrs = fsep . map ppAttr
+ppAttrs :: Config -> [Attribute] -> Doc
+ppAttrs cfg attrs
+  | config_print_attrs cfg = fsep (map ppAttr attrs)
+  | otherwise = empty
 
 ppAttr :: Attribute -> Doc
 ppAttr (name, Nothing) = ppKeyword name
@@ -279,11 +283,11 @@ ppKeyword x = text (':':x)
 -- Temporary use SMTLIB as the pretty printer:
 
 instance (Ord a,PrettyVar a) => Pretty (Decl a) where
-  pp (DataDecl d)   = ppDatas True [d]
-  pp (SortDecl d)   = ppSort d
-  pp (SigDecl d)    = ppUninterp d
-  pp (FuncDecl d)   = ppFuncs [d]
-  pp (AssertDecl d) = ppFormula UseProve d
+  pp (DataDecl d)   = ppDatas tipConfig [d]
+  pp (SortDecl d)   = ppSort tipConfig d
+  pp (SigDecl d)    = ppUninterp tipConfig d
+  pp (FuncDecl d)   = ppFuncs tipConfig [d]
+  pp (AssertDecl d) = ppFormula tipConfig d
 
 instance (Ord a,PrettyVar a) => Pretty (Theory a) where
   pp = ppTheory tipConfig
@@ -304,19 +308,19 @@ instance PrettyVar a => Pretty (Type a) where
   pp = ppType
 
 instance (Ord a, PrettyVar a) => Pretty (Function a) where
-  pp = ppFuncs . return
+  pp = ppFuncs tipConfig . return
 
 instance (Ord a, PrettyVar a) => Pretty (Formula a) where
-  pp = ppFormula UseProve
+  pp = ppFormula tipConfig
 
 instance PrettyVar a => Pretty (Datatype a) where
-  pp = ppDatas True . return
+  pp = ppDatas tipConfig . return
 
 instance PrettyVar a => Pretty (Sort a) where
-  pp = ppSort
+  pp = ppSort tipConfig
 
 instance PrettyVar a => Pretty (Signature a) where
-  pp = ppUninterp
+  pp = ppUninterp tipConfig
 
 instance PrettyVar a => Pretty (Local a) where
   pp = ppLocal

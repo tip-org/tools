@@ -46,7 +46,7 @@ induction coords thy@Theory{..} =
           -> error $ unlines
                [ "In theory: " ++ show (SMT.ppTheory SMT.tipConfig thy)
                , "Induction coordinates " ++ show cs ++ " out of bounds!"
-               , "on goal: " ++ show (SMT.ppFormula SMT.UseProve goal)
+               , "on goal: " ++ show (SMT.ppFormula SMT.tipConfig goal)
                ]
       | otherwise ->
       do (obligs,_) <-
