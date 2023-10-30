@@ -52,7 +52,7 @@ quickCheckAll :: String -> HsId a
 quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 
 quickSpec :: String -> HsId a
-quickSpec = Qualified "QuickSpec" (Just "QS")
+quickSpec = Qualified "QuickSpec.Internal" (Just "QS")
 
 constraints :: String -> HsId a
 constraints = Qualified "Data.Constraint" (Just "QS")
@@ -839,7 +839,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
   , let tys = map trType (qsTvs n)
   ] ++
-  [ Apply (quickSpec "inst") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
+  [ Apply (quickSpec "instFun") [H.Lam [TupPat []] (Apply (Derived f "gen") [])]
   | Signature f _ _ <- thy_sigs
   ] ++
   [Apply (quickSpec "withMaxTermSize") [H.Int (fromIntegral max_size)]] ++
