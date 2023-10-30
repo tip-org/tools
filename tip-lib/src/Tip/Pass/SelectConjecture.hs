@@ -6,7 +6,7 @@ import Tip.Core
 import Data.List
 
 makeConjecture :: Int -> Theory a -> Theory a
-makeConjecture n thy@Theory{..}
+makeConjecture n0 thy@Theory{..}
   | n < 0 || n >= length asserts = error "Assertion number out of range"
   | otherwise =
       thy {
@@ -18,16 +18,18 @@ makeConjecture n thy@Theory{..}
           take n asserts ++ drop (n+1) asserts }
   where
     (asserts, proves) = partition ((== Assert) . fm_role) thy_asserts
+    n = if n0 < 0 then n0 + length asserts else n0
 
 selectConjecture :: Int -> Theory a -> Theory a
-selectConjecture n thy@Theory{..}
+selectConjecture n0 thy@Theory{..}
   | n < 0 || n >= length proves = error "Conjecture number out of range"
   | otherwise = thy { thy_asserts = asserts ++ [proves !! n] }
   where
     (asserts, proves) = partition ((== Assert) . fm_role) thy_asserts
+    n = if n0 < 0 then n0 + length asserts else n0
 
 provedConjecture :: Int -> Theory a -> Theory a
-provedConjecture n thy@Theory{..}
+provedConjecture n0 thy@Theory{..}
   | n < 0 || n >= length proves = error "Conjecture number out of range"
   | otherwise =
       thy {
@@ -37,9 +39,10 @@ provedConjecture n thy@Theory{..}
           take n proves ++ drop (n+1) proves }
   where
     (asserts, proves) = partition ((== Assert) . fm_role) thy_asserts
+    n = if n0 < 0 then n0 + length asserts else n0
 
 deleteConjecture :: Int -> Theory a -> Theory a
-deleteConjecture n thy@Theory{..}
+deleteConjecture n0 thy@Theory{..}
   | n < 0 || n >= length proves = error "Conjecture number out of range"
   | otherwise =
       thy {
@@ -48,3 +51,4 @@ deleteConjecture n thy@Theory{..}
           take n proves ++ drop (n+1) proves }
   where
     (asserts, proves) = partition ((== Assert) . fm_role) thy_asserts
+    n = if n0 < 0 then n0 + length asserts else n0
