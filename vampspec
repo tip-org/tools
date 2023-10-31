@@ -1,0 +1,48 @@
+#!/bin/zsh
+
+# Set this to relevant path to Vampire executable
+VAMPIRE=$HOME/Documents/vampire/bin/./vampire_rel_martin-claims-for-smt_6817
+# Set to default max term size for theory exploration
+MAX_TERM_SIZE=7
+
+# Set default timeout (seconds) for Vampire
+VAMPIRE_TIMEOUT=3
+
+# arg 1: Prover timeout in seconds
+# arg 2: the filename of the TIP file
+prove_ind() {
+  # Convert the problem to Vampire compatible SMTLIB2 then prove by structural induction.
+    tip --vampire $2 |
+	$VAMPIRE --time_limit $1 -ind struct -indgen on -indoct on --input_syntax smtlib2  >& /dev/null
+}
+prove_no_ind() {
+  # Convert the problem to Vampire compatible SMTLIB2.
+    tip --vampire $2  |
+	$VAMPIRE --time_limit $1 --proof off --input_syntax smtlib2  >& /dev/null
+}
+
+# arg 1: max term size
+# arg 2: vampire timeout
+# arg 3: problem filename
+# should it say --prune here? might get rid of something useful?
+theory_explore_and_prove() {
+    tip-spec --prune --size $1 $3 | prove_ind $2
+}
+
+
+if prove_no_ind $VAMPIRE_TIMEOUT $1; then
+    echo 'Proved by Vampire without induction!'
+    exit
+fi
+
+if prove_ind $VAMPIRE_TIMEOUT $1; then
+    echo 'Proved by Vampire without theory exploration!'
+    exit
+fi
+
+if theory_explore_and_prove $MAX_TERM_SIZE $VAMPIRE_TIMEOUT $1; then
+    echo 'Proved by Vampire with theory exploration!'
+    exit
+fi
+
+
