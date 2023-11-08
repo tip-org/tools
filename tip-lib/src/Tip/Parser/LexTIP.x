@@ -5,13 +5,10 @@
 {-# OPTIONS_GHC -w #-}
 module Tip.Parser.LexTIP where
 
-
-
 import qualified Data.Bits
 import Data.Word (Word8)
 import Data.Char (ord)
 }
-
 
 $c = [A-Z\192-\221] # [\215]  -- capital isolatin1 letter (215 = \times) FIXME
 $s = [a-z\222-\255] # [\247]  -- small   isolatin1 letter (247 = \div  ) FIXME
@@ -19,21 +16,21 @@ $l = [$c $s]         -- letter
 $d = [0-9]           -- digit
 $i = [$l $d _ ']     -- identifier character
 $u = [. \n]          -- universal: any character
-
 @rsyms =    -- symbols and non-identifier-like reserved words
-   \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | \= \> | \- | \_ | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \=
-
+   \( | \) | "declare" \- "datatype" | "declare" \- "datatypes" | "declare" \- "sort" | "declare" \- "const" | "declare" \- "fun" | "define" \- "fun" | "define" \- "fun" \- "rec" | "define" \- "funs" \- "rec" | "set" \- "logic" | "check" \- "sat" | \= \> | \- | \_ | \@ | \= | \+ | \* | \/ | \> | \> \= | \< | \< \=
 :-
-";" [.]* ; -- Toss single line comments
+
+-- Line comments
+";" [.]* ;
 
 $white+ ;
 @rsyms
     { tok (\p s -> PT p (eitherResIdent (TV . share) s)) }
-($l | [\~ \! \@ \$ \% \^ \& \* \_ \+ \= \< \> \. \? \/]) ($l | $d | [\~ \! \@ \$ \% \^ \& \* \_ \- \+ \= \< \> \. \? \/]) *
+([\! \$ \% \& \* \+ \. \/ \< \= \> \? \@ \^ \_ \~]| $l)([\! \$ \% \& \* \+ \- \. \/ \< \= \> \? \@ \^ \_ \~]| ($d | $l)) *
     { tok (\p s -> PT p (eitherResIdent (T_UnquotedSymbol . share) s)) }
-\| ($u # \| | \\ $u)* \|
+\| ([$u # \|]| \\ $u)* \|
     { tok (\p s -> PT p (eitherResIdent (T_QuotedSymbol . share) s)) }
-\: ($l | $d | [\-]) *
+\: (\- | ($d | $l)) *
     { tok (\p s -> PT p (eitherResIdent (T_Keyword . share) s)) }
 
 $l $i*
@@ -88,10 +85,10 @@ posLineCol :: Posn -> (Int, Int)
 posLineCol (Pn _ l c) = (l,c)
 
 mkPosToken :: Token -> ((Int, Int), String)
-mkPosToken t@(PT p _) = (posLineCol p, prToken t)
+mkPosToken t@(PT p _) = (posLineCol p, tokenText t)
 
-prToken :: Token -> String
-prToken t = case t of
+tokenText :: Token -> String
+tokenText t = case t of
   PT _ (TS s _) -> s
   PT _ (TL s)   -> show s
   PT _ (TI s)   -> s
@@ -103,6 +100,8 @@ prToken t = case t of
   PT _ (T_QuotedSymbol s) -> s
   PT _ (T_Keyword s) -> s
 
+prToken :: Token -> String
+prToken t = tokenText t
 
 data BTree = N | B String Tok BTree BTree deriving (Show)
 
@@ -115,12 +114,13 @@ eitherResIdent tv s = treeFind resWords
                               | s == a = t
 
 resWords :: BTree
-resWords = b "declare-datatypes" 22 (b ">" 11 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b "=>" 10 N N))) (b "_" 17 (b "Bool" 14 (b "@" 13 (b ">=" 12 N N) N) (b "Real" 16 (b "Int" 15 N N) N)) (b "declare-const" 20 (b "assert" 19 (b "and" 18 N N) N) (b "declare-datatype" 21 N N)))) (b "ite" 33 (b "distinct" 28 (b "define-fun" 25 (b "declare-sort" 24 (b "declare-fun" 23 N N) N) (b "define-funs-rec" 27 (b "define-fun-rec" 26 N N) N)) (b "false" 31 (b "exists" 30 (b "div" 29 N N) N) (b "forall" 32 N N))) (b "or" 39 (b "match" 36 (b "let" 35 (b "lambda" 34 N N) N) (b "not" 38 (b "mod" 37 N N) N)) (b "to_real" 42 (b "prove" 41 (b "par" 40 N N) N) (b "true" 43 N N))))
-   where b s n = let bs = id s
-                  in B bs (TS bs n)
+resWords = b "declare-datatypes" 23 (b ">=" 12 (b "/" 6 (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "-" 5 (b "+" 4 N N) N)) (b "=" 9 (b "<=" 8 (b "<" 7 N N) N) (b ">" 11 (b "=>" 10 N N) N))) (b "and" 18 (b "Int" 15 (b "Bool" 14 (b "@" 13 N N) N) (b "_" 17 (b "Real" 16 N N) N)) (b "declare-const" 21 (b "check-sat" 20 (b "assert" 19 N N) N) (b "declare-datatype" 22 N N)))) (b "lambda" 35 (b "distinct" 29 (b "define-fun" 26 (b "declare-sort" 25 (b "declare-fun" 24 N N) N) (b "define-funs-rec" 28 (b "define-fun-rec" 27 N N) N)) (b "false" 32 (b "exists" 31 (b "div" 30 N N) N) (b "ite" 34 (b "forall" 33 N N) N))) (b "par" 41 (b "mod" 38 (b "match" 37 (b "let" 36 N N) N) (b "or" 40 (b "not" 39 N N) N)) (b "to_real" 44 (b "set-logic" 43 (b "prove" 42 N N) N) (b "true" 45 N N))))
+   where b s n = let bs = s
+                 in  B bs (TS bs n)
 
 unescapeInitTail :: String -> String
-unescapeInitTail = id . unesc . tail . id where
+unescapeInitTail = id . unesc . tail . id
+  where
   unesc s = case s of
     '\\':c:cs | elem c ['\"', '\\', '\''] -> c : unesc cs
     '\\':'n':cs  -> '\n' : unesc cs
@@ -168,7 +168,7 @@ tokens str = go (alexStartPos, '\n', [], str)
 alexGetByte :: AlexInput -> Maybe (Byte,AlexInput)
 alexGetByte (p, c, (b:bs), s) = Just (b, (p, c, bs, s))
 alexGetByte (p, _, [], s) =
-  case  s of
+  case s of
     []  -> Nothing
     (c:s) ->
              let p'     = alexMove p c

@@ -14,6 +14,8 @@ DefineFunRec.     Decl ::= "define-fun-rec" FunDec Expr;
 DefineFunsRec.    Decl ::= "define-funs-rec" "(" [BracketedFunDec] ")" "(" [Expr] ")";
 Formula.          Decl ::= Assertion [Attr] Expr;
 FormulaPar.       Decl ::= Assertion [Attr] "(" Par Expr ")";
+SetLogic.         Decl ::= "set-logic" Symbol;
+CheckSat.         Decl ::= "check-sat";
 
 Assert. Assertion ::= "assert";
 Prove.  Assertion ::= "prove";

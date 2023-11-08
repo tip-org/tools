@@ -179,6 +179,9 @@ trDecl x =
            fm <- T.Formula (toRole role) (trAttrs attrs) tvi <$> trExpr expr
            return emptyTheory{ thy_asserts = [fm] }
 
+      SetLogic _ -> return emptyTheory
+      CheckSat -> return emptyTheory
+
 emptyPar :: Par
 emptyPar = Par []
 
