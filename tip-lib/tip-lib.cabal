@@ -71,6 +71,7 @@ library
     Tip.Pass.EliminateDeadCode
     Tip.Pass.EqualFunctions
     Tip.Pass.Induction
+    Tip.Pass.IntroduceFuncdefs
     Tip.Pass.Lift
     Tip.Pass.Monomorphise
     Tip.Pass.MakeMatchExhaustive

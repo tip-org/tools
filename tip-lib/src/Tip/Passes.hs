@@ -89,6 +89,7 @@ import Tip.Pass.EliminateDeadCode
 import Tip.Pass.MakeMatchExhaustive
 import Tip.Pass.AxiomatizeFuncdefs
 import Tip.Pass.AxiomatizeDatadecls
+import Tip.Pass.IntroduceFuncdefs
 import Tip.Pass.SelectConjecture
 import Tip.Pass.DropSuffix
 import Tip.Pass.UniqLocals
@@ -133,6 +134,7 @@ data StandardPass
   | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
   | AxiomatizeDatadeclsUEQ
+  | IntroduceFuncdefs
   | Monomorphise Bool Int
   | CSEMatch
   | CSEMatchWhy3
@@ -181,6 +183,7 @@ instance Pass StandardPass where
     AxiomatizeFuncdefs2  -> single (return . axiomatizeFuncdefs2)
     AxiomatizeDatadecls    -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls False)
     AxiomatizeDatadeclsUEQ -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls True)
+    IntroduceFuncdefs    -> single (return . introduceFuncdefs)
     Monomorphise b n     -> single (typeSkolemConjecture ModeMonomorphise) `followedBy` single (monomorphise b n)
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
     CSEMatchWhy3         -> single $ return . cseMatch cseMatchWhy3
@@ -256,6 +259,8 @@ instance Pass StandardPass where
         help "Transform function definitions to axioms in the most straightforward way",
       unitPass AxiomatizeFuncdefs2 $
         help "Transform function definitions to axioms with left hand side pattern matching instead of match",
+      unitPass IntroduceFuncdefs $
+        help "Transform functions defined using assert to use define-fun (monomorphic functions only)",
       unitPass AxiomatizeDatadecls $
         help "Transform data declarations to axioms",
       unitPass AxiomatizeDatadeclsUEQ $
