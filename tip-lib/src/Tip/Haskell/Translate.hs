@@ -31,7 +31,6 @@ import Data.Generics.Geniplate
 import Data.List (nub,partition,find)
 
 import qualified GHC.Generics as G
-import Tip.Haskell.GenericArbitrary
 
 prelude :: String -> HsId a
 prelude = Qualified "Prelude" (Just "P")
@@ -88,6 +87,9 @@ typeable = Qualified "Data.Typeable" (Just "T")
 
 generic :: String -> HsId a
 generic = Qualified "GHC.Generics" (Just "G")
+
+genericArbitrary :: String -> HsId a
+genericArbitrary = Qualified "Tip.Haskell.GenericArbitrary" (Just "GA")
 
 data HsId a
     = Qualified
@@ -226,7 +228,7 @@ trTheory' mode thy@Theory{..} =
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
-                  (Apply (Qualified "Tip.Haskell.GenericArbitrary" Nothing "genericArbitrary") [])]
+                  (Apply (genericArbitrary "genericArbitrary") [])]
     | case mode of { QuickSpec QuickSpecParams{..} -> use_observers; _ -> False } ]
     ++
     [ InstDecl [H.TyCon (quickCheck cls) [H.TyVar a] | a <- tvs, cls <- ["Arbitrary", "CoArbitrary"]]
@@ -295,12 +297,12 @@ trTheory' mode thy@Theory{..} =
                          ++ (nestedObsFuns thy dt)
                          ++ [InstDecl [H.TyCon (prelude "Ord") [H.TyVar a] | a <- tvs]
                               (H.TyCon (quickSpec "Observe") $
-                                 [H.TyCon (prelude "Int") []]
+                                 [H.TyCon (genericArbitrary "Scaled") []]
                               ++ [H.TyCon (obsName tc) (map H.TyVar tvs)]
                               ++ [H.TyCon tc (map H.TyVar tvs)]
                               )
-                              [funDecl (quickSpec "observe") []
-                                       (Apply (obFuName tc) [])
+                              [funDecl (quickSpec "observe") [Exact "s"]
+                                       (Apply (obFuName tc) [Apply (genericArbitrary "scaled") [H.Int (fromIntegral max_observer_size), var (Exact "s")]])
                               ]
                             ]
                        else []
@@ -790,7 +792,8 @@ data QuickSpecParams =
     use_completion :: Bool,
     max_size :: Int,
     max_depth :: Int,
-    max_test_size :: Int
+    max_test_size :: Int,
+    max_observer_size :: Int
     }
   deriving (Eq, Ord, Show)
 
@@ -837,7 +840,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [ mk_inst ((map (mk_class (prelude "Ord")) tys)
               ++ (map (mk_class (quickCheck "Arbitrary")) tys)
             ) (H.TyCon (quickSpec "Observe") $
-               [H.TyCon (prelude "Int") []]
+               [H.TyCon (genericArbitrary "Scaled") []]
                ++ [H.TyCon (obsName t) tys]
                ++ [H.TyCon t tys])
   | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
