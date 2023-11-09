@@ -29,7 +29,7 @@ parseParams =
     useCompletion = switch (long "prune" <> short 'p' <> help "Filter out redundant conjectures")
     size = option auto (long "size" <> short 's' <> help "Maximum term size to explore") <|> pure 7
     depth = option auto (long "depth" <> short 'd' <> help "Maximum term depth to explore") <|> pure maxBound
-    testSize = option auto (long "test-size" <> short 's' <> help "Maximum test case size") <|> pure 20
+    testSize = option auto (long "test-size" <> short 'S' <> help "Maximum test case size") <|> pure 20
 
 commaSep :: [String] -> [String]
 commaSep = concatMap (splitOn ",")
