@@ -28,6 +28,7 @@ theorySignature params thy =
       do let a_file = dir </> "A" <.> "hs"
          let (thy_doc, rename_map) = ppTheoryWithRenamings "A" (QuickSpec params) thy
          writeFile a_file ("{-# OPTIONS_GHC -fobject-code -O #-}\n" ++ show thy_doc)
+         --print thy_doc
          setCurrentDirectory dir
          r <- runInterpreter $
            do loadModules ["A"]
