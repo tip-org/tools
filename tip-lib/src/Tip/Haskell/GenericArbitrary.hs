@@ -1,29 +1,28 @@
-{-# LANGUAGE DeriveFunctor, FlexibleInstances, TypeOperators, ScopedTypeVariables, FlexibleContexts, GADTs #-}
+{-# LANGUAGE DeriveFunctor, FlexibleInstances, TypeOperators, ScopedTypeVariables, FlexibleContexts, GADTs, MultiParamTypeClasses #-}
 module Tip.Haskell.GenericArbitrary where
 
 import Prelude hiding (Either(..))
 import qualified Test.QuickCheck as QC
 import Test.QuickCheck.Gen.Unsafe
 import GHC.Generics as G
-import Data.Typeable as T
 import Control.Monad
 import Data.Monoid
 
 -- Generate a value generically.
-genericArbitrary :: forall a. (T.Typeable a, QC.Arbitrary a, G.Generic a, GArbitrary (Rep a)) => QC.Gen a
+genericArbitrary :: forall a. (QC.Arbitrary a, G.Generic a, GArbitrary (Rep a) a) => QC.Gen a
 genericArbitrary = QC.oneof (map gen constructors)
   where
     constructors = map (fmap to) (garbitrary (QC.arbitrary :: QC.Gen a))
 
 -- Generating random values of a datatype
-class GArbitrary f where
+class GArbitrary f a where
   -- Argument is a generator for the datatype itself, which will be used
   -- when the datatype is recursive
-  garbitrary :: T.Typeable a => QC.Gen a -> [Constr (f b)]
+  garbitrary :: QC.Gen a -> [Constr (f b)]
 
 -- Generating random constructors
-class GConstr f where
-  gconstructor :: T.Typeable a => QC.Gen a -> Constr (f b)
+class GConstr f a where
+  gconstructor :: QC.Gen a -> Constr (f b)
 
 -- Represents a generator for one constructor of a datatype
 data Constr a = Constr {
@@ -35,7 +34,7 @@ data Constr a = Constr {
 
 -- Interesting typeclass instances
 
-instance GConstr f => GArbitrary (C1 c f) where
+instance GConstr f a => GArbitrary (C1 c f) a where
   -- This is the generator for a single constructor.
   -- We have to resize the "recursive generator" depending on how many
   -- times the datatype appears recursively in the constructor
@@ -47,18 +46,15 @@ instance GConstr f => GArbitrary (C1 c f) where
         | recursion b == 1 = m-1
         | otherwise = m `div` recursion b
 
-instance (T.Typeable a, QC.Arbitrary a) => GConstr (K1 i a) where
-  -- An argument to a constructor: see if the argument is recursive or not
-  gconstructor gen =
-    case gcast gen of
-      Nothing ->
-        -- Not recursive: use normal generator
-        Constr (fmap K1 QC.arbitrary) 0
-      Just gen' ->
-        -- Recursive: use recursive generator
-        Constr (fmap K1 gen') 1
+instance {-# OVERLAPS #-} GConstr (K1 i a) a where
+  -- Recursive argument to constructor
+  gconstructor gen = Constr (fmap K1 gen) 1
 
-instance (GConstr f, GConstr g) => GConstr (f :*: g) where
+instance QC.Arbitrary a => GConstr (K1 i a) b where
+  -- Non-recursive argument to constructor
+  gconstructor _ = Constr (fmap K1 QC.arbitrary) 0
+
+instance (GConstr f a, GConstr g a) => GConstr (f :*: g) a where
   -- A constructor with several arguments: add up the number of recursive occurrences
   gconstructor gen = Constr (liftM2 (:*:) g1 g2) (r1 + r2)
     where
@@ -66,16 +62,16 @@ instance (GConstr f, GConstr g) => GConstr (f :*: g) where
       Constr g2 r2 = gconstructor gen
 
 -- Generic drivel that doesn't really do anything.
-instance GConstr f => GConstr (M1 i c f) where
+instance GConstr f a => GConstr (M1 i c f) a where
   gconstructor gen = fmap M1 (gconstructor gen)
 
-instance GConstr U1 where
+instance GConstr U1 a where
   gconstructor _ = Constr (return U1) 0
 
-instance (GArbitrary f, GArbitrary g) => GArbitrary (f :+: g) where
+instance (GArbitrary f a, GArbitrary g a) => GArbitrary (f :+: g) a where
   garbitrary gen = map (fmap L1) (garbitrary gen) ++ map (fmap R1) (garbitrary gen)
 
-instance GArbitrary f => GArbitrary (D1 c f) where
+instance GArbitrary f a => GArbitrary (D1 c f) a where
   garbitrary gen = map (fmap M1) (garbitrary gen)
 
 -- All the same but for coarbitrary. Sigh...
