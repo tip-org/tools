@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveAnyClass #-}
 -- | Compute all consequences of a set of Horn clauses
 module Tip.Utils.Horn (rule, specialiseRules, numberVars, Expr(..), Rule(..)) where
 import Twee.Base hiding (Var, Fun, App, Pretty)
@@ -15,7 +16,7 @@ import Data.Generics.Geniplate
 import Tip.Pretty
 import qualified Data.Set as Set
 import Data.Typeable
-import Twee.Label
+import Data.Label hiding (label)
 import qualified Text.PrettyPrint.HughesPJ as Pretty
 
 data Expr v c = Var v | App c [Expr v c]
@@ -26,19 +27,22 @@ instance (Pretty v, Pretty c) => Pretty (Expr v c) where
   pp (App c []) = pp c
   pp (App c as) = parens (pp c $\ fsep (map pp as))
 
+newtype AutoLabel a = AutoLabel {unAutoLabel :: a} deriving (Eq, Ord, Typeable, Labelled)
+instance Pretty a => Pretty (AutoLabel a) where pp = pp . unAutoLabel
+
 numberVars :: (Typeable v, Ord v) => Expr v c -> Expr Int c
-numberVars (Var x) = Var (fromIntegral (labelNum (label x)))
+numberVars (Var x) = Var (fromIntegral (labelNum (label (AutoLabel x))))
 numberVars (App f xs) = App f (map numberVars xs)
 
-exprToTwee :: (Typeable a, Ord a) => Expr Int a -> Term a
+exprToTwee :: (Typeable a, Ord a) => Expr Int a -> Term (AutoLabel a)
 exprToTwee = build . toTwee
   where
     toTwee (Var x) = var (V x)
-    toTwee (App f xs) = app (fun f) (map toTwee xs)
+    toTwee (App f xs) = app (fun (AutoLabel f)) (map toTwee xs)
 
-exprFromTwee :: Term a -> Expr Int a
+exprFromTwee :: (Typeable a, Ord a) => Term (AutoLabel a) -> Expr Int a
 exprFromTwee (Twee.Var (V x)) = Var x
-exprFromTwee (Twee.App f xs) = App (fun_value f) (map exprFromTwee (unpack xs))
+exprFromTwee (Twee.App f xs) = App (unAutoLabel (fun_value f)) (map exprFromTwee (unpack xs))
 
 data Rule a =
     Fact a
@@ -71,7 +75,7 @@ consequences cs = loop Set.empty Index.empty Set.empty cs
         case c of
           Fact t ->
             loop (Set.insert t facts) rules seen'
-              (derive [t] (Index.approxMatches t rules) ++ cs)
+              (derive [t] (map snd (Index.matches t rules)) ++ cs)
           t :=>: _ ->
             loop facts (Index.insert t c rules) seen'
               (derive (Set.toList facts) [c] ++ cs)

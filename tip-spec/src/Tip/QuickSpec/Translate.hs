@@ -147,9 +147,9 @@ trType :: PrettyVar a => Mode -> BackMap a -> QS.Type -> Tip.Type (V a)
 trType mode bm t =
   case t of
     Twee.Var tv -> Tip.TyVar (TyVar tv)
-    Twee.App (Twee.F QS.Arrow) (Twee.Cons a (Twee.Cons b Twee.Empty)) ->
+    Twee.App (Twee.F _ QS.Arrow) (Twee.Cons a (Twee.Cons b Twee.Empty)) ->
       trType Inner bm a ==> trType mode bm b -- !! ??
-    Twee.App (Twee.F (QS.TyCon tc)) as ->
+    Twee.App (Twee.F _ (QS.TyCon tc)) as ->
       let name = Typeable.tyConName tc
           Type mk = FROMJUST(name) (M.lookup name bm)
       in  mk (map (trType Inner bm) (Twee.unpack as))
