@@ -54,6 +54,9 @@ quickCheckAll = Qualified "Test.QuickCheck.All" (Just "QC")
 quickSpec :: String -> HsId a
 quickSpec = Qualified "QuickSpec.Internal" (Just "QS")
 
+quickSpecPublic :: String -> HsId a
+quickSpecPublic = Qualified "QuickSpec" (Just "QS")
+
 constraints :: String -> HsId a
 constraints = Qualified "Data.Constraint" (Just "QS")
 
@@ -969,7 +972,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
         tyTup (ty:tys) = TyTup [ty, tyTup tys]
 
     qsTvs :: Int -> [T.Type (HsId a)]
-    qsTvs n = take n (cycle [ T.TyCon (quickSpec qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
+    qsTvs n = take n (cycle [ T.TyCon (quickSpecPublic qs_tv) [] | qs_tv <- ["A","B","C","D","E"] ])
 
     theoryBuiltins :: Ord a => Theory a -> [T.Builtin]
     theoryBuiltins = usort . universeBi
