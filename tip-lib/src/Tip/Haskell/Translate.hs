@@ -221,8 +221,7 @@ trTheory' mode thy@Theory{..} =
     | case mode of { QuickCheck -> True; QuickSpec QuickSpecParams{..} -> not use_observers;
                      _ -> False } ]
     ++
-    [ InstDecl [H.TyTup ([H.TyCon (typeable "Typeable") [H.TyVar a] | a <- tvs]
-                         ++ [H.TyCon (quickCheck "Arbitrary") [H.TyVar a] | a <- tvs])]
+    [ InstDecl [H.TyCon (quickCheck "Arbitrary") [H.TyVar a] | a <- tvs]
                (H.TyCon (quickCheck "Arbitrary") [H.TyCon tc (map H.TyVar tvs)])
                [funDecl
                   (quickCheck "arbitrary") []
@@ -572,7 +571,7 @@ arbitrary obs ts =
   | t <- ts
   , tc <- tcs]
   where tcs = case obs of
-          True -> []--quickCheck "Arbitrary", quickCheck "CoArbitrary", typeable "Typeable"]
+          True -> [prelude "Eq"]
           False -> [quickCheck "Arbitrary", feat "Enumerable", prelude "Ord"]
 
 trType :: (a ~ HsId b) => T.Type a -> H.Type a
@@ -828,8 +827,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   | (t,n) <- type_univ, t `notElem` (map (\(a,b,c) -> a) obsTriples)
   , let tys = map trType (qsTvs n)
   ] ++
-  [ mk_inst ((map (mk_class (typeable "Typeable")) tys)
-              ++ (map (mk_class (quickCheck "Arbitrary")) tys)
+  [ mk_inst ((map (mk_class (quickCheck "Arbitrary")) tys)
             ) (mk_class (quickCheck "Arbitrary") (H.TyCon t tys))
   | (t,n) <- type_univ, t `elem` (map (\(a,b,c) -> a) obsTriples)
   , let tys = map trType (qsTvs n)
