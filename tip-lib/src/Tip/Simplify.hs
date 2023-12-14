@@ -213,7 +213,8 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
                            (lcls ++ more)
               go _ u v lcls = return (mkQuant Forall lcls (u === v))
             _ -> return e0
-
+        Builtin NumGe :@: [e1, e2] -> hooray $ return (Builtin NumLe :@: [e2,e1])
+        Builtin NumGt :@: [e1,e2]  -> hooray $ return (Builtin NumLt :@: [e2,e1])
         -- Projection applied to a constructor
         -- e.g. (head (Cons x xs)) -> x
         Gbl Global{gbl_name = proj_name} :@: [Gbl Global{gbl_name = con_name} :@: args]
