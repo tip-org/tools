@@ -21,7 +21,7 @@ extra-deps:
 - primitive-0.8.0.0
 - data-array-byte-0.1.0.1
 - git: https://github.com/nick8325/quickspec
-  commit: e01669f6c172ef2f3f45f9538357079cc2b8aa4d
+  commit: bf24d7374d435ca6129e92e7ca142b60a1d96fb7
 - git: https://github.com/nick8325/stm-promise
   commit: 9ef7f1e8797f02b22ae4c8a2f30fda04cfbeb2ba
 - git: https://github.com/nick8325/structural-induction
