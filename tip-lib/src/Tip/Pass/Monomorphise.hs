@@ -185,10 +185,10 @@ declRules skolems polyrec d =
          [ Fact (App (Decl d) []) ]
       ++ [ Fact r | r <- exprRecords b ]
 
-    AssertDecl (Formula Prove _ (_:_) _) ->
+    AssertDecl fm@(Formula Prove _ (_:_) _) | not (hasAttr lemma fm) ->
       error "Monomorphise: cannot monomorphise with polymorphic goal, run --type-skolem-conjecture"
 
-    AssertDecl (Formula Assert _ tvs b) ->
+    AssertDecl (Formula _ _ tvs b) ->
          [ rule (exprGlobalRecords b) (App (Decl d) (map Var tvs)) ]
       ++ [ rule
            [ rec

@@ -525,9 +525,17 @@ theoryGoals, theoryAssertions :: Theory a -> [Formula a]
 theoryGoals = fst . theoryFormulas
 theoryAssertions = snd . theoryFormulas
 
+theoryLemmas, theoryNonLemmaGoals :: Theory a -> [Formula a]
+theoryLemmas = fst . partitionLemmas . theoryGoals
+theoryNonLemmaGoals = snd . partitionLemmas . theoryGoals
+
 -- | Goals in first component, assertions in second
 partitionGoals :: [Formula a] -> ([Formula a],[Formula a])
 partitionGoals = partition ((Prove ==) . fm_role)
+
+
+partitionLemmas :: [Formula a] -> ([Formula a],[Formula a])
+partitionLemmas = partition (hasAttr lemma)
 
 mapDecls :: forall a b . (forall t . Traversable t => t a -> t b) -> Theory a -> Theory b
 mapDecls k (Theory a b c d e) = Theory (map k a) (map k b) (map k c) (map k d) (map k e)

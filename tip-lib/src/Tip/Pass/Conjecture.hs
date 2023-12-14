@@ -87,10 +87,10 @@ data Mode = ModeConjecture | ModeMonomorphise deriving Eq
 -- | Introduce skolem types in case the goal is polymorphic.
 typeSkolemConjecture :: Name a => Mode -> Theory a -> Fresh (Theory a)
 typeSkolemConjecture mode thy
-  | all null (map fm_tvs (theoryGoals thy)),
+  | all null (map fm_tvs (theoryNonLemmaGoals thy)),
     (case mode of
        ModeConjecture -> True
-       ModeMonomorphise -> not (null (theoryGoals thy))) =
+       ModeMonomorphise -> not (null (theoryNonLemmaGoals thy))) =
     return thy
   | otherwise = do
     tv <- freshNamed "sk"
@@ -98,7 +98,8 @@ typeSkolemConjecture mode thy
       thy_sorts = putAttr skolem () (Sort tv [] []):thy_sorts thy,
       thy_asserts = map (ty_skolem1 tv) (thy_asserts thy) }
   where
-  ty_skolem1 tv (Formula Prove attrs tvs form) =
+  ty_skolem1 tv fm@(Formula Prove attrs tvs form) =
+    if (hasAttr lemma fm) then fm else
       Formula Prove attrs [] (makeTyCons (zip tvs (repeat tv)) form)
   ty_skolem1 _ form@Formula{fm_role = Assert} = form
 
