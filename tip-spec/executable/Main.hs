@@ -21,7 +21,7 @@ import Data.Monoid
 
 parseParams :: Parser QuickSpecParams
 parseParams =
-  QuickSpecParams <$> bFuns <*> bPreds <*> useObs <*> useCompletion <*> size <*> depth <*> testSize <*> observerSize
+  QuickSpecParams <$> bFuns <*> bPreds <*> useObs <*> useCompletion <*> size <*> depth <*> testSize <*> observerSize <*> timeout
   where
     bFuns = fmap Just (commaSep <$> some (strOption (long "foreground" <> short 'f' <> metavar "NAME" <> help "Foreground function (to explore)"))) <|> pure Nothing
     bPreds = fmap Just (commaSep <$> some (strOption (long "predicates" <> short 'P' <> metavar "NAME" <> help "Predicates (to use as conditions)"))) <|> pure Nothing
@@ -31,6 +31,7 @@ parseParams =
     depth = option auto (long "depth" <> short 'd' <> help "Maximum term depth to explore") <|> pure maxBound
     testSize = option auto (long "test-size" <> short 'S' <> help "Maximum test case size") <|> pure 20
     observerSize = option auto (long "observer-size" <> short 'O' <> help "Maximum observer size") <|> pure 20
+    timeout = fmap Just (option auto (long "exploration-timeout" <> short 'T'<> help "Timeout in seconds to finish exploration")) <|> pure Nothing
 
 commaSep :: [String] -> [String]
 commaSep = concatMap (splitOn ",")

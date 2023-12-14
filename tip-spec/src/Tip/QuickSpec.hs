@@ -20,6 +20,8 @@ import Tip.Fresh
 import Data.List
 import GHC.IO.Handle
 import System.IO
+import System.Timeout
+import Data.Maybe
 
 theorySignature :: Name a => QuickSpecParams -> Theory a -> IO ([Sig], RenameMap a)
 theorySignature params thy =
@@ -48,7 +50,13 @@ theorySignature params thy =
 exploreTheory :: Name a => QuickSpecParams -> Theory a -> IO (Theory a)
 exploreTheory params thy =
   do (sig,rm) <- theorySignature params thy
-     sig' <- toStderr (quickSpecResult sig)
+     let
+       addTimeout action =
+         case exploration_timeout params of
+           Nothing -> action
+           Just t -> fromMaybe [] <$> timeout (truncate (t * 1000000)) action
+
+     sig' <- toStderr (addTimeout (quickSpecResult sig))
      let bm  = backMap thy rm
      let fms = mapM (trProperty bm) sig' `freshFrom` thy
      return thy { thy_asserts = thy_asserts thy ++ fms }

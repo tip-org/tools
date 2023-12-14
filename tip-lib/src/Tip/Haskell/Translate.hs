@@ -792,7 +792,8 @@ data QuickSpecParams =
     max_size :: Int,
     max_depth :: Int,
     max_test_size :: Int,
-    max_observer_size :: Int
+    max_observer_size :: Int,
+    exploration_timeout :: Maybe Double
     }
   deriving (Eq, Ord, Show)
 
@@ -850,7 +851,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [Apply (quickSpec "withMaxTermSize") [H.Int (fromIntegral max_size)]] ++
   [Apply (quickSpec "withMaxTermDepth") [H.Int (fromIntegral max_depth)]] ++
   [Apply (quickSpec "withMaxTestSize") [H.Int (fromIntegral max_test_size)]] ++
-  [Apply (quickSpec "withPruningDepth") [H.Int 0] | not use_completion]
+  [Apply (quickSpec "withPruningDepth") [H.Int 0] | not use_completion] ++
+  [Apply (quickSpecInternal "withResourceLimitHandling") []]
   --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
   where
