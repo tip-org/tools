@@ -793,7 +793,8 @@ data QuickSpecParams =
     max_depth :: Int,
     max_test_size :: Int,
     max_observer_size :: Int,
-    exploration_timeout :: Maybe Double
+    exploration_timeout :: Maybe Double,
+    int_is_nat :: Bool
     }
   deriving (Eq, Ord, Show)
 
@@ -852,7 +853,10 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   [Apply (quickSpec "withMaxTermDepth") [H.Int (fromIntegral max_depth)]] ++
   [Apply (quickSpec "withMaxTestSize") [H.Int (fromIntegral max_test_size)]] ++
   [Apply (quickSpec "withPruningDepth") [H.Int 0] | not use_completion] ++
-  [Apply (quickSpecInternal "withResourceLimitHandling") []]
+  [Apply (quickSpecInternal "withResourceLimitHandling") []] ++
+  -- instFun (arbitrary `suchThat` (\x -> x >= (0 :: Int))
+  [Apply (quickSpecInternal "instFun") [Apply (quickCheck "suchThat") [Apply (quickCheck "arbitrary") [],
+    H.Lam [VarPat (Exact "x")] (Apply (prelude ">=") [var (Exact "x"), int_lit 0])]] | int_is_nat]
   --TODO: What is reasonable size? Make size tweakable?
   --TODO: Set more parameters?
   where
@@ -949,7 +953,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       ++ [ int_lit_decl x  | num_used,  x <- nub $
                                              [0,1] ++
                                              [ x
-                                             | Lit (T.Int x) <- map fst builtin_lits ]]
+                                             | Lit (T.Int x) <- map fst builtin_lits,
+                                               not int_is_nat || x >= 0 ]]
 
     builtin_constants
       =  [ (prelude s, ty)
@@ -959,6 +964,7 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
            -- [ Equal  | bool_used && int_used ]
                       [ (b, ty) | (b, ty) <- builtin_funs, numBuiltin b ]
          , Just s <- [lookup b hsBuiltins]
+         , not int_is_nat || b /= NumSub
          ]
 
     qsType :: Ord a => T.Type (HsId a) -> ([H.Type (HsId a)],H.Type (HsId a))

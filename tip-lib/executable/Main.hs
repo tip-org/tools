@@ -38,7 +38,7 @@ parseOutputMode =
   <|> flag' (Haskell (HS.LazySmallCheck False False)) (long "haskell-lazysc-simple" <> help "Haskell output with LazySmallCheck tests, with parallel operators only in the property")
   <|> flag' (Haskell (HS.LazySmallCheck True  True))  (long "haskell-lazysc-depth"  <> help "Haskell output with LazySmallCheck tests up to some depth (given on command line)")
   <|> flag' (Haskell HS.Smten)                  (long "haskell-smten"        <> help "Haskell output with Smten (depth given on command line)")
-  <|> flag' (Haskell (HS.QuickSpec (HS.QuickSpecParams {foreground_functions = Nothing, predicates = Nothing, max_test_size = 20, max_size = 7, max_depth = maxBound, use_observers = False, max_observer_size = 0, use_completion = False, exploration_timeout = Nothing})))      (long "haskell-spec"   <> help "Haskell output with QuickSpec signature (Feat generators)")
+  <|> flag' (Haskell (HS.QuickSpec (HS.QuickSpecParams {foreground_functions = Nothing, predicates = Nothing, max_test_size = 20, max_size = 7, max_depth = maxBound, use_observers = False, max_observer_size = 0, use_completion = False, exploration_timeout = Nothing, int_is_nat = False})))      (long "haskell-spec"   <> help "Haskell output with QuickSpec signature (Feat generators)")
   <|> flag' Why3 (long "why" <> help "WhyML output")
   <|> flag' (SMTLIB False False) (long "smtlib" <> help "SMTLIB output")
   <|> flag' (SMTLIB False True) (long "smtlib-no-match" <> help "SMTLIB output (eliminate match)")
