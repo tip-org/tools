@@ -116,7 +116,7 @@ instance PrettyVar a => PrettyVar (HsId a) where
 addHeader :: String -> Decls a -> Decls a
 addHeader mod_name (Decls ds) =
     Decls (map LANGUAGE ["TemplateHaskell","DeriveDataTypeable","TypeOperators",
-                         "ImplicitParams","RankNTypes","DeriveGeneric", "MultiParamTypeClasses"]
+                         "ImplicitParams","RankNTypes","DeriveGeneric", "MultiParamTypeClasses", "ScopedTypeVariables"]
             ++ Module mod_name : ds)
 
 addImports :: Ord a => Decls (HsId a) -> Decls (HsId a)
