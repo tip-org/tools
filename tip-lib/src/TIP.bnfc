@@ -19,6 +19,7 @@ CheckSat.         Decl ::= "check-sat";
 
 Assert. Assertion ::= "assert";
 Prove.  Assertion ::= "prove";
+Claim.  Assertion ::= "assert-claim";
 
 Par.         Par    ::= "par" "(" [Symbol] ")";
 

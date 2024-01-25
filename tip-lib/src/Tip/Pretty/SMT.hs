@@ -337,7 +337,7 @@ instance PrettyVar a => Pretty (Pattern a) where
 -- Keywords which can be used but must be quoted
 smtQuoted :: [String]
 smtQuoted = [
-  "check-sat", "assert", "assert-not", "declare-datatypes",
+  "check-sat", "assert", "assert-not", "assert-claim", "declare-datatypes",
   "declare-sort", "declare-const", "declare-fun", "define-fun",
   "define-fun-rec", "define-funs-rec", "par", "case"]
 

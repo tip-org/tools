@@ -176,8 +176,11 @@ trDecl x =
            mapM newTyVar tvi
            let toRole A.Assert = T.Assert
                toRole A.Prove = T.Prove
+               toRole A.Claim = T.Prove
            fm <- T.Formula (toRole role) (trAttrs attrs) tvi <$> trExpr expr
-           return emptyTheory{ thy_asserts = [fm] }
+           case role of
+             A.Claim -> return emptyTheory{ thy_asserts = [putAttr lemma () fm] }
+             _        -> return emptyTheory{ thy_asserts = [fm] }
 
       SetLogic _ -> return emptyTheory
       CheckSat -> return emptyTheory
