@@ -794,7 +794,8 @@ data QuickSpecParams =
     max_test_size :: Int,
     max_observer_size :: Int,
     exploration_timeout :: Maybe Double,
-    int_is_nat :: Bool
+    int_is_nat :: Bool,
+    only_recursive_functions :: Bool
     }
   deriving (Eq, Ord, Show)
 
@@ -802,7 +803,7 @@ makeSig :: forall a . (PrettyVar a, Ord a) => QuickSpecParams -> Theory (HsId a)
 makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
   funDecl (Exact "sig") [] $ List $
   [constant_decl ft
-  | ft@(f,_) <- func_constants, inForeground f] ++
+  | ft@(f,_) <- func_constants, inForeground f, not (excluded f)] ++
   bg
   ++
   [ mk_inst [] (mk_class (feat "Enumerable") (H.TyCon (prelude "Int") [])) ] ++
@@ -864,6 +865,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       case foreground_functions of
         Nothing -> True
         Just fs -> varStr f `elem` fs
+    excluded f = only_recursive_functions && f `elem` nonrec
+    nonrec = map func_name (nonRecursiveFunctions thy)
     inPredicates p =
       case predicates of
         Nothing -> True
@@ -873,7 +876,8 @@ makeSig qspms@QuickSpecParams{..} thy@Theory{..} =
       _ -> [Apply (quickSpec "background") [List bgs]]
     bgs = [constant_decl ft
           | ft@(f,_) <- func_constants,
-            not (inForeground f) ]
+            not (inForeground f),
+            not (excluded f)]
           ++ builtin_decls
           ++ map constant_decl (ctor_constants ++ builtin_constants)
     imps = ufInfo thy

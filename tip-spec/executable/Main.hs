@@ -21,7 +21,7 @@ import Data.Monoid
 
 parseParams :: Parser QuickSpecParams
 parseParams =
-  QuickSpecParams <$> bFuns <*> bPreds <*> useObs <*> useCompletion <*> size <*> depth <*> testSize <*> observerSize <*> timeout <*> intIsNat
+  QuickSpecParams <$> bFuns <*> bPreds <*> useObs <*> useCompletion <*> size <*> depth <*> testSize <*> observerSize <*> timeout <*> intIsNat <*> onlyRecursiveFunctions
   where
     bFuns = fmap Just (commaSep <$> some (strOption (long "foreground" <> short 'f' <> metavar "NAME" <> help "Foreground function (to explore)"))) <|> pure Nothing
     bPreds = fmap Just (commaSep <$> some (strOption (long "predicates" <> short 'P' <> metavar "NAME" <> help "Predicates (to use as conditions)"))) <|> pure Nothing
@@ -33,6 +33,7 @@ parseParams =
     observerSize = option auto (long "observer-size" <> short 'O' <> help "Maximum observer size") <|> pure 20
     timeout = fmap Just (option auto (long "exploration-timeout" <> short 'T'<> help "Timeout in seconds to finish exploration")) <|> pure Nothing
     intIsNat = switch (long "int-is-nat" <> help "Integer variables should range only over natural numbers")
+    onlyRecursiveFunctions = switch (long "only-recursive-functions" <> help "Only include recursive functions in signature")
 
 commaSep :: [String] -> [String]
 commaSep = concatMap (splitOn ",")

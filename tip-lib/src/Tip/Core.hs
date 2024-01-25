@@ -593,6 +593,15 @@ polyrecursive Theory{..} = (`Map.lookup` m)
 
   make_groups grps = Map.fromList $ concat [ [ (g,grp) | g <- grp ] | grp <- grps ]
 
+-- | Find all non-recursive functions in a theory
+nonRecursiveFunctions :: Ord a => Theory a -> [Function a]
+nonRecursiveFunctions =
+  filter nonRecursive . concat . filter singleFunction . topsort . thy_funcs
+  where
+    singleFunction [_] = True
+    singleFunction _ = False
+    nonRecursive f = func_name f `notElem` uses f
+
 -- Is a theory monomorphic?
 isMonomorphic :: Theory a -> Bool
 isMonomorphic Theory{..} =
