@@ -86,12 +86,14 @@ ppData header (Datatype tc _ tvs cons) =
 ppCon :: (PrettyVar a, Ord a) => Constructor a -> Doc
 ppCon (Constructor c _ _d as) = ppVar c <+> fsep (map (ppType 1 . snd) as)
 
-ppQuant :: (PrettyVar a, Ord a) => Doc -> [Local a] -> Doc -> Doc
-ppQuant _name [] d = d
-ppQuant name  ls d = (name $\ fsep (punctuate "," (map ppLocalBinder ls)) <+> ".") $\ d
+ppQuant :: (PrettyVar a, Ord a) => Bool -> Doc -> [Local a] -> Doc -> Doc
+ppQuant b _name [] d = d
+ppQuant b name ls d = if b 
+  then (name $\ fsep (punctuate "," (map (parens . ppLocalBinder) ls)) <+> "->") $\ d 
+  else (name $\ fsep (punctuate "," (map ppLocalBinder ls)) <+> ".") $\ d 
 
 ppBinder :: (PrettyVar a, Ord a) => a -> Type a -> Doc
-ppBinder x t = ppVar x <+> ":" $\ ppType 0 t
+ppBinder x t = ppVar x <+> ":" $\ ppType 0 t 
 
 ppLocalBinder :: (PrettyVar a, Ord a) => Local a -> Doc
 ppLocalBinder (Local x t) = ppBinder x t
@@ -133,9 +135,9 @@ ppExpr i e@(hd@(Gbl Global{..}) :@: es)
     ppHead hd es $\ ":" $\ ppType 0 (exprType e)
 ppExpr i (hd :@: es)  = parIf (i > 0 && not (null es)) $ ppHead hd es
 ppExpr _ (Lcl l)      = ppVar (lcl_name l)
-ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant "\\" ls (ppExpr 0 e)
+ppExpr i (Lam ls e)   = parIf (i > 0) $ ppQuant True "fun" ls (ppExpr 0 e)
 ppExpr i (Let x b e)  = parIf (i > 0) $ sep ["let" $\ ppVar (lcl_name x) <+> "=" $\ ppExpr 0 b <+> ":" $\ ppType 0 (lcl_type x), "in" <+> ppExpr 0 e]
-ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant (ppQuantName q) ls (ppExpr 0 e)
+ppExpr i (Quant _ q ls e) = parIf (i > 0) $ ppQuant False (ppQuantName q) ls (ppExpr 0 e)
 ppExpr i (Match e alts) =
   parIf (i > 0) $ block ("match" $\ ppExpr 0 e $\ "with")
                         (separating vcat (repeat "|") (map ppCase alts))
