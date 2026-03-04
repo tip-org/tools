@@ -112,7 +112,7 @@ ppExpr _ (Quant _ q ls e) =
     2
     (ppExpr 1 e)
 ppExpr p e
-  | Just (b, t, e) <- ifView e =
+  | Just (b, t, e) <- ifView e, exprType e == boolType =
     ppExpr p ((b ==> t) /\ (neg b ==> e))
 ppExpr _ e = error ("unsupported expression in TFF: " ++ show (pp e))
 
