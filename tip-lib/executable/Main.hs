@@ -55,9 +55,9 @@ parseOutputMode =
   <|> flag' Equations (long "equations" <> help "Pretty-print conjectures as equations")
   <|> flag' Vampire (long "vampire" <> help "Use assert-claim for conjectures in Vampire")
   
-optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath)
+optionParser :: Parser ([StandardPass], Maybe String, OutputMode, Maybe FilePath, Bool)
 optionParser =
-  (,,,) <$> parsePasses <*> parseFile <*> parseOutputMode <*> parseMultiPath
+  (,,,,) <$> parsePasses <*> parseFile <*> parseOutputMode <*> parseMultiPath <*> parseDisableBuiltinPasses
   where
     parseFile =
       fmap Just (strArgument (metavar "FILENAME")) <|> pure Nothing
@@ -65,21 +65,24 @@ optionParser =
     parseMultiPath =
       fmap Just (strArgument (metavar "DIRECTORY")) <|> pure Nothing
 
+    parseDisableBuiltinPasses =
+      switch (long "disable-built-in-passes" <> help "Only run user-specified passes (may result in crashes)")
+
 main :: IO ()
 main = do
-  (passes, files, mode, multipath) <-
+  (passes, files, mode, multipath, disableBuiltinPasses) <-
     execParser $
       info (helper <*> optionParser)
         (fullDesc <>
          progDesc "Transform a TIP problem" <>
          header "tip - a tool for processing TIP problems")
   case files of
-    Nothing  -> handle passes mode multipath =<< getContents
-    Just "-" -> handle passes mode multipath =<< getContents
-    Just f   -> handle passes mode multipath =<< readFile f
+    Nothing  -> handle passes mode multipath disableBuiltinPasses =<< getContents
+    Just "-" -> handle passes mode multipath disableBuiltinPasses =<< getContents
+    Just f   -> handle passes mode multipath disableBuiltinPasses =<< readFile f
 
-handle :: [StandardPass] -> OutputMode -> Maybe FilePath -> String -> IO ()
-handle passes mode multipath s =
+handle :: [StandardPass] -> OutputMode -> Maybe FilePath -> Bool -> String -> IO ()
+handle passes mode multipath disableBuiltinPasses s =
   case parse s of
     Left err  -> error $ "Parse failed: " ++ err
     Right thy -> do
@@ -151,7 +154,8 @@ handle passes mode multipath s =
                   ++ [ SimplifyGently, Monomorphise False 1 ]    
                   ++ [ SimplifyGently ]
                 , "smt2")
-      let thys = freshPass (runPasses pipeline) (lint "parse" thy)
+      let pipeline' = if disableBuiltinPasses then passes else pipeline
+      let thys = freshPass (runPasses pipeline') (lint "parse" thy)
       case multipath of
         Nothing ->
           case thys of
