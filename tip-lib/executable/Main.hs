@@ -122,7 +122,7 @@ handle passes mode multipath disableBuiltinPasses s =
                   [ Monomorphise False 1
                   , AxiomatizeLambdas
                   , SimplifyGently, CollapseEqual
-                  , SimplifyGently, Monomorphise False 1, IfToBoolOp, IntToNat, RemoveBuiltinBool, CommuteMatch
+                  , SimplifyGently, Monomorphise False 1, IfToBoolOp, IntToNat, AddMatch, RemoveBuiltinBool, CommuteMatch
                   , SimplifyGently, LetLift, SimplifyGently, AxiomatizeFuncdefs2
                   , SimplifyGently, AxiomatizeDatadeclsUEQ
                   ]
