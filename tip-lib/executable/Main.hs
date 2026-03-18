@@ -27,7 +27,7 @@ import Control.Monad
 import Data.Monoid ((<>))
 import Text.PrettyPrint hiding ((<>))
 
-data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | Twee | Waldmeister | Equations | Vampire
+data OutputMode = Haskell HS.Mode | Why3 | SMTLIB Bool Bool | Isabelle Bool | Hipster | Hopster | TIP | TFF | UnsoundFOF | Twee | Waldmeister | Equations | Vampire
 
 parseOutputMode :: Parser OutputMode
 parseOutputMode =
@@ -48,6 +48,7 @@ parseOutputMode =
   <|> flag' Hopster (long "hopster" <> help "Hopster output")
   <|> flag' Hipster (long "hipster" <> help "Only conjectrures, in Isabelle format. For internal use in Hipster.")
   <|> flag' TFF (long "tff" <> help "TPTP TFF output")
+  <|> flag' UnsoundFOF (long "unsound-fof" <> help "TPTP FOF output, unsound unless e.g. types are encoded in some way!")
   <|> flag' Twee (long "twee" <> help "TPTP TFF output (equational)")
   <|> flag' Waldmeister (long "waldmeister" <> help "Waldmeister output")
   <|> flag  TIP TIP (long "tip" <> help "TIP output (default)")
@@ -98,7 +99,7 @@ handle passes mode multipath s =
                   ++ [ SimplifyGently ]
                 , "smt2")
               TFF ->
-                ( TFF.ppTheory
+                ( TFF.ppTheory Typed
                 , passes ++
                   [ Monomorphise False 1
                   , AxiomatizeLambdas
@@ -108,8 +109,12 @@ handle passes mode multipath s =
                   , SimplifyGently, AxiomatizeDatadecls
                   ]
                 , "p")
+              UnsoundFOF ->
+                ( TFF.ppTheory Untyped
+                , passes
+                , "p")
               Twee ->
-                ( TFF.ppTheory
+                ( TFF.ppTheory Typed
                 , passes ++
                   [ Monomorphise False 1
                   , AxiomatizeLambdas
