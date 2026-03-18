@@ -168,7 +168,7 @@ instance Pass StandardPass where
     SkolemiseConjecture  -> skolemiseConjecture
     IfToBoolOp           -> single $ return . ifToBoolOp
     BoolOpToIf           -> single $ return . theoryBoolOpToIf
-    RemoveBuiltinBool    -> runPass BoolOpToIf `followedBy` single removeBuiltinBool
+    RemoveBuiltinBool    -> runPass AddMatch `followedBy` runPass BoolOpToIf `followedBy` single removeBuiltinBool
     BoolOpLift           -> single $ boolOpLift
     AddMatch             -> single $ addMatch
     CommuteMatch         -> single $ commuteMatchTheory

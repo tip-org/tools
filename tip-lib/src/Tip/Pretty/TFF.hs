@@ -33,7 +33,9 @@ validTFFChar x = isAlphaNum x || x == '_'
 
 ppTheory :: (Ord a,PrettyVar a) => Mode -> Theory a -> Doc
 ppTheory mode (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
-  = vcat
+  | not (null thy_datatypes) = error "datatypes must be axiomatized first"
+  | not (null thy_funcs) = error "functions must be axiomatized first"
+  | otherwise = vcat
      (map (ppSort mode) thy_sorts ++
       map (ppUninterp mode) thy_sigs ++
       map (ppFormula mode) thy_asserts)
