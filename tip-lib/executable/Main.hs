@@ -114,7 +114,13 @@ handle passes mode multipath disableBuiltinPasses s =
                 , "p")
               UnsoundFOF ->
                 ( TFF.ppTheory Untyped
-                , passes
+                , passes ++
+                  [ AxiomatizeLambdas
+                  , SimplifyGently, CollapseEqual
+                  , SimplifyGently, IfToBoolOp, CommuteMatch
+                  , SimplifyGently, AxiomatizeFuncdefs2, RemoveMatch, SimplifyGently, LetLift
+                  , SimplifyGently, AxiomatizeDatadecls
+                  ]
                 , "p")
               Twee ->
                 ( TFF.ppTheory Typed
