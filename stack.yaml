@@ -8,7 +8,7 @@ packages:
 - tip-prelude/
 extra-deps:
 - jukebox-0.3.5
-- minisat-0.1.2
+- minisat-0.1.4
 - twee-lib-2.4.2
 - genifunctors-0.4
 - spoon-0.3.1
