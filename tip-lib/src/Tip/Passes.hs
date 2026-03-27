@@ -96,6 +96,7 @@ import Tip.Pass.UniqLocals
 import Tip.Pass.Induction
 import Tip.Pass.DropAttributes
 import Tip.Pass.SplitFormulas
+import Tip.Pass.RemoveDefaultCase
 
 import Tip.Fresh
 
@@ -150,6 +151,7 @@ data StandardPass
   | Induction [Int]
   | RecursionInduction Int [Int]
   | SplitFormulas
+  | RemoveDefaultCase
  deriving (Eq,Ord,Show,Read)
 
 instance Pass StandardPass where
@@ -199,6 +201,7 @@ instance Pass StandardPass where
     Induction coords     -> induction coords
     RecursionInduction fn xsns -> recursionInduction fn xsns
     SplitFormulas        -> single $ return . splitFormulas
+    RemoveDefaultCase    -> single $ removeDefaultCase
     where
       single m thy = do x <- m thy; return [x]
       f `followedBy` g = \thy -> do
@@ -279,6 +282,8 @@ instance Pass StandardPass where
         help "Aggressively perform CSE on match scrutinees (helps Why3's termination checker)",
       unitPass EliminateDeadCode $
         help "Dead code elimination (doesn't work on dead recursive functions)",
+      unitPass RemoveDefaultCase $
+        help "Remove default case",
       fmap MakeConjecture $
         option auto $
           long "make-conjecture" <>
