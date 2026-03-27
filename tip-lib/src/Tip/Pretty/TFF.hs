@@ -35,7 +35,8 @@ ppTheory :: (Ord a,PrettyVar a) => Mode -> Theory a -> Doc
 ppTheory mode (renameAvoiding [] (filter validTFFChar) . tffvarify -> Theory{..})
   | not (null thy_funcs) = error "functions must be axiomatized first"
   | otherwise = vcat
-     (map (ppSort mode) thy_sorts ++
+     (map (ppSort mode) [Sort name attrs tvs | Datatype name attrs tvs _ <- thy_datatypes] ++
+      map (ppSort mode) thy_sorts ++
       map (ppUninterp mode) thy_sigs ++
       map (ppFormula mode) thy_asserts)
 
