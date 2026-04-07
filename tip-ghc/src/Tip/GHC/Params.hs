@@ -15,6 +15,7 @@ data Params = Params
   -- ^ Debugging flags
   , param_keep :: Maybe [String]
   -- ^ Only consider these functions and properties
+  , param_counterexample_booleans :: Bool
   }
   deriving Show
 
@@ -26,7 +27,8 @@ parseParams =
   Params <$>
     param_include <*>
     param_debug_flags <*>
-    param_keep
+    param_keep <*>
+    param_counterexample_booleans
   where
     param_include =
       many (strOption (long "include" <> short 'i' <> metavar "PATH" <> help "Extra include directory"))
@@ -38,6 +40,9 @@ parseParams =
       pure Nothing <|> fmap (Just . commaSep) (some (strOption keep_opt))
 
     keep_opt = long "keep" <> short 'k' <> metavar "NAME" <> help "Only keep these functions and properties (default all)"
+    param_counterexample_booleans =
+      switch (long "counterexample-booleans"
+        <> help "Replace the built-in Bool datatype with the custom Boolean")
 
 -- | Default (empty) parameters
 defaultParams :: Params
@@ -45,6 +50,7 @@ defaultParams = Params
   { param_include = []
   , param_debug_flags = []
   , param_keep = Nothing
+  , param_counterexample_booleans = False
   }
 
 -- | Debugging flags

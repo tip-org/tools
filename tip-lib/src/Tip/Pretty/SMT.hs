@@ -132,8 +132,20 @@ par' xs d = parExprSep "par" [parens (fsep (map ppVarSMT xs)), d]
 par'' :: (PrettyVar a) => [a] -> Doc -> Doc
 par'' xs d = par' xs (parens d)
 
+funTypeView :: Type a -> ([Type a], Type a)
+funTypeView (args :=>: res) = (args, res)
+funTypeView ty             = ([], ty)
+
 ppUninterp :: PrettyVar a => Config -> Signature a -> Doc
 ppUninterp cfg (Signature f attrs (PolyType tyvars arg_types result_type))
+  | varStr f == "eq"
+  , null arg_types
+  , ([ty1], res1) <- funTypeView result_type
+  , ([ty2], res2) <- funTypeView res1 =
+      apply "declare-fun"
+        (sep [ppVarSMT f, ppAttrs cfg attrs] $\
+          (par tyvars
+            (sep [parens (fsep [ppType ty1, ppType ty2]), ppType res2])))
   | null arg_types =
     apply "declare-const"
       (sep [ppVarSMT f, ppAttrs cfg attrs] $\ par' tyvars (ppType result_type))
@@ -180,8 +192,21 @@ ppFormula cfg (Formula Assert attrs tvs term) =
   apply "assert" $
    ppAttrs cfg attrs $$ par' tvs (ppExpr term)
 
+eqAppView :: PrettyVar a => Expr a -> Maybe (Global a, Expr a, Expr a)
+eqAppView e =
+  case e of
+    (Gbl gbl :@: [x, y])
+      | varStr (gbl_name gbl) == "eq" ->
+          Just (gbl, x, y)
+    _ ->
+      Nothing
+
 ppExpr :: (Ord a, PrettyVar a) => Expr a -> Doc
 ppExpr e | Just (c,t,f) <- ifView e = parExpr "ite" (map ppExpr [c,t,f])
+         | Just (gbl, x, y) <- eqAppView e =
+            exprSep
+              (exprSep "_" [ppVarSMT (gbl_name gbl), ppType (head (gbl_args gbl))])
+              [ppExpr x, ppExpr y]
 ppExpr e@(hd@(Gbl Global{..}) :@: es)
   | isNothing (makeGlobal gbl_name gbl_type (map exprType es) Nothing) =
     exprSep (exprSep "_" (ppHead hd:map ppType gbl_args)) (map ppExpr es)
@@ -193,6 +218,7 @@ ppExpr (Match e as) = "(match" $\ ppExpr e $\ (parens (vcat (map ppCase (sortCas
     -- Default pattern must come last in SMTLIB
     sortCases (a@Case{case_pat = Default}:as) = as ++ [a]
     sortCases as = as
+
 ppExpr lets@Let{} =
   parExprSep "let"
     [ parens (vcat (map parens [ppVarSMT (lcl_name x) $\ ppExpr b | (x,b) <- bs]))

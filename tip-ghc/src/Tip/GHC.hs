@@ -137,26 +137,41 @@ readHaskellFile Params{..} name =
             Program (Map.fromList builtinTypes) Map.empty Map.empty
               (Map.fromList builtinGlobals) Map.empty
           builtinTypes =
-            [tyCon listTyCon [Name "list"],
-             tyCon boolTyCon [PrimType Boolean],
-             tyCon integerTyCon [PrimType Integer],
+            [tyCon listTyCon [Name "list"]] ++
+            boolBuiltinTypes ++
+            [tyCon integerTyCon [PrimType Integer],
              tyCon ratioTyCon [PrimType Real]] ++
             [tyCon (tupleTyCon Boxed i) [Name (tupleName i), Attr "tuple"]
             | i <- [0..mAX_TUPLE_SIZE]]
+          boolBuiltinTypes =
+            if param_counterexample_booleans
+              then [tyCon boolTyCon [Name "Boolean"]]
+              else [tyCon boolTyCon [PrimType Boolean]]
           builtinGlobals =
             [specialFun pAT_ERROR_ID Error,
              specialFun unpackCStringId Tip.Cast,
              specialFun fromIntegerId Tip.Cast,
-             specialFun fromRationalId Tip.Cast,
-             specialFun eqId (Primitive Equal 2),
-             (negateId, FunInfo (Var negateId) [MakeWiredIn Negate]),
+             specialFun fromRationalId Tip.Cast] ++
+             eqBuiltinGlobals ++
+             [(negateId, FunInfo (Var negateId) [MakeWiredIn Negate]),
              dataCon ratioDataCon [MakeWiredIn MakeRational],
              dataCon consDataCon  [Name "cons", Projections ["head", "tail"]],
-             dataCon nilDataCon   [Name "nil"],
-             dataCon falseDataCon [Literal (Bool False)],
-             dataCon trueDataCon  [Literal (Bool True)]] ++
+             dataCon nilDataCon   [Name "nil"]] ++
+            boolBuiltinGlobals ++
             [dataCon (tupleDataCon Boxed i) [Name (tupleName i), Attr "tuple"]
             | i <- [0..mAX_TUPLE_SIZE]]
+          
+          eqBuiltinGlobals =
+            if param_counterexample_booleans
+              then [(eqId, FunInfo (Var eqId) [Name "eq"])]
+              else [specialFun eqId (Primitive Equal 2)]
+
+          boolBuiltinGlobals =
+            if param_counterexample_booleans
+              then [dataCon falseDataCon [Name "bfalse"],
+                    dataCon trueDataCon  [Name "btrue"]]
+              else [dataCon falseDataCon [Literal (Bool False)],
+                    dataCon trueDataCon  [Literal (Bool True)]]
           tupleName 0 = "unit"
           tupleName 2 = "pair"
           tupleName _ = "tuple"
@@ -182,11 +197,22 @@ readHaskellFile Params{..} name =
             "Couldn't find function " ++ name ++ " in input file"
 
       let
+        propDecls =
+          if param_counterexample_booleans
+            then
+              concat
+                [ [ putAttr keep () (tipToplevelFunction True eqId prog prop (global_definition (globalInfo prog prop)))
+                  , AssertDecl (tipCounterexampleGoal eqId prog prop)
+                  ]
+                | prop <- props 
+                ]
+            else
+              [ AssertDecl (tipFormula eqId prog prop (global_definition (globalInfo prog prop)))
+              | prop <- props ]
         thy =
-          completeTheory prog [] $ declsToTheory $
-          [ AssertDecl (tipFormula prog prop (global_definition (globalInfo prog prop)))
-          | prop <- props ] ++
-          [ putAttr keep () (tipToplevelFunction prog func (global_definition (globalInfo prog func)))
+          completeTheory param_counterexample_booleans prog eqId [] $ declsToTheory $
+          propDecls ++
+          [ putAttr keep () (tipToplevelFunction param_counterexample_booleans eqId prog func (global_definition (globalInfo prog func)))
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
@@ -196,8 +222,565 @@ readHaskellFile Params{..} name =
         realName ErrorId = False
         realName CastId = False
         realName _ = True
-      return $ lint "conversion to TIP" $ freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy
+      let thy' = 
+            if param_counterexample_booleans
+              then counterexampleBooleansPass thy
+              else thy
+      let thy'' =
+            lint "conversion to TIP" $
+              freshPass (simplifyTheory gently >=> eliminateLetRec realName) thy'
+      return thy''
     else liftIO $ exitWith (ExitFailure 1)
+
+counterexampleEqPolyType :: Program -> GHC.Type -> Tip.PolyType Id
+counterexampleEqPolyType prog ty =
+  PolyType
+    { polytype_tvs  = map TyVarId tvs
+    , polytype_args = map (tipType True prog) args
+    , polytype_res  = tipType True prog res
+    }
+  where
+    (tvs, rho) = splitForAllTys (expandTypeSynonyms ty)
+    (args, res) = splitFunTys rho
+
+-- counterexampleBooleansPass :: Theory Id -> Theory Id
+-- counterexampleBooleansPass thy =
+--   thy { thy_funcs =
+--           [ booleanAndFunction thy, booleanImpliesFunction thy] ++ thy_funcs thy
+--       , thy_asserts =
+--           booleanEqAxioms thy
+--        ++ [reflexivityAxiom thy]
+--        ++ concatMap (datatypeEqAxioms thy) (thy_datatypes thy)
+--        ++ thy_asserts thy
+--       }
+
+-- counterexampleBooleansPass :: Theory Id -> Theory Id
+-- counterexampleBooleansPass thy =
+--   thy
+--     { thy_funcs = helperFuncs ++ rewrittenFuncs
+--     , thy_asserts =
+--         booleanEqAxioms thy
+--         ++ [reflexivityAxiom thy]
+--         ++ concatMap (datatypeEqAxioms thy) (thy_datatypes thy)
+--         ++ rewrittenAsserts
+--     }
+--   where
+--     rewrittenFuncs    = map rewriteFunc (thy_funcs thy)
+--     rewrittenAsserts  = map rewriteFormula (thy_asserts thy)
+
+--     needsImpl = any usesImpl rewrittenFuncs || any formulaUsesImpl rewrittenAsserts
+--     -- needsAnd =
+--     --     any usesAnd rewrittenFuncs
+--     --   || any formulaUsesAnd rewrittenAsserts
+--     --   || any ((> 1) . length . Tip.con_args)
+--     --         [ con
+--     --         | dt  <- thy_datatypes thy
+--     --         , not (isBooleanDatatype dt)
+--     --         , con <- Tip.data_cons dt
+--     --         ]
+--     needsIte  = any usesIte  rewrittenFuncs || any formulaUsesIte  rewrittenAsserts
+
+--     helperFuncs =
+--       concat
+--         [ [booleanImpliesFunction thy | needsImpl]
+--         -- , [booleanAndFunction thy     | needsAnd]
+--         , [booleanIteFunction thy     | needsIte]
+--         ]
+
+--     rewriteFunc f =
+--       f { func_body = freshPass rewriteBooleanIte (func_body f) }
+
+--     rewriteFormula fm =
+--       fm { fm_body = freshPass rewriteBooleanIte (fm_body fm) }
+
+--     usesImpl f       = hasGlobalNamed "impl" (func_body f)
+--     usesAnd  f       = hasGlobalNamed "andb" (func_body f)
+--     usesIte  f       = hasGlobalNamed "iteB" (func_body f)
+--     formulaUsesImpl  = hasGlobalNamed "impl" . fm_body
+--     formulaUsesAnd   = hasGlobalNamed "andb" . fm_body
+--     formulaUsesIte   = hasGlobalNamed "iteB" . fm_body
+
+counterexampleBooleansPass :: Theory Id -> Theory Id
+counterexampleBooleansPass thy =
+  thy
+    { thy_funcs = helperFuncs ++ rewrittenFuncs
+    , thy_asserts =
+        booleanEqAxioms thy
+        ++ [reflexivityAxiom thy]
+        ++ concatMap (datatypeEqAxioms thy) (thy_datatypes thy)
+        ++ rewrittenAsserts
+    }
+  where
+    rewrittenFuncs   = map rewriteFunc (thy_funcs thy)
+    rewrittenAsserts = map rewriteFormula (thy_asserts thy)
+
+    needsImpl = any usesImpl rewrittenFuncs || any formulaUsesImpl rewrittenAsserts
+    needsIte  = any usesIte  rewrittenFuncs || any formulaUsesIte  rewrittenAsserts
+    needsNot  = any usesNot  rewrittenFuncs || any formulaUsesNot  rewrittenAsserts
+    needsAnd  = any usesAnd  rewrittenFuncs || any formulaUsesAnd  rewrittenAsserts
+    needsOr   = any usesOr   rewrittenFuncs || any formulaUsesOr   rewrittenAsserts
+
+    helperFuncs =
+      concat
+        [ [booleanImpliesFunction thy | needsImpl]
+        , [booleanIteFunction thy     | needsIte]
+        , [booleanNotFunction thy     | needsNot]
+        , [booleanAndFunction thy     | needsAnd]
+        , [booleanOrFunction thy      | needsOr]
+        ]
+
+    rewriteFunc f =
+      f { func_body =
+            freshPass
+              (rewriteBooleanDistinct thy >=> rewriteBooleanIte)
+              (func_body f)
+        }
+
+    rewriteFormula fm =
+      fm { fm_body =
+             freshPass
+               (rewriteBooleanDistinct thy >=> rewriteBooleanIte)
+               (fm_body fm)
+         }
+
+    usesImpl f      = hasGlobalNamed "impl" (func_body f)
+    usesIte  f      = hasGlobalNamed "iteB" (func_body f)
+    usesNot  f      = hasGlobalNamed "notb" (func_body f)
+    usesAnd  f      = hasGlobalNamed "andb" (func_body f)
+    usesOr   f      = hasGlobalNamed "orb"  (func_body f)
+
+    formulaUsesImpl = hasGlobalNamed "impl" . fm_body
+    formulaUsesIte  = hasGlobalNamed "iteB" . fm_body
+    formulaUsesNot  = hasGlobalNamed "notb" . fm_body
+    formulaUsesAnd  = hasGlobalNamed "andb" . fm_body 
+    formulaUsesOr   = hasGlobalNamed "orb"  . fm_body 
+
+hasGlobalNamed :: String -> Tip.Expr Id -> Bool
+hasGlobalNamed s e =
+  any match (universeBi e)
+  where
+    match :: Global Id -> Bool
+    match g = varStr (gbl_name g) == s
+
+-- usesImpl :: Theory Id -> Bool
+-- usesImpl thy =
+--   any exprUsesImpl (universeBi thy :: [Tip.Expr Id])
+
+-- exprUsesImpl :: Tip.Expr Id -> Bool
+-- exprUsesImpl (Gbl g :@: _) = gbl_name g == ImplId
+-- exprUsesImpl _             = False
+
+-- usesAndB :: Theory Id -> Bool
+-- usesAndB thy =
+--   any exprUsesAndB (universeBi thy :: [Tip.Expr Id])
+
+-- exprUsesAndB :: Tip.Expr Id -> Bool
+-- exprUsesAndB (Gbl g :@: _) = gbl_name g == AndId
+-- exprUsesAndB _             = False
+
+booleanOrFunction :: Theory Id -> Function Id
+booleanOrFunction thy =
+  Function
+    { func_name = OrId
+    , func_attrs = []
+    , func_tvs = []
+    , func_args = [p, q]
+    , func_res = boolTy
+    , func_body =
+        Tip.Match (Lcl p)
+          [ Tip.Case (Tip.ConPat (findNullaryConstructor "btrue" thy) [])  (trueBooleanExprThy thy)
+          , Tip.Case (Tip.ConPat (findNullaryConstructor "bfalse" thy) []) (Lcl q)
+          ]
+    }
+  where
+    boolTy = Tip.exprType (trueBooleanExprThy thy)
+    p = Local (LocalId "p" 0) boolTy
+    q = Local (LocalId "q" 1) boolTy
+
+applyBooleanOr :: Program -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanOr prog p q =
+  Gbl orGlobal :@: [p, q]
+  where
+    boolTy = Tip.exprType p
+    orGlobal =
+      Global
+        { gbl_name = OrId
+        , gbl_type = PolyType [] [boolTy, boolTy] boolTy
+        , gbl_args = []
+        }
+
+applyBooleanOrThy :: Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanOrThy p q =
+  Gbl orGlobal :@: [p, q]
+  where
+    boolTy = Tip.exprType p
+    orGlobal =
+      Global
+        { gbl_name = OrId
+        , gbl_type = PolyType [] [boolTy, boolTy] boolTy
+        , gbl_args = []
+        }
+
+booleanAndFunction :: Theory Id -> Function Id
+booleanAndFunction thy =
+  Function
+    { func_name = AndId
+    , func_attrs = []
+    , func_tvs = []
+    , func_args = [p, q]
+    , func_res = boolTy
+    , func_body =
+      Tip.Match (Lcl p)
+        [ Tip.Case (Tip.ConPat (findNullaryConstructor "btrue" thy) []) (Lcl q)
+        , Tip.Case (Tip.ConPat (findNullaryConstructor "bfalse" thy) []) (falseBooleanExprThy thy)
+        ]
+    }
+  where
+    boolTy = Tip.exprType (trueBooleanExprThy thy)
+    p = Local (LocalId "p" 0) boolTy
+    q = Local (LocalId "q" 1) boolTy
+
+-- applyBooleanNot :: Program -> Tip.Expr Id -> Tip.Expr Id
+-- applyBooleanNot prog p = applyEq prog p (falseBooleanExpr prog)
+
+applyBooleanAnd :: Program -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanAnd prog p q =
+  Gbl andGlobal :@: [p, q]
+  where
+    boolTy = Tip.exprType p
+    andGlobal =
+      Global
+        { gbl_name = AndId
+        , gbl_type = PolyType [] [boolTy, boolTy] boolTy
+        , gbl_args = []
+        }
+
+applyBooleanAndThy :: Theory Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanAndThy thy p q =
+  Gbl andGlobal :@: [p, q]
+  where
+    boolTy = Tip.exprType p
+    andGlobal =
+      Global
+        { gbl_name = AndId
+        , gbl_type = PolyType [] [boolTy, boolTy] boolTy
+        , gbl_args = []
+        }
+
+booleanImpliesFunction :: Theory Id -> Function Id
+booleanImpliesFunction thy =
+  Function
+    { func_name = ImplId
+    , func_attrs = []
+    , func_tvs = []
+    , func_args = [p, q]
+    , func_res = boolTy
+    , func_body =
+        Tip.Match (Lcl p)
+          [ Tip.Case (Tip.ConPat (findNullaryConstructor "btrue" thy) []) (Lcl q)
+          , Tip.Case (Tip.ConPat (findNullaryConstructor "bfalse" thy) []) (trueBooleanExprThy thy)
+          ]
+    }
+  where
+    boolTy = Tip.exprType (trueBooleanExprThy thy)
+    p = Local (LocalId "p" 0) boolTy
+    q = Local (LocalId "q" 1) boolTy
+
+booleanIteFunction :: Theory Id -> Function Id
+booleanIteFunction thy =
+  Function
+    { func_name = IteId
+    , func_attrs = []
+    , func_tvs = [tv]
+    , func_args = [c, t, e]
+    , func_res = TyVar tv
+    , func_body =
+        Tip.Match (Lcl c)
+          [ Tip.Case (Tip.ConPat (findNullaryConstructor "btrue" thy) []) (Lcl t)
+          , Tip.Case (Tip.ConPat (findNullaryConstructor "bfalse" thy) []) (Lcl e)
+          ]
+    }
+  where
+    tv = LocalId "A" 0
+    boolTy = Tip.exprType (trueBooleanExprThy thy)
+    resTy = TyVar tv
+
+    c = Local (LocalId "c" 1) boolTy
+    t = Local (LocalId "t" 2) resTy
+    e = Local (LocalId "e" 3) resTy
+
+applyBooleanIteThy :: Tip.Type Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanIteThy ty c t e =
+  Gbl iteGlobal :@: [c, t, e]
+  where
+    iteGlobal =
+      Global
+        { gbl_name = IteId
+        , gbl_type = PolyType [tv] [boolTy, TyVar tv, TyVar tv] (TyVar tv)
+        , gbl_args = [ty]
+        }
+    
+    tv = LocalId "A" 0
+    boolTy = Tip.exprType c
+
+iteViewThy :: Tip.Expr Id -> Maybe (Tip.Expr Id, Tip.Expr Id, Tip.Expr Id)
+iteViewThy e =
+  case e of
+    Tip.Match c
+      [ Tip.Case (Tip.ConPat g1 []) t
+      , Tip.Case (Tip.ConPat g2 []) f
+      ]
+      | varStr (gbl_name g1) == "btrue"
+      , varStr (gbl_name g2) == "bfalse" ->
+          Just (c, t, f)
+
+    Tip.Match c
+      [ Tip.Case (Tip.ConPat g1 []) f
+      , Tip.Case (Tip.ConPat g2 []) t
+      ]
+      | varStr (gbl_name g1) == "bfalse"
+      , varStr (gbl_name g2) == "btrue" ->
+          Just (c, t, f)
+
+    _ ->
+      Nothing
+
+booleanNotFunction :: Theory Id -> Function Id
+booleanNotFunction thy =
+  Function
+    { func_name = NotId
+    , func_attrs = []
+    , func_tvs = []
+    , func_args = [p]
+    , func_res = boolTy
+    , func_body =
+        Tip.Match (Lcl p)
+          [ Tip.Case (Tip.ConPat (findNullaryConstructor "btrue" thy) [])  (falseBooleanExprThy thy)
+          , Tip.Case (Tip.ConPat (findNullaryConstructor "bfalse" thy) []) (trueBooleanExprThy thy)
+          ]
+    }
+  where
+    boolTy = Tip.exprType (trueBooleanExprThy thy)
+    p      = Local (LocalId "p" 0) boolTy
+
+applyBooleanNotThy :: Tip.Expr Id -> Tip.Expr Id
+applyBooleanNotThy p =
+  Gbl notGlobal :@: [p]
+  where
+    boolTy = Tip.exprType p
+    notGlobal =
+      Global
+        { gbl_name = NotId
+        , gbl_type = PolyType [] [boolTy] boolTy
+        , gbl_args = []
+        }
+
+rewriteBooleanIte :: Tip.Expr Id -> Fresh (Tip.Expr Id)
+rewriteBooleanIte = transformBiM $ \e ->
+                      case iteViewThy e of
+                        Just (c, t, f) -> return (applyBooleanIteThy (Tip.exprType t) c t f)
+                        Nothing -> return e
+
+rewriteBooleanDistinct :: Theory Id -> Tip.Expr Id -> Fresh (Tip.Expr Id)
+rewriteBooleanDistinct thy = transformBiM $ \e ->
+  case e of
+    Builtin Distinct :@: [x, y] ->
+      return (applyBooleanNotThy (applyEqThy thy x y))
+    _ ->
+      return e
+
+reflexivityAxiom :: Theory Id -> Formula Id
+reflexivityAxiom thy = runFreshFrom 0 mk
+  where
+    mk :: Fresh (Formula Id)
+    mk = do
+      tv <- freshNamed "X"
+      x  <- freshLocal (TyVar tv)
+      return $
+        Formula Assert [] [tv] $
+          Quant NoInfo Forall [x] $
+            applyEqThy thy (Lcl x) (Lcl x) === trueBooleanExprThy thy
+
+booleanEqAxioms :: Theory Id -> [Formula Id]
+booleanEqAxioms thy =
+  [ Formula Assert [] [] (applyEqThy thy t f === f)
+  , Formula Assert [] [] (applyEqThy thy f t === f)
+  ]
+  where
+    t = trueBooleanExprThy thy
+    f = falseBooleanExprThy thy
+
+findEqSignature :: Theory Id -> Signature Id
+findEqSignature thy =
+  case [ sig
+       | sig <- thy_sigs thy
+       , varStr (sig_name sig) == "eq"
+       ] of
+    (sig:_) -> sig
+    [] -> ERROR("Could not find eq signature in theory")
+
+applyEqThy :: Theory Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyEqThy thy x y =
+  applySignature sig [Tip.exprType x] [x, y]
+  where
+    sig = findEqSignature thy
+
+findNullaryConstructor :: String -> Theory Id -> Global Id
+findNullaryConstructor name thy =
+  case [ constructor dt con []
+       | dt  <- thy_datatypes thy
+       , con <- Tip.data_cons dt
+       , varStr (Tip.con_name con) == name
+       , null (Tip.con_args con)
+       ] of
+    (g:_) -> g
+    [] -> ERROR("Could not find constructor " ++ name)
+
+trueBooleanExprThy :: Theory Id -> Tip.Expr Id
+trueBooleanExprThy thy =
+  Gbl (findNullaryConstructor "btrue" thy) :@: []
+
+falseBooleanExprThy :: Theory Id -> Tip.Expr Id
+falseBooleanExprThy thy =
+  Gbl (findNullaryConstructor "bfalse" thy) :@: []
+
+datatypeEqAxioms :: Theory Id -> Datatype Id -> [Formula Id]
+datatypeEqAxioms thy dt
+  | isBooleanDatatype dt = []
+--  | allNullaryConstructors dt = nullaryDatatypeEqAxioms thy dt
+  | otherwise = 
+      concatMap (sameConstructorAxioms thy dt) (Tip.data_cons dt) ++
+      concatMap (constructorPairAxioms thy dt) (pairs (Tip.data_cons dt))
+
+-- sameConstructorAxioms :: Theory Id -> Datatype Id -> Constructor Id -> [Formula Id]
+-- sameConstructorAxioms thy dt con
+--   | null (Tip.con_args con) = []
+--   | otherwise = [runFreshFrom 0 (mkSameConstructorAxiom thy dt con)]
+
+-- mkSameConstructorAxiom :: Theory Id -> Datatype Id -> Constructor Id -> Fresh (Formula Id)
+-- mkSameConstructorAxiom thy dt con = do
+--   xs <- mapM freshArg1 (Tip.con_args con)
+--   ys <- mapM freshArg2 (Tip.con_args con)
+--   let lhs = applyEqThy thy
+--               (constructorExprWithArgs dt con xs)
+--               (constructorExprWithArgs dt con ys)
+--       rhs = foldr1 (applyBooleanAndThy thy)
+--               [ applyEqThy thy (Lcl x) (Lcl y)
+--               | (x, y) <- zip xs ys
+--               ]
+--       body = lhs === rhs
+--       vars = xs ++ ys
+--   return $
+--     Formula Assert [] (Tip.data_tvs dt) $
+--       if null vars then body else Quant NoInfo Forall vars body 
+
+sameConstructorAxioms :: Theory Id -> Datatype Id -> Constructor Id -> [Formula Id]
+sameConstructorAxioms thy dt con
+  | null (Tip.con_args con) = []
+  | otherwise = runFreshFrom 0 (mkSameConstructorAxioms thy dt con)
+
+mkSameConstructorAxioms :: Theory Id -> Datatype Id -> Constructor Id -> Fresh [Formula Id]
+mkSameConstructorAxioms thy dt con = do
+  xs <- mapM freshArg1 (Tip.con_args con)
+  ys <- mapM freshArg2 (Tip.con_args con)
+  let
+    lhs =
+      applyEqThy thy
+        (constructorExprWithArgs dt con xs)
+        (constructorExprWithArgs dt con ys)
+
+    eqs =
+      [ applyEqThy thy (Lcl x) (Lcl y)
+      | (x, y) <- zip xs ys
+      ]
+    
+    trueB = trueBooleanExprThy thy
+    falseB = falseBooleanExprThy thy
+    vars = xs ++ ys
+    tvs = Tip.data_tvs dt
+
+    mkFormula body =
+      Formula Assert [] tvs $
+        if null vars then body else Quant NoInfo Forall vars body
+
+    impChain [] concl = concl
+    impChain (p:ps) concl = p ==> impChain ps concl
+
+    falseAxiom i =
+      let
+        prems =
+          [ eqs !! j === trueB | j <- [0 .. i-1] ] ++
+          [ eqs !! i === falseB ]
+      in mkFormula (impChain prems (lhs === falseB))
+
+    finalAxiom =
+      let 
+          n = length eqs
+          prems = [ eqs !! j === trueB | j <- [0 .. n-2] ]
+          rhs = eqs !! (n - 1)
+      in 
+        mkFormula (impChain prems (lhs === rhs))
+
+  return $
+    if length eqs == 1
+      then [mkFormula (lhs === head eqs)]
+      else [ falseAxiom i | i <- [0 .. length eqs - 2] ] ++ [finalAxiom]
+
+
+allNullaryConstructors :: Datatype Id -> Bool 
+allNullaryConstructors dt =
+  all (null . Tip.con_args) (Tip.data_cons dt)
+
+isBooleanDatatype :: Datatype Id -> Bool
+isBooleanDatatype dt = varStr (data_name dt) == "Boolean"
+
+constructorPairAxioms :: Theory Id -> Tip.Datatype Id -> (Tip.Constructor Id, Tip.Constructor Id) -> [Tip.Formula Id]
+constructorPairAxioms thy dt (c1, c2)
+  | Tip.con_name c1 == Tip.con_name c2 = []
+  | otherwise = [runFreshFrom 0 (mkConstructorPairAxiom thy dt c1 c2)]
+
+mkConstructorPairAxiom :: Theory Id -> Tip.Datatype Id -> Tip.Constructor Id -> Tip.Constructor Id -> Fresh (Tip.Formula Id)
+mkConstructorPairAxiom thy dt c1 c2 = do
+  xs <- mapM freshArg1 (Tip.con_args c1)
+  ys <- mapM freshArg2 (Tip.con_args c2)
+  let 
+    body = applyEqThy thy e1 e2 === falseBooleanExprThy thy
+    e1 = constructorExprWithArgs dt c1 xs
+    e2 = constructorExprWithArgs dt c2 ys
+    vars = xs ++ ys
+  return $
+    Formula Assert [] (Tip.data_tvs dt) $
+      if null vars then body else Quant NoInfo Forall vars body
+
+freshArg1 :: (Id, Tip.Type Id) -> Fresh (Local Id)
+freshArg1 (_, ty) = freshLocal ty
+
+freshArg2 :: (Id, Tip.Type Id) -> Fresh (Local Id)
+freshArg2 (_, ty) = freshLocal ty
+
+constructorExprWithArgs :: Tip.Datatype Id -> Tip.Constructor Id -> [Local Id] -> Tip.Expr Id
+constructorExprWithArgs dt con xs =
+  Gbl (constructor dt con tyArgs) :@: map Lcl xs
+  where
+    tyArgs = map TyVar (Tip.data_tvs dt)
+
+pairs :: Eq a => [a] -> [(a, a)]
+pairs [] = []
+-- pairs (x:xs) = [(x, y) | y <- xs] ++ pairs xs
+pairs xs = [(x, y) | x <- xs, y <- xs, x /= y]
+
+constructorExpr :: Datatype Id -> Constructor Id -> Tip.Expr Id
+constructorExpr dt con =
+  Gbl (constructor dt con tyArgs) :@: []
+  where
+    tyArgs = map TyVar (Tip.data_tvs dt)
+
+nullaryDatatypeEqAxioms :: Theory Id -> Datatype Id -> [Formula Id]
+nullaryDatatypeEqAxioms thy dt =
+  [ Formula Assert [] (Tip.data_tvs dt)
+      (applyEqThy thy (constructorExpr dt c1) (constructorExpr dt c2) === falseBooleanExprThy thy)
+  | (c1, c2) <- pairs (Tip.data_cons dt)
+  ]
 
 -- Did the user ask us to include this function or property?
 data Source = Home | Away deriving (Eq, Show)
@@ -453,6 +1036,11 @@ data Id =
   | DiscriminatorId String Var
   | ErrorId
   | CastId
+  | ImplId
+  | NotId
+  | AndId
+  | OrId
+  | IteId
   deriving (Eq, Ord)
 
 -- A newtype whose only purpose is to add an Ord instance
@@ -475,6 +1063,11 @@ instance PrettyVar Id where
   varStr (DiscriminatorId x _) = x
   varStr ErrorId = "error"
   varStr CastId = "cast"
+  varStr ImplId = "impl"
+  varStr AndId = "andb"
+  varStr OrId = "orb"
+  varStr NotId = "notb"
+  varStr IteId = "iteB"
 
 instance Show Id where
   show = varStr
@@ -565,18 +1158,18 @@ toHaskellName name = do
 
 -- Take a theory which may be missing some function and datatype
 -- definitions, and pull those definitions in from the Haskell program.
-completeTheory :: Program -> [(Class, TyCon)] -> Theory Id -> Theory Id
-completeTheory prog instances thy0 =
+completeTheory :: Bool -> Program -> Var -> [(Class, TyCon)] -> Theory Id -> Theory Id
+completeTheory counterexample prog eqId instances thy0 =
   inContext (show msg) $
     if null newFuncs && null newTypes && null newInstances
       then thy
       else
-        completeTheory prog (instances ++ newInstances) $!!
+        completeTheory counterexample prog eqId (instances ++ newInstances) $!!
           thy `mappend`
           declsToTheory
-            (concatMap makeFunc newFuncs ++
+            (concatMap (makeFunc eqId) newFuncs ++
              map makeType newTypes ++
-             concatMap makeInstance newInstances)
+             concatMap (makeInstance eqId) newInstances)
   where
     -- Note: we interleave cleaning and completing the theory so that
     -- we don't pull in the String type when the program calls error
@@ -621,28 +1214,45 @@ completeTheory prog instances thy0 =
       usortOn (\(x, y) -> (UniqueOrd x, UniqueOrd y)) $
       [ (cls, tc)
       | (UniqueOrd cls, UniqueOrd tc) <- Map.keys (prog_instances prog),
-        let ty = tipType prog (mkTyConApp tc []),
+        let ty = tipType False prog (mkTyConApp tc []),
         any (headMatches ty) allTypes,
         cls `elem` classes,
         (cls, tc) `notElem` instances ]
 
-    makeFunc :: Var -> [Decl Id]
-    makeFunc x =
-      case globalInfo prog x of
-        FunInfo{global_definition = def} ->
-          [tipToplevelFunction prog x def]
-        MethodInfo{} ->
-          [SigDecl (tipUninterpreted prog x)]
-        _ -> []
+    -- makeFunc :: Var -> Var -> [Decl Id]
+    -- makeFunc eqId x =
+    --   case globalInfo prog x of
+    --     FunInfo{global_definition = def} ->
+    --       [tipToplevelFunction False eqId prog x def]
+    --     MethodInfo{} ->
+    --       [SigDecl (tipUninterpreted prog x)]
+    --     _ -> []
+    
+    makeFunc :: Var -> Var -> [Decl Id]
+    makeFunc eqId x
+      | globalStr prog x == "===" =
+          [ SigDecl Signature
+              { sig_name  = GlobalId "eq" x
+              , sig_attrs = []
+              , sig_type  = counterexampleEqPolyType prog (varType x)
+              }
+          ]
+      | otherwise =
+          case globalInfo prog x of
+            FunInfo{global_definition = def} ->
+              [tipToplevelFunction counterexample eqId prog x def]
+            MethodInfo{} ->
+              [SigDecl (tipUninterpreted prog x)]
+            _ -> []
 
     makeType :: TyCon -> Decl Id
     makeType ty
       | isAny ty = SortDecl (Sort (typeId prog ty) [] [])
       | otherwise = DataDecl (tipDatatype prog ty)
 
-    makeInstance :: (Class, TyCon) -> [Decl Id]
-    makeInstance (cls, tc) =
-      map AssertDecl (tipInstance prog cls tc)
+    makeInstance :: Var -> (Class, TyCon) -> [Decl Id]
+    makeInstance eqId (cls, tc) =
+      map AssertDecl (tipInstance counterexample prog eqId cls tc)
 
     msg =
       PP.vcat [
@@ -674,27 +1284,27 @@ tipConstructor prog x =
     
     -- The type variables in the DataCon might not be the same as in
     -- the parent TyCon. Applying this substitution corrects that.
-    Just sub = matchTypes [(tipType prog global_res, dataTy)]
+    Just sub = matchTypes [(tipType False prog global_res, dataTy)]
     subst = uncurry applyType (unzip sub)
     dataTy = TyCon (typeId prog global_tycon) (map (TyVar . TyVarId) type_tvs)
 
     con i ty =
-      (projectionId prog x i, subst (tipType prog ty))
+      (projectionId prog x i, subst (tipType False prog ty))
 
 -- Translate a Haskell polymorphic type to TIP.
-tipPolyType :: Program -> GHC.Type -> Tip.PolyType Id
-tipPolyType prog pty =
+tipPolyType :: Bool -> Program -> GHC.Type -> Tip.PolyType Id
+tipPolyType counterexample prog pty =
   PolyType {
     polytype_tvs  = map TyVarId tvs,
     polytype_args = [],
-    polytype_res  = tipType prog ty
+    polytype_res  = tipType counterexample prog ty
   }
   where
     (tvs, ty) = splitForAllTys (expandTypeSynonyms pty)
 
 -- Translate a Haskell type to TIP.
-tipType :: Program -> GHC.Type -> Tip.Type Id
-tipType prog = tipTy . expandTypeSynonyms
+tipType :: Bool -> Program -> GHC.Type -> Tip.Type Id
+tipType counterexample prog = tipTy . expandTypeSynonyms
   where
     tipTy ty
       | Just tv <- getTyVar_maybe ty = TyVar (TyVarId tv)
@@ -708,6 +1318,11 @@ tipType prog = tipTy . expandTypeSynonyms
     tipFunTy arg res
       | eraseType arg = tipTy res
       | otherwise = [tipTy arg] :=>: tipTy res
+    
+    tipTyCon tc anns _
+      | counterexample
+      , PropType `elem` anns =
+          TyCon (typeId prog boolTyCon) []
 
     tipTyCon _ anns _ | (ty:_) <- [ty | PrimType ty <- anns] =
       BuiltinType ty
@@ -715,18 +1330,18 @@ tipType prog = tipTy . expandTypeSynonyms
     tipTyCon tc _ tys =
       TyCon (typeId prog tc) (map tipTy tys)
 
-tipExpr :: Program -> Var -> CoreExpr -> ([Attribute], [Id], Tip.Expr Id)
-tipExpr prog x t =
+tipExpr :: Bool -> Var -> Program -> Var -> CoreExpr -> ([Attribute], [Id], Tip.Expr Id)
+tipExpr counterexample eqId prog x t =
   (func_attrs, func_tvs, func_body)
   where
-    Function{..} = tipFunction prog x t
+    Function{..} = tipFunction counterexample eqId prog x t
 
 -- Translate a Haskell property to TIP.
-tipFormula :: Program -> Var -> CoreExpr -> Tip.Formula Id
-tipFormula prog x t =
+tipFormula :: Var -> Program -> Var -> CoreExpr -> Tip.Formula Id
+tipFormula eqId prog x t =
   Formula Prove attrs tvs $ freshPass quantify body
   where
-    (attrs, tvs, body) = tipExpr prog x t
+    (attrs, tvs, body) = tipExpr False eqId prog x t
 
     -- Try to use names from the formula if possible
     quantify (Tip.Lam xs t) =
@@ -739,6 +1354,88 @@ tipFormula prog x t =
             quantify (apply t (map Lcl xs))
         _ -> return t
 
+tipCounterexampleGoal :: Var -> Program -> Var -> Tip.Formula Id
+tipCounterexampleGoal eqId prog x =
+  Formula Prove attrs tvs $ freshPass quantify propExpr
+  where
+    attrs = makeAttrs x (globalAnnotations prog x)
+    tvs   = polytype_tvs poly
+
+    poly  = tipPolyType True prog (varType x)
+
+    propExpr =
+      Gbl (Global (globalId prog x) poly (map TyVar tvs)) :@: []
+
+    quantify (Tip.Lam xs t) =
+      Quant NoInfo Exists xs <$> quantify t
+
+    quantify t =
+      case Tip.exprType t of
+        args :=>: _res -> do
+          xs <- mapM freshLocal args
+          Quant NoInfo Exists xs <$> quantify (apply t (map Lcl xs))
+        _ -> return (applyEq prog t (falseBooleanExpr prog) === trueBooleanExpr prog)
+
+counterexampleEqGlobal :: Program -> Tip.Type Id -> Global Id
+counterexampleEqGlobal prog ty =
+  let
+    eqVar =
+      case [ v | (v, _) <- Map.toList (prog_globals prog), globalStr prog v == "===" ] of
+        (v:_) -> v
+        [] -> ERROR("Could not find === in program")
+  in
+    Global (GlobalId "eq" eqVar)
+          (counterexampleEqPolyType prog (varType eqVar))
+          [ty]
+
+applyEq :: Program -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyEq prog x y =
+  let
+    ty = Tip.exprType x
+    eqGlobal = counterexampleEqGlobal prog ty
+  in
+    Gbl eqGlobal :@: [x, y]
+
+applyBooleanImplies :: Program -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanImplies prog p q =
+  Gbl implGlobal :@: [p, q]
+  where
+    boolTy = Tip.exprType p
+    implGlobal =
+      Global
+        { gbl_name = ImplId
+        , gbl_type = PolyType [] [boolTy, boolTy] boolTy
+        , gbl_args = []
+        }
+
+findBooleanConstructor :: String -> Program -> Global Id
+findBooleanConstructor name prog =
+  case [ dc
+       | (dc, ConInfo{}) <- Map.toList (prog_globals prog)
+       , globalStr prog dc == name
+       ] of
+    (dc:_) ->
+      let
+        ConInfo{..} = globalInfo prog dc
+        !(TyCon _ tys) = tipType True prog global_res
+        dt = tipDatatype prog global_tycon
+        con = tipConstructor prog dc
+      in
+        constructor dt con tys
+    [] -> ERROR("Could not find constructor" ++ name)
+
+trueBooleanGlobal :: Program -> Global Id
+trueBooleanGlobal prog = findBooleanConstructor "btrue" prog
+
+falseBooleanGlobal :: Program -> Global Id
+falseBooleanGlobal prog = findBooleanConstructor "bfalse" prog
+
+falseBooleanExpr :: Program -> Tip.Expr Id
+falseBooleanExpr prog = Gbl (falseBooleanGlobal prog) :@: []
+
+trueBooleanExpr :: Program -> Tip.Expr Id
+trueBooleanExpr prog = Gbl (trueBooleanGlobal prog) :@: []
+
 -- The context which expressions get translated in.
 data Context =
   Context {
@@ -750,8 +1447,8 @@ data Context =
     ctx_types :: [Tip.Type Id] }
 
 -- Translate a Haskell function definition to TIP.
-tipFunction :: Program -> Var -> CoreExpr -> Tip.Function Id
-tipFunction prog x t =
+tipFunction :: Bool -> Var -> Program -> Var -> CoreExpr -> Tip.Function Id
+tipFunction counterexample eqId prog x t =
   runFreshFrom 0 $ fun True (Context Map.empty Map.empty []) x t
   where
     fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
@@ -772,15 +1469,22 @@ tipFunction prog x t =
             text "While translating" <+> ppr x <+> text "::" <+> ppr (varType x) <+> text "with body:",
             nest 2 (ppr t) ]
 
+
+
     expr :: Context -> CoreExpr -> Fresh (Tip.Expr Id)
     expr ctx (Var inl `App` Type _ `App` e)
-      | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
+      | SomeSpecial InlineIt `elem` globalAnnotations prog inl
+      , not (counterexample && inl == eqId) =
         expr ctx (inline e)
+    -- expr ctx (Var inl `App` Type _ `App` e)
+    --   | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
+    --     ERROR("InlineIt on: " ++ showOutputable inl)
+
     expr _ (Var prim `App` Type ty `App` Lit (LitString name))
       | Special `elem` globalAnnotations prog prim =
         case reads (BS.unpack name) of
           [(spec, "")] ->
-            special (tipType prog ty) spec
+            special (tipType counterexample prog ty) spec
           _ -> ERROR("Unknown special " ++ BS.unpack name)
     expr _   (Lit l) = return (literal (lit l))
     expr ctx (Var x) = var ctx x
@@ -811,33 +1515,134 @@ tipFunction prog x t =
     lit l = ERROR("Unsupported literal: " ++ showOutputable l)
 
     special :: Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
+    special ty (Primitive name arity)
+      | counterexample
+      , name == Implies
+      , arity == 2 = do
+          n1 <- fresh
+          n2 <- fresh
+          let
+            funArgs (t :=>: u) = t ++ funArgs u
+            funArgs _ = []
+
+            [t1, t2] = funArgs ty
+            x = Local n1 t1
+            y = Local n2 t2
+          return $
+            Tip.Lam [x] $
+            Tip.Lam [y] $
+              applyBooleanImplies prog (Lcl x) (Lcl y)
+    special ty (Primitive name arity)
+      | counterexample
+      , name == And
+      , arity == 2 = do
+          n1 <- fresh
+          n2 <- fresh
+          let
+            funArgs (t :=>: u) = t ++ funArgs u
+            funArgs _ = []
+
+            [t1, t2] = funArgs ty
+            x = Local n1 t1
+            y = Local n2 t2
+          return $
+            Tip.Lam [x] $
+            Tip.Lam [y] $
+              applyBooleanAnd prog (Lcl x) (Lcl y)
+    special ty (Primitive name arity)
+      | counterexample
+      , name == Or
+      , arity == 2 = do
+          n1 <- fresh
+          n2 <- fresh
+          let
+            funArgs (t :=>: u) = t ++ funArgs u
+            funArgs _ = []
+
+            [t1, t2] = funArgs ty
+            x = Local n1 t1
+            y = Local n2 t2
+          return $
+            Tip.Lam [x] $
+            Tip.Lam [y] $
+              applyBooleanOr prog (Lcl x) (Lcl y)
+    special ty (Primitive name arity)
+      | counterexample
+      , name == Equal
+      , arity == 2 = do
+          n1 <- fresh
+          n2 <- fresh
+          let
+            funArgs (t :=>: u) = t ++ funArgs u
+            funArgs _ = []
+
+            [t1, t2] = funArgs ty
+            x = Local n1 t1
+            y = Local n2 t2
+          return $
+            Tip.Lam [x] $
+            Tip.Lam [y] $
+              applyEq prog (Lcl x) (Lcl y)
+    -- special ty (Primitive name arity)
+    --   | counterexample
+    --   , name == Distinct
+    --   , arity == 2 = do
+    --       n1 <- fresh
+    --       n2 <- fresh
+    --       let
+    --         funArgs (t :=>: u) = t ++ funArgs u
+    --         funArgs _ = []
+
+    --         [t1, t2] = funArgs ty
+    --         x = Local n1 t1
+    --         y = Local n2 t2
+    --       return $
+    --         Tip.Lam [x] $
+    --         Tip.Lam [y] $
+    --           applyBooleanNot prog (applyEq prog (Lcl x) (Lcl y))
+
     special ty (Primitive name arity) = do
       names <- replicateM arity fresh
-      let
-        funArgs (t :=>: u) = t ++ funArgs u
-        funArgs _ = []
-
-        args = zipWith Local names (funArgs ty)
+      let args = zipWith Local names (collectFunArgs ty)
 
       return $
         foldr (\arg e -> Tip.Lam [arg] e)
           (Builtin name :@: map Lcl args)
           args
+
     special ([ty@([argTy] :=>: _)] :=>: _) (QuantSpecial quant) = do
-      -- \p -> Quant quant (\x -> p x)
       pred <- freshLocal ty
       arg  <- freshLocal argTy
       return $
         Tip.Lam [pred] (Quant NoInfo quant [arg] (apply (Lcl pred) [Lcl arg]))
+
     special ty Tip.Cast =
       return (Lcl (Local CastId ty))
+
     special ty Error = return (errorTerm ty)
+
     special ty spec =
       ERROR("Unsupported special " ++ show spec ++ " :: " ++ ppRender ty)
 
+    collectFunArgs :: Tip.Type Id -> [Tip.Type Id]
+    collectFunArgs (ts :=>: r) = ts ++ collectFunArgs r
+    collectFunArgs _ = []
+
+
+
     var :: Context -> Var -> Fresh (Tip.Expr Id)
     var ctx x
-      | Inline `elem` globalAnnotations prog x =
+      | counterexample
+      , globalStr prog x == "===" = do
+          let ty =
+                case ctx_types ctx of
+                  (t:_) -> t
+                  [] -> ERROR("=== used without type instantiation")
+              global = counterexampleEqGlobal prog ty
+          return (Gbl global :@: [])
+    var ctx x
+      | Inline `elem` globalAnnotations prog x
+      , not (counterexample && x == eqId) =
         let
           msg =
             vcat [
@@ -868,7 +1673,7 @@ tipFunction prog x t =
             let
               !(TyCon _ tys) =
                 applyType (map TyVarId global_tvs) (ctx_types ctx)
-                  (tipType prog global_res)
+                  (tipType counterexample prog global_res)
               dt  = tipDatatype prog global_tycon
               con = tipConstructor prog x
               global = constructor dt con tys
@@ -893,14 +1698,19 @@ tipFunction prog x t =
 
     app :: Context -> CoreExpr -> CoreExpr -> Fresh (Tip.Expr Id)
     app ctx t (Type u) = do
-      let ty = tipType prog u
-      expr ctx { ctx_types = ty:ctx_types ctx } t
+      let ty = tipType counterexample prog u
+      expr ctx { ctx_types = ty : ctx_types ctx } t
+
     app ctx t u
       | eraseType (exprType u) = expr ctx t
       | otherwise = do
-          t <- expr ctx t
-          u <- expr ctx u
-          return (apply t [u])
+          t' <- expr ctx t
+          u' <- expr ctx u
+          return $
+            case t' of
+              Gbl g :@: args
+                | counterexample, varStr (gbl_name g) == "eq" -> Gbl g :@: (args ++ [u'])
+              _              -> apply t' [u']
 
     lam :: Context -> Var -> CoreExpr -> Fresh (Tip.Expr Id)
     lam ctx x e
@@ -973,7 +1783,7 @@ tipFunction prog x t =
     caseExp _ _ x _ [] = return (errorTerm (monoType x))
     caseExp ctx ty x t alts = do
       -- Get the parameters of the type constructor
-      let TyCon _ tys = tipType prog ty
+      let TyCon _ tys = tipType counterexample prog ty
       -- We turn GHC's
       --   case t of x { .. ALTS .. }
       -- into
@@ -1013,10 +1823,10 @@ tipFunction prog x t =
 
     -- Get the TIP type of a variable.
     monoType :: Var -> Tip.Type Id
-    monoType = tipType prog . varType
+    monoType = tipType counterexample prog . varType
 
     polyType :: CoreExpr -> Tip.PolyType Id
-    polyType = tipPolyType prog . exprType
+    polyType = tipPolyType counterexample prog . exprType
       
     -- Bring a new variable into scope.
     bindVar :: Context -> Var -> (Context -> Local Id -> Fresh a) -> Fresh a
@@ -1073,24 +1883,24 @@ tipUninterpreted prog x =
   Signature {
     sig_name  = globalId prog x,
     sig_attrs = concat [makeAttrs x (globalAnnotations prog x)],
-    sig_type  = tipPolyType prog (varType x) }
+    sig_type  = tipPolyType False prog (varType x) }
 
 -- Translate a Haskell function definition to TIP.
 -- The function may be uninterpreted.
-tipToplevelFunction :: Program -> Var -> CoreExpr -> Decl Id
-tipToplevelFunction prog x body
+tipToplevelFunction :: Bool -> Var -> Program -> Var -> CoreExpr -> Decl Id
+tipToplevelFunction counterexample eqId prog x body
   | Uninterpreted `elem` globalAnnotations prog x =
     SigDecl (tipUninterpreted prog x)
   | otherwise =
-    FuncDecl (tipFunction prog x body)
+    FuncDecl (tipFunction counterexample eqId prog x body)
 
 -- Translate a typeclass instance to TIP. Returns a list of assertions.
-tipInstance :: Program -> Class -> TyCon -> [Tip.Formula Id]
-tipInstance prog cls tc =
+tipInstance :: Bool -> Program -> Var -> Class -> TyCon -> [Tip.Formula Id]
+tipInstance counterexample prog eqId cls tc =
   [ Formula Assert (putAttr typeclassInstance () ann) tv (funExp' === exp')
   | (fun, exp) <- zip class_methods instance_methods,
-    let (ann, tv, exp') = tipExpr prog fun exp
-        (_, _, funExp) = tipExpr prog fun (Var fun)
+    let (ann, tv, exp') = tipExpr counterexample eqId prog fun exp
+        (_, _, funExp) = tipExpr counterexample eqId prog fun (Var fun)
         -- Instantiate 'fun' to have the same type as exp
         Just sub = matchTypes [(Tip.exprType funExp, Tip.exprType exp')]
         funExp' = applyTypeInExpr (map fst sub) (map snd sub) funExp ]
@@ -1244,6 +2054,7 @@ instance Outputable Id where
   ppr (ProjectionId _ x n) = ppr x <> text "/" <> ppr n
   ppr (DiscriminatorId _ x) = ppr x <> text "?"
   ppr x = text (varStr x)
+  -- ppr ImplId = text "impl"
 
 instance Outputable SDoc where
   ppr = id
