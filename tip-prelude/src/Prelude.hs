@@ -541,6 +541,7 @@ length (_:l)     =  1 + length l
 
 -- List index (subscript) operator, 0-origin
 
+{-# ANN (!!) (Name "at") #-}
 (!!)                :: [a] -> Int -> a
 xs     !! n | n < 0 =  error "Prelude.!!: negative index"
 []     !! _         =  error "Prelude.!!: index too large"
