@@ -480,6 +480,7 @@ map f = aux
     aux [] = []
     aux (x:xs) = f x:aux xs
 
+{-# ANN (++) (Name "append") #-}
 (++) :: [a] -> [a] -> [a]
 []     ++ ys = ys
 (x:xs) ++ ys = x : (xs ++ ys)
