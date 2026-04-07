@@ -480,6 +480,7 @@ map f = aux
     aux [] = []
     aux (x:xs) = f x:aux xs
 
+{-# ANN (++) (Name "append") #-}
 (++) :: [a] -> [a] -> [a]
 []     ++ ys = ys
 (x:xs) ++ ys = x : (xs ++ ys)
@@ -540,6 +541,7 @@ length (_:l)     =  1 + length l
 
 -- List index (subscript) operator, 0-origin
 
+{-# ANN (!!) (Name "at") #-}
 (!!)                :: [a] -> Int -> a
 xs     !! n | n < 0 =  error "Prelude.!!: negative index"
 []     !! _         =  error "Prelude.!!: index too large"
