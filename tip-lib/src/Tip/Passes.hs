@@ -18,7 +18,6 @@ module Tip.Passes
   , selectConjecture
   , provedConjecture
   , deleteConjecture
-  , disproveConjecture
 
   -- * Boolean builtins
   , ifToBoolOp
