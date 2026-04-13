@@ -42,6 +42,7 @@ module Tip.Passes
   -- * Lambda and let lifting
   , lambdaLift
   , letLift
+  , matchLift
   , eliminateLetRec
   , axiomatizeLambdas
 
@@ -130,6 +131,7 @@ data StandardPass
   | RemoveAliases
   | LambdaLift
   | LetLift
+  | MatchLift
   | AxiomatizeLambdas
   | AxiomatizeFuncdefs
   | AxiomatizeFuncdefs2
@@ -181,6 +183,7 @@ instance Pass StandardPass where
     RemoveAliases        -> single $ return . removeAliases
     LambdaLift           -> single $ lambdaLift
     LetLift              -> single $ letLift
+    MatchLift            -> single $ matchLift
     AxiomatizeLambdas    -> single lambdaLift `followedBy` single axiomatizeLambdas
     AxiomatizeFuncdefs   -> single (return . axiomatizeFuncdefs)
     AxiomatizeFuncdefs2  -> single (return . axiomatizeFuncdefs2)
@@ -258,6 +261,8 @@ instance Pass StandardPass where
         help "Lift lambdas to the top level",
       unitPass LetLift $
         help "Lift let-expressions to the top level",
+      unitPass MatchLift $
+        help "Introduce auxiliary functions for matches on compound expressions",
       unitPass AxiomatizeLambdas $
         help "Eliminate lambdas by axiomatisation",
       unitPass AxiomatizeFuncdefs $

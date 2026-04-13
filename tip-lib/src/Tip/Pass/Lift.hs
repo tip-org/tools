@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
-module Tip.Pass.Lift (lambdaLift, letLift, eliminateLetRec, axiomatizeLambdas, boolOpLift) where
+module Tip.Pass.Lift (lambdaLift, letLift, matchLift, eliminateLetRec, axiomatizeLambdas, boolOpLift) where
 
 #include "errors.h"
 import Tip.Core
@@ -96,6 +96,34 @@ letLiftTop e0 =
 -- > f fvs = b[fvs]
 letLift :: Name a => Theory a -> Fresh (Theory a)
 letLift = liftTheory (transformExprInM . const letLiftTop)
+
+matchLiftTop :: Name a => TopLift a
+matchLiftTop e0 =
+  case e0 of
+    Match Lcl{} alts -> return e0
+    Match e alts ->
+      do let fvs = usort (concatMap (free . case_rhs) alts)
+         let tvs = usort (concatMap (freeTyVars . case_rhs) alts)
+         x <- lift (freshNamed "x")
+         let lcl = Local x (exprType e)
+         f <- lift (freshNamed "aux")
+         let fn =
+               putAttr matchFunc () $
+               Function f [] tvs (fvs ++ [lcl]) (exprType e0) (Match (Lcl lcl) alts)
+         tell [fn]
+         return (applyFunction fn (map TyVar tvs) (map Lcl fvs ++ [e]))
+    _ -> return e0
+
+-- | Introduce auxiliary functions for matches on non-variables.
+--
+-- > case e of ...
+--
+-- becomes
+--
+-- > f fvs e
+-- > f fvs x = case x of ...
+matchLift :: Name a => Theory a -> Fresh (Theory a)
+matchLift = liftTheory (transformExprInM . const matchLiftTop)
 
 eliminateLetRecTop :: Name a => (a -> Bool) -> a -> TopLift a
 eliminateLetRecTop p func e = elim e
