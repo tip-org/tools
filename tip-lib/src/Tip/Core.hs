@@ -729,7 +729,7 @@ source, axiom :: Attr String
 source = stringAttr "source"
 axiom = stringAttr "axiom"
 
-definition, dataDomain, dataProjection, dataDistinct, dataDiscriminator, lemma, skolem, lambda, letVar :: Attr ()
+definition, dataDomain, dataProjection, dataDistinct, dataDiscriminator, lemma, skolem, lambda, letVar, matchFunc :: Attr ()
 definition = unitAttr "definition"
 dataDomain = unitAttr "data-domain"
 dataProjection = unitAttr "data-projection"
@@ -739,6 +739,7 @@ lemma = unitAttr "lemma"
 skolem = unitAttr "skolem"
 lambda = unitAttr "lambda"
 letVar = unitAttr "let"
+matchFunc = unitAttr "match"
 typeclassInstance = unitAttr "typeclass-instance"
 
 inductionHypothesis :: Attr Int

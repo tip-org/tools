@@ -42,6 +42,7 @@ module Tip.Passes
   -- * Lambda and let lifting
   , lambdaLift
   , letLift
+  , matchLift
   , eliminateLetRec
   , axiomatizeLambdas
 
@@ -130,6 +131,7 @@ data StandardPass
   | RemoveAliases
   | LambdaLift
   | LetLift
+  | MatchLift
   | AxiomatizeLambdas
   | AxiomatizeFuncdefs
   | AxiomatizeFuncdefs2
@@ -144,6 +146,7 @@ data StandardPass
   | SelectConjecture Int
   | ProvedConjecture Int
   | DeleteConjecture Int
+  | DisproveConjecture
   | DropSuffix String
   | UniqLocals
   | DropAttributes
@@ -180,6 +183,7 @@ instance Pass StandardPass where
     RemoveAliases        -> single $ return . removeAliases
     LambdaLift           -> single $ lambdaLift
     LetLift              -> single $ letLift
+    MatchLift            -> single $ matchLift
     AxiomatizeLambdas    -> single lambdaLift `followedBy` single axiomatizeLambdas
     AxiomatizeFuncdefs   -> single (return . axiomatizeFuncdefs)
     AxiomatizeFuncdefs2  -> single (return . axiomatizeFuncdefs2)
@@ -194,6 +198,7 @@ instance Pass StandardPass where
     SelectConjecture n   -> single $ return . selectConjecture n
     ProvedConjecture n   -> single $ return . provedConjecture n
     DeleteConjecture n   -> single $ return . deleteConjecture n
+    DisproveConjecture   -> single $ disproveConjecture
     DropSuffix cs        -> single $ dropSuffix cs
     UniqLocals           -> single $ uniqLocals
     DropAttributes       -> single $ return . dropAttributes
@@ -256,6 +261,8 @@ instance Pass StandardPass where
         help "Lift lambdas to the top level",
       unitPass LetLift $
         help "Lift let-expressions to the top level",
+      unitPass MatchLift $
+        help "Introduce auxiliary functions for matches on compound expressions",
       unitPass AxiomatizeLambdas $
         help "Eliminate lambdas by axiomatisation",
       unitPass AxiomatizeFuncdefs $
@@ -304,6 +311,8 @@ instance Pass StandardPass where
           long "delete-conjecture" <>
           metavar "CONJECTURE-NUMBER" <>
           help "Delete a particular conjecture",
+      unitPass DisproveConjecture $
+        help "Replace a particular conjecture with its negation (for disproving)",
       fmap DropSuffix $
         option str $
           long "drop-suffix" <>

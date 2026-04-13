@@ -82,6 +82,20 @@ negateConjecture = fmap checkOneGoal . fmap (declsPass (map neg1)) . typeSkolemC
     | length (theoryGoals thy) <= 1 = thy
     | otherwise = error "negateConjecture: more than one conjecture (try --split-conjecture first)"
 
+-- | Replaces the conjecture with its negation: changes assert-not into assert, and
+--   introduce skolem types in case the goal is polymorphic.
+--   (runs 'typeSkolemConjecture')
+disproveConjecture :: Name a => Theory a -> Fresh (Theory a)
+disproveConjecture = fmap checkOneGoal . fmap (declsPass (map neg1)) . typeSkolemConjecture ModeConjecture
+  where
+  neg1 (AssertDecl (Formula Prove attrs [] form))
+      = AssertDecl (Formula Prove attrs [] (gentleNeg form))
+  neg1 d0 = d0
+
+  checkOneGoal thy
+    | length (theoryGoals thy) <= 1 = thy
+    | otherwise = error "disproveConjecture: more than one conjecture (try --split-conjecture first)"
+
 data Mode = ModeConjecture | ModeMonomorphise deriving Eq
 
 -- | Introduce skolem types in case the goal is polymorphic.
