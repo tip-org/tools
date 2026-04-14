@@ -137,6 +137,7 @@ data StandardPass
   | AxiomatizeFuncdefs2
   | AxiomatizeDatadecls
   | AxiomatizeDatadeclsUEQ
+  | AxiomatizeDatadeclsHorn
   | IntroduceFuncdefs
   | Monomorphise Bool Int
   | CSEMatch
@@ -187,8 +188,9 @@ instance Pass StandardPass where
     AxiomatizeLambdas    -> single lambdaLift `followedBy` single axiomatizeLambdas
     AxiomatizeFuncdefs   -> single (return . axiomatizeFuncdefs)
     AxiomatizeFuncdefs2  -> single (return . axiomatizeFuncdefs2)
-    AxiomatizeDatadecls    -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls False)
-    AxiomatizeDatadeclsUEQ -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls True)
+    AxiomatizeDatadecls     -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls Full)
+    AxiomatizeDatadeclsUEQ  -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls Equational)
+    AxiomatizeDatadeclsHorn -> runPass RemoveMatch `followedBy` single (axiomatizeDatadecls Horn)
     IntroduceFuncdefs    -> single (return . introduceFuncdefs)
     Monomorphise b n     -> single (typeSkolemConjecture ModeMonomorphise) `followedBy` single (monomorphise b n)
     CSEMatch             -> single $ return . cseMatch cseMatchNormal
@@ -275,6 +277,8 @@ instance Pass StandardPass where
         help "Transform data declarations to axioms",
       unitPass AxiomatizeDatadeclsUEQ $
         help "Transform data declarations to unit equality axioms (incomplete)",
+      unitPass AxiomatizeDatadeclsHorn $
+        help "Transform data declarations to Horn axioms (incomplete)",
       unitPass SplitFormulas $
         help "Split formulas into simpler parts",
       flag' () (long "monomorphise" <> help "Monomorphise the problem.") *> pure (Monomorphise False 1),

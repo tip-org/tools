@@ -9,13 +9,15 @@ import Tip.Scope (dataTypeGlobals, GlobalInfo(..), globalType)
 
 import Data.List (tails)
 
-axiomatizeDatadecls :: Name a => Bool -> Theory a -> Fresh (Theory a)
-axiomatizeDatadecls ueq thy@Theory{..} =
-  do thys <- mapM (trDatatype ueq) thy_datatypes
+data Mode = Full | Horn | Equational deriving Eq
+
+axiomatizeDatadecls :: Name a => Mode -> Theory a -> Fresh (Theory a)
+axiomatizeDatadecls mode thy@Theory{..} =
+  do thys <- mapM (trDatatype mode) thy_datatypes
      return (mconcat (thys ++ [thy { thy_datatypes = [] }]))
 
-trDatatype :: Name a => Bool -> Datatype a -> Fresh (Theory a)
-trDatatype ueq dt@Datatype{..} =
+trDatatype :: Name a => Mode -> Datatype a -> Fresh (Theory a)
+trDatatype mode dt@Datatype{..} =
   do let ty_args = map TyVar data_tvs
 
      -- X = nil | X = cons(head(X), tail(X))
@@ -79,10 +81,16 @@ trDatatype ueq dt@Datatype{..} =
                     ])
            | c@Constructor{con_args = args} <- data_cons ]
 
+     let asserts =
+           case mode of
+             Equational -> inj
+             Horn -> inj ++ distinct
+             Full -> [domain] ++ inj ++ distinct ++ discrim
+
      return $
        declsToTheory $
            datatypeSigs dt
-        ++ map AssertDecl (if ueq then inj else [domain] ++ inj ++ distinct ++ discrim)
+        ++ map AssertDecl asserts
 
 datatypeSigs :: Name a => Datatype a -> [Decl a]
 datatypeSigs dt@Datatype{..} =
