@@ -16,6 +16,7 @@ data Params = Params
   , param_keep :: Maybe [String]
   -- ^ Only consider these functions and properties
   , param_counterexample_booleans :: Bool
+  , param_no_iteB :: Bool
   }
   deriving Show
 
@@ -28,7 +29,8 @@ parseParams =
     param_include <*>
     param_debug_flags <*>
     param_keep <*>
-    param_counterexample_booleans
+    param_counterexample_booleans <*>
+    param_no_iteB
   where
     param_include =
       many (strOption (long "include" <> short 'i' <> metavar "PATH" <> help "Extra include directory"))
@@ -43,6 +45,9 @@ parseParams =
     param_counterexample_booleans =
       switch (long "counterexample-booleans"
         <> help "Replace the built-in Bool datatype with the custom Boolean")
+    param_no_iteB =
+      switch (long "counterexample-no-iteB"
+        <> help "Use match rather than iteB in the --counterexample-booleans translation")
 
 -- | Default (empty) parameters
 defaultParams :: Params
@@ -51,6 +56,7 @@ defaultParams = Params
   , param_debug_flags = []
   , param_keep = Nothing
   , param_counterexample_booleans = False
+  , param_no_iteB = False
   }
 
 -- | Debugging flags

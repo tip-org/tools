@@ -224,7 +224,7 @@ readHaskellFile Params{..} name =
         realName _ = True
       let thy' = 
             if param_counterexample_booleans
-              then counterexampleBooleansPass thy
+              then counterexampleBooleansPass param_no_iteB thy
               else thy
       let thy'' =
             lint "conversion to TIP" $
@@ -300,8 +300,8 @@ counterexampleEqPolyType prog ty =
 --     formulaUsesAnd   = hasGlobalNamed "andb" . fm_body
 --     formulaUsesIte   = hasGlobalNamed "iteB" . fm_body
 
-counterexampleBooleansPass :: Theory Id -> Theory Id
-counterexampleBooleansPass thy =
+counterexampleBooleansPass :: Bool -> Theory Id -> Theory Id
+counterexampleBooleansPass elimIteB thy =
   thy
     { thy_funcs = helperFuncs ++ rewrittenFuncs
     , thy_asserts =
@@ -323,7 +323,7 @@ counterexampleBooleansPass thy =
     helperFuncs =
       concat
         [ [booleanImpliesFunction thy | needsImpl]
-        , [booleanIteFunction thy     | needsIte]
+        , [booleanIteFunction elimIteB thy     | needsIte]
         , [booleanNotFunction thy     | needsNot]
         , [booleanAndFunction thy     | needsAnd]
         , [booleanOrFunction thy      | needsOr]
@@ -498,11 +498,11 @@ booleanImpliesFunction thy =
     p = Local (LocalId "p" 0) boolTy
     q = Local (LocalId "q" 1) boolTy
 
-booleanIteFunction :: Theory Id -> Function Id
-booleanIteFunction thy =
+booleanIteFunction :: Bool -> Theory Id -> Function Id
+booleanIteFunction elimIteB thy =
   Function
     { func_name = IteId
-    , func_attrs = []
+    , func_attrs = if elimIteB then putAttr inline () [] else []
     , func_tvs = [tv]
     , func_args = [c, t, e]
     , func_res = TyVar tv
