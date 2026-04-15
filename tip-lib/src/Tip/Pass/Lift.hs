@@ -102,8 +102,8 @@ matchLiftTop e0 =
   case e0 of
     Match Lcl{} alts -> return e0
     Match e alts ->
-      do let fvs = usort (concatMap (free . case_rhs) alts)
-         let tvs = usort (concatMap (freeTyVars . case_rhs) alts)
+      do let fvs = free e0
+         let tvs = freeTyVars e0
          x <- lift (freshNamed "x")
          let lcl = Local x (exprType e)
          f <- lift (freshNamed "aux")
