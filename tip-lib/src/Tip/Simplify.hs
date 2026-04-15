@@ -33,7 +33,7 @@ data SimplifyOpts a =
 
 newtype Occurrences = Occurrences Int
 
--- | Gentle, but without inlining
+-- | Gentle, but without inlining, except for :inline functions
 gentlyNoInline :: SimplifyOpts a
 gentlyNoInline = gently { should_inline = \ _ _ _ -> False }
 
@@ -54,6 +54,7 @@ simplifyTheory :: Name a => SimplifyOpts a -> Theory a -> Fresh (Theory a)
 simplifyTheory opts thy@Theory{..} = do
   thy_funcs   <- mapM (simplifyExprIn (Just thy) opts) thy_funcs
   thy_asserts <- mapM (simplifyExprIn (Just thy) opts{inline_match = False}) thy_asserts
+  thy_funcs   <- return (filter (not . hasAttr inline) thy_funcs)
   return Theory{..}
 
 -- | Simplify an expression, without knowing its theory
@@ -234,13 +235,13 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Gbl gbl@Global{..} :@: ts ->
           case Map.lookup gbl_name inlinings of
             Just func@Function{..}
-              | and [ hasAttr inline func || inlineable func_body x t | (x, t) <- zip func_args ts ] -> do
+              | hasAttr inline func || and [ inlineable func_body x t | (x, t) <- zip func_args ts ] -> do
                   func_body <- boo $ aux func_body
                   e1 <-
                     transformTypeInExpr (applyType func_tvs gbl_args) <$>
                       lift (substMany (zip func_args ts) func_body)
                   (e2, Any simplified) <- lift (runWriterT (aux e1))
-                  if (simplified && (inline_match || not (containsMatch e2))) || atomic func_body
+                  if (simplified && (inline_match || not (containsMatch e2))) || atomic func_body || hasAttr inline func
                   then hooray $ return e2
                   else return (Gbl gbl :@: ts)
             _ -> return (Gbl gbl :@: ts)
