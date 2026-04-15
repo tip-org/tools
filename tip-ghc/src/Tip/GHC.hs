@@ -332,14 +332,14 @@ counterexampleBooleansPass params thy =
     rewriteFunc f =
       f { func_body =
             freshPass
-              (rewriteBooleanDistinct thy >=> rewriteBooleanIte params thy)
+              (rewriteBooleanDistinct thy >=> rewriteBooleanIte params)
               (func_body f)
         }
 
     rewriteFormula fm =
       fm { fm_body =
              freshPass
-               (rewriteBooleanDistinct thy >=> rewriteBooleanIte params thy)
+               (rewriteBooleanDistinct thy >=> rewriteBooleanIte params)
                (fm_body fm)
          }
 
@@ -521,9 +521,9 @@ booleanIteFunction thy =
     t = Local (LocalId "t" 2) resTy
     e = Local (LocalId "e" 3) resTy
 
-applyBooleanIteThy :: Params -> Theory Id -> Tip.Type Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
-applyBooleanIteThy Params{..} thy ty c t e
-  | param_no_iteB = Tip.Match c [Tip.Case truePat t, Tip.Case falsePat e]
+applyBooleanIteThy :: Params -> Tip.Type Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanIteThy Params{..} ty c t e
+  | param_no_iteB = Tip.Match c [Tip.Case (Tip.LitPat (Bool True)) t, Tip.Case (Tip.LitPat (Bool False)) e]
   | otherwise = Gbl iteGlobal :@: [c, t, e]
   where
     iteGlobal =
@@ -535,9 +535,6 @@ applyBooleanIteThy Params{..} thy ty c t e
     
     tv = LocalId "A" 0
     boolTy = Tip.exprType c
-
-    truePat = ConPat (findNullaryConstructor "btrue" thy) []
-    falsePat = ConPat (findNullaryConstructor "bfalse" thy) []
 
 iteViewThy :: Tip.Expr Id -> Maybe (Tip.Expr Id, Tip.Expr Id, Tip.Expr Id)
 iteViewThy e =
@@ -591,11 +588,11 @@ applyBooleanNotThy p =
         , gbl_args = []
         }
 
-rewriteBooleanIte :: Params -> Theory Id -> Tip.Expr Id -> Fresh (Tip.Expr Id)
-rewriteBooleanIte params thy =
+rewriteBooleanIte :: Params -> Tip.Expr Id -> Fresh (Tip.Expr Id)
+rewriteBooleanIte params =
   transformBiM $ \e ->
     case iteViewThy e of
-      Just (c, t, f) -> return (applyBooleanIteThy params thy (Tip.exprType t) c t f)
+      Just (c, t, f) -> return (applyBooleanIteThy params (Tip.exprType t) c t f)
       Nothing -> return e
 
 rewriteBooleanDistinct :: Theory Id -> Tip.Expr Id -> Fresh (Tip.Expr Id)
