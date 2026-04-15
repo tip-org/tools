@@ -722,8 +722,9 @@ readAttr name = mapAttr readMaybe show (stringAttr name)
 
 -- * All the attributes which we use at the moment
 
-keep :: Attr ()
+keep, inline :: Attr ()
 keep = unitAttr "keep"
+inline = unitAttr "inline"
 
 source, axiom :: Attr String
 source = stringAttr "source"

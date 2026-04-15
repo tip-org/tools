@@ -234,7 +234,7 @@ simplifyExprIn mthy opts@SimplifyOpts{..} = fmap fst . runWriterT . aux
         Gbl gbl@Global{..} :@: ts ->
           case Map.lookup gbl_name inlinings of
             Just func@Function{..}
-              | and [ inlineable func_body x t | (x, t) <- zip func_args ts ] -> do
+              | and [ hasAttr inline func || inlineable func_body x t | (x, t) <- zip func_args ts ] -> do
                   func_body <- boo $ aux func_body
                   e1 <-
                     transformTypeInExpr (applyType func_tvs gbl_args) <$>
