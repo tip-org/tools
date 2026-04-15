@@ -73,7 +73,7 @@ import Tip.Scope(scope, isType, isGlobal)
 
 -- Translate a Haskell file into a TIP theory.
 readHaskellFile :: Params -> String -> IO (Theory Id)
-readHaskellFile Params{..} name =
+readHaskellFile params@Params{..} name =
   runGhc (Just libdir) $ do
     -- Set the GHC flags.
     dflags <- getSessionDynFlags
@@ -201,18 +201,18 @@ readHaskellFile Params{..} name =
           if param_counterexample_booleans
             then
               concat
-                [ [ putAttr keep () (tipToplevelFunction True eqId prog prop (global_definition (globalInfo prog prop)))
+                [ [ putAttr keep () (tipToplevelFunction params{param_counterexample_booleans=True} eqId prog prop (global_definition (globalInfo prog prop)))
                   , AssertDecl (tipCounterexampleGoal eqId prog prop)
                   ]
                 | prop <- props 
                 ]
             else
-              [ AssertDecl (tipFormula eqId prog prop (global_definition (globalInfo prog prop)))
+              [ AssertDecl (tipFormula params eqId prog prop (global_definition (globalInfo prog prop)))
               | prop <- props ]
         thy =
-          completeTheory param_counterexample_booleans prog eqId [] $ declsToTheory $
+          completeTheory params prog eqId [] $ declsToTheory $
           propDecls ++
-          [ putAttr keep () (tipToplevelFunction param_counterexample_booleans eqId prog func (global_definition (globalInfo prog func)))
+          [ putAttr keep () (tipToplevelFunction params eqId prog func (global_definition (globalInfo prog func)))
           | func <- funcs ]
 
       when (PrintInitialTheory `elem` param_debug_flags) $
@@ -236,8 +236,8 @@ counterexampleEqPolyType :: Program -> GHC.Type -> Tip.PolyType Id
 counterexampleEqPolyType prog ty =
   PolyType
     { polytype_tvs  = map TyVarId tvs
-    , polytype_args = map (tipType True prog) args
-    , polytype_res  = tipType True prog res
+    , polytype_args = map (tipType defaultParams{param_counterexample_booleans=True} prog) args
+    , polytype_res  = tipType defaultParams{param_counterexample_booleans=True} prog res
     }
   where
     (tvs, rho) = splitForAllTys (expandTypeSynonyms ty)
@@ -1170,13 +1170,13 @@ toHaskellName name = do
 
 -- Take a theory which may be missing some function and datatype
 -- definitions, and pull those definitions in from the Haskell program.
-completeTheory :: Bool -> Program -> Var -> [(Class, TyCon)] -> Theory Id -> Theory Id
-completeTheory counterexample prog eqId instances thy0 =
+completeTheory :: Params -> Program -> Var -> [(Class, TyCon)] -> Theory Id -> Theory Id
+completeTheory params prog eqId instances thy0 =
   inContext (show msg) $
     if null newFuncs && null newTypes && null newInstances
       then thy
       else
-        completeTheory counterexample prog eqId (instances ++ newInstances) $!!
+        completeTheory params prog eqId (instances ++ newInstances) $!!
           thy `mappend`
           declsToTheory
             (concatMap (makeFunc eqId) newFuncs ++
@@ -1226,7 +1226,7 @@ completeTheory counterexample prog eqId instances thy0 =
       usortOn (\(x, y) -> (UniqueOrd x, UniqueOrd y)) $
       [ (cls, tc)
       | (UniqueOrd cls, UniqueOrd tc) <- Map.keys (prog_instances prog),
-        let ty = tipType False prog (mkTyConApp tc []),
+        let ty = tipType params{param_counterexample_booleans=False} prog (mkTyConApp tc []),
         any (headMatches ty) allTypes,
         cls `elem` classes,
         (cls, tc) `notElem` instances ]
@@ -1252,7 +1252,7 @@ completeTheory counterexample prog eqId instances thy0 =
       | otherwise =
           case globalInfo prog x of
             FunInfo{global_definition = def} ->
-              [tipToplevelFunction counterexample eqId prog x def]
+              [tipToplevelFunction params eqId prog x def]
             MethodInfo{} ->
               [SigDecl (tipUninterpreted prog x)]
             _ -> []
@@ -1264,7 +1264,7 @@ completeTheory counterexample prog eqId instances thy0 =
 
     makeInstance :: Var -> (Class, TyCon) -> [Decl Id]
     makeInstance eqId (cls, tc) =
-      map AssertDecl (tipInstance counterexample prog eqId cls tc)
+      map AssertDecl (tipInstance params prog eqId cls tc)
 
     msg =
       PP.vcat [
@@ -1296,27 +1296,27 @@ tipConstructor prog x =
     
     -- The type variables in the DataCon might not be the same as in
     -- the parent TyCon. Applying this substitution corrects that.
-    Just sub = matchTypes [(tipType False prog global_res, dataTy)]
+    Just sub = matchTypes [(tipType defaultParams{param_counterexample_booleans=False} prog global_res, dataTy)]
     subst = uncurry applyType (unzip sub)
     dataTy = TyCon (typeId prog global_tycon) (map (TyVar . TyVarId) type_tvs)
 
     con i ty =
-      (projectionId prog x i, subst (tipType False prog ty))
+      (projectionId prog x i, subst (tipType defaultParams{param_counterexample_booleans=False} prog ty))
 
 -- Translate a Haskell polymorphic type to TIP.
-tipPolyType :: Bool -> Program -> GHC.Type -> Tip.PolyType Id
-tipPolyType counterexample prog pty =
+tipPolyType :: Params -> Program -> GHC.Type -> Tip.PolyType Id
+tipPolyType params prog pty =
   PolyType {
     polytype_tvs  = map TyVarId tvs,
     polytype_args = [],
-    polytype_res  = tipType counterexample prog ty
+    polytype_res  = tipType params prog ty
   }
   where
     (tvs, ty) = splitForAllTys (expandTypeSynonyms pty)
 
 -- Translate a Haskell type to TIP.
-tipType :: Bool -> Program -> GHC.Type -> Tip.Type Id
-tipType counterexample prog = tipTy . expandTypeSynonyms
+tipType :: Params -> Program -> GHC.Type -> Tip.Type Id
+tipType Params{..} prog = tipTy . expandTypeSynonyms
   where
     tipTy ty
       | Just tv <- getTyVar_maybe ty = TyVar (TyVarId tv)
@@ -1332,7 +1332,7 @@ tipType counterexample prog = tipTy . expandTypeSynonyms
       | otherwise = [tipTy arg] :=>: tipTy res
     
     tipTyCon tc anns _
-      | counterexample
+      | param_counterexample_booleans
       , PropType `elem` anns =
           TyCon (typeId prog boolTyCon) []
 
@@ -1342,18 +1342,18 @@ tipType counterexample prog = tipTy . expandTypeSynonyms
     tipTyCon tc _ tys =
       TyCon (typeId prog tc) (map tipTy tys)
 
-tipExpr :: Bool -> Var -> Program -> Var -> CoreExpr -> ([Attribute], [Id], Tip.Expr Id)
-tipExpr counterexample eqId prog x t =
+tipExpr :: Params -> Var -> Program -> Var -> CoreExpr -> ([Attribute], [Id], Tip.Expr Id)
+tipExpr params eqId prog x t =
   (func_attrs, func_tvs, func_body)
   where
-    Function{..} = tipFunction counterexample eqId prog x t
+    Function{..} = tipFunction params eqId prog x t
 
 -- Translate a Haskell property to TIP.
-tipFormula :: Var -> Program -> Var -> CoreExpr -> Tip.Formula Id
-tipFormula eqId prog x t =
+tipFormula :: Params -> Var -> Program -> Var -> CoreExpr -> Tip.Formula Id
+tipFormula params eqId prog x t =
   Formula Prove attrs tvs $ freshPass quantify body
   where
-    (attrs, tvs, body) = tipExpr False eqId prog x t
+    (attrs, tvs, body) = tipExpr params{param_counterexample_booleans=False} eqId prog x t
 
     -- Try to use names from the formula if possible
     quantify (Tip.Lam xs t) =
@@ -1373,7 +1373,7 @@ tipCounterexampleGoal eqId prog x =
     attrs = makeAttrs x (globalAnnotations prog x)
     tvs   = polytype_tvs poly
 
-    poly  = tipPolyType True prog (varType x)
+    poly  = tipPolyType defaultParams{param_counterexample_booleans=True} prog (varType x)
 
     propExpr =
       Gbl (Global (globalId prog x) poly (map TyVar tvs)) :@: []
@@ -1429,7 +1429,7 @@ findBooleanConstructor name prog =
     (dc:_) ->
       let
         ConInfo{..} = globalInfo prog dc
-        !(TyCon _ tys) = tipType True prog global_res
+        !(TyCon _ tys) = tipType defaultParams{param_counterexample_booleans=True} prog global_res
         dt = tipDatatype prog global_tycon
         con = tipConstructor prog dc
       in
@@ -1459,8 +1459,8 @@ data Context =
     ctx_types :: [Tip.Type Id] }
 
 -- Translate a Haskell function definition to TIP.
-tipFunction :: Bool -> Var -> Program -> Var -> CoreExpr -> Tip.Function Id
-tipFunction counterexample eqId prog x t =
+tipFunction :: Params -> Var -> Program -> Var -> CoreExpr -> Tip.Function Id
+tipFunction params@Params{..} eqId prog x t =
   runFreshFrom 0 $ fun True (Context Map.empty Map.empty []) x t
   where
     fun :: Bool -> Context -> Var -> CoreExpr -> Fresh (Tip.Function Id)
@@ -1486,7 +1486,7 @@ tipFunction counterexample eqId prog x t =
     expr :: Context -> CoreExpr -> Fresh (Tip.Expr Id)
     expr ctx (Var inl `App` Type _ `App` e)
       | SomeSpecial InlineIt `elem` globalAnnotations prog inl
-      , not (counterexample && inl == eqId) =
+      , not (param_counterexample_booleans && inl == eqId) =
         expr ctx (inline e)
     -- expr ctx (Var inl `App` Type _ `App` e)
     --   | SomeSpecial InlineIt `elem` globalAnnotations prog inl =
@@ -1496,7 +1496,7 @@ tipFunction counterexample eqId prog x t =
       | Special `elem` globalAnnotations prog prim =
         case reads (BS.unpack name) of
           [(spec, "")] ->
-            special (tipType counterexample prog ty) spec
+            special (tipType params prog ty) spec
           _ -> ERROR("Unknown special " ++ BS.unpack name)
     expr _   (Lit l) = return (literal (lit l))
     expr ctx (Var x) = var ctx x
@@ -1528,7 +1528,7 @@ tipFunction counterexample eqId prog x t =
 
     special :: Tip.Type Id -> Special -> Fresh (Tip.Expr Id)
     special ty (Primitive name arity)
-      | counterexample
+      | param_counterexample_booleans
       , name == Implies
       , arity == 2 = do
           n1 <- fresh
@@ -1545,7 +1545,7 @@ tipFunction counterexample eqId prog x t =
             Tip.Lam [y] $
               applyBooleanImplies prog (Lcl x) (Lcl y)
     special ty (Primitive name arity)
-      | counterexample
+      | param_counterexample_booleans
       , name == Not
       , arity == 1 = do
           n1 <- fresh
@@ -1559,7 +1559,7 @@ tipFunction counterexample eqId prog x t =
             Tip.Lam [x] $
               applyBooleanNot prog (Lcl x)
     special ty (Primitive name arity)
-      | counterexample
+      | param_counterexample_booleans
       , name == And
       , arity == 2 = do
           n1 <- fresh
@@ -1576,7 +1576,7 @@ tipFunction counterexample eqId prog x t =
             Tip.Lam [y] $
               applyBooleanAnd prog (Lcl x) (Lcl y)
     special ty (Primitive name arity)
-      | counterexample
+      | param_counterexample_booleans
       , name == Or
       , arity == 2 = do
           n1 <- fresh
@@ -1593,7 +1593,7 @@ tipFunction counterexample eqId prog x t =
             Tip.Lam [y] $
               applyBooleanOr prog (Lcl x) (Lcl y)
     special ty (Primitive name arity)
-      | counterexample
+      | param_counterexample_booleans
       , name == Equal
       , arity == 2 = do
           n1 <- fresh
@@ -1610,7 +1610,7 @@ tipFunction counterexample eqId prog x t =
             Tip.Lam [y] $
               applyEq prog (Lcl x) (Lcl y)
     -- special ty (Primitive name arity)
-    --   | counterexample
+    --   | param_counterexample_booleans
     --   , name == Distinct
     --   , arity == 2 = do
     --       n1 <- fresh
@@ -1658,7 +1658,7 @@ tipFunction counterexample eqId prog x t =
 
     var :: Context -> Var -> Fresh (Tip.Expr Id)
     var ctx x
-      | counterexample
+      | param_counterexample_booleans
       , globalStr prog x == "===" = do
           let ty =
                 case ctx_types ctx of
@@ -1668,7 +1668,7 @@ tipFunction counterexample eqId prog x t =
           return (Gbl global :@: [])
     var ctx x
       | Inline `elem` globalAnnotations prog x
-      , not (counterexample && x == eqId) =
+      , not (param_counterexample_booleans && x == eqId) =
         let
           msg =
             vcat [
@@ -1699,7 +1699,7 @@ tipFunction counterexample eqId prog x t =
             let
               !(TyCon _ tys) =
                 applyType (map TyVarId global_tvs) (ctx_types ctx)
-                  (tipType counterexample prog global_res)
+                  (tipType params prog global_res)
               dt  = tipDatatype prog global_tycon
               con = tipConstructor prog x
               global = constructor dt con tys
@@ -1724,7 +1724,7 @@ tipFunction counterexample eqId prog x t =
 
     app :: Context -> CoreExpr -> CoreExpr -> Fresh (Tip.Expr Id)
     app ctx t (Type u) = do
-      let ty = tipType counterexample prog u
+      let ty = tipType params prog u
       expr ctx { ctx_types = ty : ctx_types ctx } t
 
     app ctx t u
@@ -1735,7 +1735,7 @@ tipFunction counterexample eqId prog x t =
           return $
             case t' of
               Gbl g :@: args
-                | counterexample, varStr (gbl_name g) == "eq" -> Gbl g :@: (args ++ [u'])
+                | param_counterexample_booleans, varStr (gbl_name g) == "eq" -> Gbl g :@: (args ++ [u'])
               _              -> apply t' [u']
 
     lam :: Context -> Var -> CoreExpr -> Fresh (Tip.Expr Id)
@@ -1809,7 +1809,7 @@ tipFunction counterexample eqId prog x t =
     caseExp _ _ x _ [] = return (errorTerm (monoType x))
     caseExp ctx ty x t alts = do
       -- Get the parameters of the type constructor
-      let TyCon _ tys = tipType counterexample prog ty
+      let TyCon _ tys = tipType params prog ty
       -- We turn GHC's
       --   case t of x { .. ALTS .. }
       -- into
@@ -1849,10 +1849,10 @@ tipFunction counterexample eqId prog x t =
 
     -- Get the TIP type of a variable.
     monoType :: Var -> Tip.Type Id
-    monoType = tipType counterexample prog . varType
+    monoType = tipType params prog . varType
 
     polyType :: CoreExpr -> Tip.PolyType Id
-    polyType = tipPolyType counterexample prog . exprType
+    polyType = tipPolyType params prog . exprType
       
     -- Bring a new variable into scope.
     bindVar :: Context -> Var -> (Context -> Local Id -> Fresh a) -> Fresh a
@@ -1909,24 +1909,24 @@ tipUninterpreted prog x =
   Signature {
     sig_name  = globalId prog x,
     sig_attrs = concat [makeAttrs x (globalAnnotations prog x)],
-    sig_type  = tipPolyType False prog (varType x) }
+    sig_type  = tipPolyType defaultParams{param_counterexample_booleans=False} prog (varType x) }
 
 -- Translate a Haskell function definition to TIP.
 -- The function may be uninterpreted.
-tipToplevelFunction :: Bool -> Var -> Program -> Var -> CoreExpr -> Decl Id
-tipToplevelFunction counterexample eqId prog x body
+tipToplevelFunction :: Params -> Var -> Program -> Var -> CoreExpr -> Decl Id
+tipToplevelFunction params eqId prog x body
   | Uninterpreted `elem` globalAnnotations prog x =
     SigDecl (tipUninterpreted prog x)
   | otherwise =
-    FuncDecl (tipFunction counterexample eqId prog x body)
+    FuncDecl (tipFunction params eqId prog x body)
 
 -- Translate a typeclass instance to TIP. Returns a list of assertions.
-tipInstance :: Bool -> Program -> Var -> Class -> TyCon -> [Tip.Formula Id]
-tipInstance counterexample prog eqId cls tc =
+tipInstance :: Params -> Program -> Var -> Class -> TyCon -> [Tip.Formula Id]
+tipInstance params prog eqId cls tc =
   [ Formula Assert (putAttr typeclassInstance () ann) tv (funExp' === exp')
   | (fun, exp) <- zip class_methods instance_methods,
-    let (ann, tv, exp') = tipExpr counterexample eqId prog fun exp
-        (_, _, funExp) = tipExpr counterexample eqId prog fun (Var fun)
+    let (ann, tv, exp') = tipExpr params eqId prog fun exp
+        (_, _, funExp) = tipExpr params eqId prog fun (Var fun)
         -- Instantiate 'fun' to have the same type as exp
         Just sub = matchTypes [(Tip.exprType funExp, Tip.exprType exp')]
         funExp' = applyTypeInExpr (map fst sub) (map snd sub) funExp ]
