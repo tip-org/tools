@@ -443,6 +443,18 @@ booleanAndFunction thy =
 -- applyBooleanNot :: Program -> Tip.Expr Id -> Tip.Expr Id
 -- applyBooleanNot prog p = applyEq prog p (falseBooleanExpr prog)
 
+applyBooleanNot :: Program -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanNot _ p =
+  Gbl notGlobal :@: [p]
+  where
+    boolTy = Tip.exprType p
+    notGlobal =
+      Global
+        { gbl_name = NotId
+        , gbl_type = PolyType [] [boolTy] boolTy
+        , gbl_args = []
+        }
+
 applyBooleanAnd :: Program -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
 applyBooleanAnd prog p q =
   Gbl andGlobal :@: [p, q]
@@ -1532,6 +1544,20 @@ tipFunction counterexample eqId prog x t =
             Tip.Lam [x] $
             Tip.Lam [y] $
               applyBooleanImplies prog (Lcl x) (Lcl y)
+    special ty (Primitive name arity)
+      | counterexample
+      , name == Not
+      , arity == 1 = do
+          n1 <- fresh
+          let
+            funArgs (t :=>: u) = t ++ funArgs u
+            funArgs _ = []
+
+            [t1] = funArgs ty
+            x = Local n1 t1
+          return $
+            Tip.Lam [x] $
+              applyBooleanNot prog (Lcl x)
     special ty (Primitive name arity)
       | counterexample
       , name == And

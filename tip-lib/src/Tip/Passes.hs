@@ -208,7 +208,7 @@ instance Pass StandardPass where
     Induction coords     -> induction coords
     RecursionInduction fn xsns -> recursionInduction fn xsns
     SplitFormulas        -> single $ return . splitFormulas
-    RemoveDefaultCase    -> single $ return . removeDefaultCase
+    RemoveDefaultCase    -> single $ removeDefaultCase
     where
       single m thy = do x <- m thy; return [x]
       f `followedBy` g = \thy -> do
