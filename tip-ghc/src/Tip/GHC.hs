@@ -224,7 +224,7 @@ readHaskellFile params@Params{..} name =
         realName _ = True
       let thy' = 
             if param_counterexample_booleans
-              then counterexampleBooleansPass thy
+              then counterexampleBooleansPass params thy
               else thy
       let thy'' =
             lint "conversion to TIP" $
@@ -300,8 +300,8 @@ counterexampleEqPolyType prog ty =
 --     formulaUsesAnd   = hasGlobalNamed "andb" . fm_body
 --     formulaUsesIte   = hasGlobalNamed "iteB" . fm_body
 
-counterexampleBooleansPass :: Theory Id -> Theory Id
-counterexampleBooleansPass thy =
+counterexampleBooleansPass :: Params -> Theory Id -> Theory Id
+counterexampleBooleansPass params thy =
   thy
     { thy_funcs = helperFuncs ++ rewrittenFuncs
     , thy_asserts =
@@ -332,14 +332,14 @@ counterexampleBooleansPass thy =
     rewriteFunc f =
       f { func_body =
             freshPass
-              (rewriteBooleanDistinct thy >=> rewriteBooleanIte)
+              (rewriteBooleanDistinct thy >=> rewriteBooleanIte params)
               (func_body f)
         }
 
     rewriteFormula fm =
       fm { fm_body =
              freshPass
-               (rewriteBooleanDistinct thy >=> rewriteBooleanIte)
+               (rewriteBooleanDistinct thy >=> rewriteBooleanIte params)
                (fm_body fm)
          }
 
@@ -521,9 +521,10 @@ booleanIteFunction thy =
     t = Local (LocalId "t" 2) resTy
     e = Local (LocalId "e" 3) resTy
 
-applyBooleanIteThy :: Tip.Type Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
-applyBooleanIteThy ty c t e =
-  Gbl iteGlobal :@: [c, t, e]
+applyBooleanIteThy :: Params -> Tip.Type Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id -> Tip.Expr Id
+applyBooleanIteThy Params{..} ty c t e
+  | param_no_iteB = Tip.Match c [Tip.Case (Tip.LitPat (Bool True)) t, Tip.Case (Tip.LitPat (Bool False)) e]
+  | otherwise = Gbl iteGlobal :@: [c, t, e]
   where
     iteGlobal =
       Global
@@ -587,11 +588,12 @@ applyBooleanNotThy p =
         , gbl_args = []
         }
 
-rewriteBooleanIte :: Tip.Expr Id -> Fresh (Tip.Expr Id)
-rewriteBooleanIte = transformBiM $ \e ->
-                      case iteViewThy e of
-                        Just (c, t, f) -> return (applyBooleanIteThy (Tip.exprType t) c t f)
-                        Nothing -> return e
+rewriteBooleanIte :: Params -> Tip.Expr Id -> Fresh (Tip.Expr Id)
+rewriteBooleanIte params =
+  transformBiM $ \e ->
+    case iteViewThy e of
+      Just (c, t, f) -> return (applyBooleanIteThy params (Tip.exprType t) c t f)
+      Nothing -> return e
 
 rewriteBooleanDistinct :: Theory Id -> Tip.Expr Id -> Fresh (Tip.Expr Id)
 rewriteBooleanDistinct thy = transformBiM $ \e ->
